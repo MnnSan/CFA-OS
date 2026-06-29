@@ -1,0 +1,16 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Local Jetro caches/credentials
+.jetro/**/*.duckdb
+.jetro/**/*.db
+.jetro/credentials/
+.jetro/daemon/
+.jetro/render_queue/
+.jetro/connector_queue/

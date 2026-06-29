@@ -1,0 +1,6 @@
+{
+  "name": "CFA Level III Preparation Platform",
+  "description": "Foundation phase architecture for an extensible, production-quality CFA Level III study operating system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
