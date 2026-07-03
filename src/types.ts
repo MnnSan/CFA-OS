@@ -8,6 +8,14 @@
  */
 export type CFALevel = 'Level I' | 'Level II' | 'Level III';
 
+export interface CurriculumWorkspaceState {
+  selectedSubjectId?: string;
+  selectedChapterId?: string;
+  selectedReadingId?: string;
+  mode: 'subject' | 'reading';
+  activeTab: 'overview' | 'los' | 'notes' | 'formulas' | 'resources' | 'analytics';
+}
+
 /**
  * Core User profile model.
  * Designed to support future multi-user, synchronization, and advanced progress metrics.
@@ -26,12 +34,23 @@ export interface UserProfile {
  * Fully extensible to support future configurations like customizable AI assistant temperaments,
  * notification channels, and personalized spaced-repetition schedules.
  */
+export type AiAvailabilityLevel =
+  | 'OFFLINE'
+  | 'CONNECTED'
+  | 'RATE_LIMITED'
+  | 'INVALID_KEY'
+  | 'QUOTA_EXCEEDED'
+  | 'NETWORK_ERROR'
+  | 'PROVIDER_ERROR';
+
 export interface StudySettings {
   theme: 'light' | 'dark';
   examDate: string;
+  targetStartDate: string;
   targetDailyHours: number;
   preferredSessionLength: number; // in minutes
   notificationsEnabled: boolean;
+  reviewBuffer: number; // buffer in days before the exam date
   notificationPreferences: {
     email: boolean;
     push: boolean;
@@ -41,6 +60,16 @@ export interface StudySettings {
   aiModel?: 'gemini-3.5-flash' | 'gemini-3.1-pro';
   aiPersona?: 'rigorous-academic' | 'pragmatic-coach' | 'socratic-guide';
   aiStreamingEnabled: boolean;
+  aiProvider?: 'google-gemini' | 'anthropic-claude' | 'local-ollama';
+  geminiApiKey?: string;
+  claudeApiKey?: string;
+  ollamaEndpoint?: string;
+  aiAvailability?: AiAvailabilityLevel;
+  telemetryTokens?: {
+    inputTokens: number;
+    outputTokens: number;
+    costUSD: number;
+  };
 }
 
 /**
@@ -54,22 +83,44 @@ export interface Subject {
   code: string; // e.g. "PM" for Portfolio Management
   cfaWeight?: string; // CFA Weight
   totalHoursEstimate?: number; // Estimated Study Hours at Subject level
+  order?: number;
+  enabled?: boolean;
+  metadata?: any;
 }
 
 /**
- * Reading within a Subject.
+ * Chapter within a Subject.
+ */
+export interface Chapter {
+  id: string;
+  subjectId: string;
+  name: string;
+  description: string;
+  order?: number;
+  estimatedHours?: number;
+  enabled?: boolean;
+  metadata?: any;
+}
+
+/**
+ * Reading within a Chapter.
  */
 export interface Reading {
   id: string;
-  subjectId: string;
-  number: number;
-  title: string;
+  subjectId: string; // Keep for backward compatibility
+  chapterId?: string; // Link to parent Chapter
+  name?: string; // Dynamic Reading Name
+  title: string; // Keep for backward compatibility (points to name)
+  readingNumber?: number; // Mapped to number
+  number: number; // Keep for backward compatibility (points to readingNumber)
   description: string;
   topicArea?: string; // e.g. "Portfolio Management"
   estimatedHours?: number; // Estimated study hours
   cfaWeight?: string; // Reading specific weighting
-  difficulty?: 'Easy' | 'Medium' | 'Hard' | null;
+  difficulty?: 'Easy' | 'Medium' | 'Intermediate' | 'Hard' | null;
   targets?: ReadingStudyTargets;
+  enabled?: boolean;
+  order?: number;
 }
 
 /**
@@ -85,13 +136,17 @@ export interface LearningOutcomeStatement {
   id: string; // LOS ID
   readingId: string; // Reading ID
   code: string; // e.g., "7.a" (LOS Number)
-  statement: string; // LOS Description
+  statement: string; // LOS Description (points to title/description)
+  title?: string; // Dynamic LOS Title
+  description?: string; // Dynamic LOS Description
   readingName?: string; // Reading Name
   subject?: string; // Subject Name or ID
   topicArea?: string; // Topic Area / Subject
   estimatedHours?: number; // Estimated Study Hours
-  difficulty: 'Easy' | 'Medium' | 'Hard' | null; // Difficulty
+  difficulty: 'Easy' | 'Medium' | 'Intermediate' | 'Hard' | null; // Difficulty
   cfaWeight?: string; // CFA Weight
+  order?: number;
+  enabled?: boolean;
 
   // --- Progress Tracking ---
   status: 'Not Started' | 'In Progress' | 'Completed'; // Completion Status
@@ -410,6 +465,9 @@ export interface StudySession {
   confidenceAfter?: number | null;
   status?: 'Completed' | 'Paused' | 'Cancelled';
   sessionType?: 'instructional' | 'application' | 'general';
+  reflectionDifficulty?: 'Easy' | 'Medium' | 'Hard';
+  reflectionNotes?: string;
+  reflectionConfusion?: string;
 }
 
 export interface Formula {
@@ -747,4 +805,119 @@ export interface RevisionQueueSummary {
   dueToday: number;
   estimatedReviewMinutes: number;
   oldestDueItem: string | null;
+}
+
+// ── Multi-Template Timeline Engine (Sprint 10) ──
+
+export interface TimelineBlock {
+  id: string;
+  subjectId: string;
+  readingId?: string;
+  startDate: string;  // YYYY-MM-DD
+  endDate: string;    // YYYY-MM-DD
+}
+
+export interface TimelineTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  isEditable: boolean;
+  blocks: TimelineBlock[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// -- Sprint M10 � Mission Control & Study Stack --
+
+export type StudyStepType = 'Lecture' | 'Reading' | 'Formula' | 'Notebook' | 'Questions' | 'Reflection';
+
+export type PhaseStatus = 'READY' | 'ACTIVE' | 'BLOCKED' | 'COMPLETED' | 'SKIPPED';
+
+export type CognitiveLoad = 'LOW' | 'MEDIUM' | 'HIGH';
+
+export type MissionProfile = 'Balanced' | 'Calculation Intensive' | 'Reading Intensive' | 'Revision Day' | 'Recovery Day' | 'Momentum Builder';
+
+export type MissionTemplateId = 'standard' | 'review' | 'formula' | 'mock' | 'recovery';
+
+export interface PhaseTemplate {
+  phaseNumber: number;
+  phaseLabel: string;
+  stepType: StudyStepType;
+  icon: string;
+  description: string;
+}
+
+export interface MissionTemplate {
+  id: MissionTemplateId;
+  phases: PhaseTemplate[];
+}
+
+export interface MissionResourceReference {
+  provider: string;
+  resourceType: string;
+  resourceId: string;
+  title: string;
+  launchAction: string;
+  resumeAction?: string;
+  metadata: Record<string, any>;
+}
+
+export interface CompletionEvidence {
+  lectureCompleted?: boolean;
+  readingProgress?: number;
+  notesTaken?: boolean;
+  questionsSolved?: number;
+  questionsTotal?: number;
+  reflectionSubmitted?: boolean;
+  videoPosition?: string;
+  custom?: Record<string, any>;
+}
+
+export interface StudyPhase {
+  id: string;
+  phaseNumber: number;
+  phaseLabel: string;
+  title: string;
+  description: string;
+  estimatedMinutes: number;
+  status: PhaseStatus;
+  locked: boolean;
+  lockedReason?: string;
+  stepType: StudyStepType;
+  resources: MissionResourceReference[];
+  dependsOn: string[];
+  completed: boolean;
+  completionEvidence: CompletionEvidence;
+  coachInsightId?: string;
+}
+
+export interface StudyStack {
+  readingId: string;
+  readingTitle: string;
+  readingNumber: number;
+  subjectCode: string;
+  templateId: MissionTemplateId;
+  phases: StudyPhase[];
+  activePhase: StudyPhase | null;
+  nextPhase: StudyPhase | null;
+  totalEstimatedMinutes: number;
+  remainingMinutes: number;
+  completedPhases: number;
+  totalPhases: number;
+  progressPercent: number;
+  cognitiveLoad: CognitiveLoad;
+  cognitiveLoadReason: string;
+  missionProfile: MissionProfile;
+  completionForecast: string;
+  generatedAt: string;
+  version: string;
+}
+
+export interface CoachInsight {
+  phaseId: string;
+  readingId: string;
+  promptVersion: string;
+  provider: string;
+  response: string;
+  generatedAt: string;
 }

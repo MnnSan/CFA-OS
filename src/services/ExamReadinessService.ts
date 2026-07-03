@@ -71,7 +71,11 @@ export class ExamReadinessService {
     // 6. Projections
     // Sum remaining hours estimate
     const incompleteLOS = losList.filter(l => l.status !== 'Completed');
-    const remainingStudyHours = incompleteLOS.reduce((acc, l) => acc + (l.estimatedHours || 1.5), 0);
+    const remainingStudyHours = incompleteLOS.reduce((acc, l) => {
+      const est = l.estimatedHours || 1.5;
+      const act = l.actualHours || 0;
+      return acc + Math.max(0, est - act);
+    }, 0);
 
     // Calculate historical study velocity (over past 7 days)
     const today = new Date('2026-06-28'); // Consistent reference date

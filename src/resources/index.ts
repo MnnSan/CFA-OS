@@ -1,0 +1,10 @@
+export type { ResourceProvider, LearningResourceType, ResourceCompletionStats } from './types';
+export type { LearningResource } from './types';
+export { LearningResourceRepository } from './repository/LearningResourceRepository';
+export type { ImportResult, ResourceImporter } from './importer/types';
+export { SSCIImporter } from './importer/SSCIImporter';
+export { AssignmentEngine } from './engine/AssignmentEngine';
+export type { AssignmentResult } from './engine/AssignmentEngine';
+export { StudyStackBuilder } from './engine/StudyStack';
+export type { StudyStackItem, StudyStackResult } from './engine/StudyStack';
+export { runMigration, isMigrationCompleted, markMigrationCompleted } from './migration/migration';

@@ -103,23 +103,23 @@ export const NotesPage: React.FC = () => {
     return lines.map((line, idx) => {
       // 1. Headers
       if (line.startsWith('# ')) {
-        return <h1 key={idx} className="text-base font-bold text-neutral-900 border-b border-neutral-100 pb-1 mt-4 mb-2 dark:text-neutral-50 dark:border-neutral-700/50">{line.slice(2)}</h1>;
+        return <h1 key={idx} className="text-base font-bold text-neutral-900 border-b border-neutral-100 pb-1 mt-4 mb-2 dark:text-[#F8FAFC] dark:border-[#1e2026]">{line.slice(2)}</h1>;
       }
       if (line.startsWith('## ')) {
-        return <h2 key={idx} className="text-xs font-bold text-neutral-800 mt-4 mb-1.5 dark:text-neutral-200">{line.slice(3)}</h2>;
+        return <h2 key={idx} className="text-xs font-bold text-neutral-800 mt-4 mb-1.5 dark:text-[#F8FAFC]">{line.slice(3)}</h2>;
       }
       if (line.startsWith('### ')) {
-        return <h3 key={idx} className="text-xs font-bold text-neutral-500 mt-3 mb-1 dark:text-neutral-400">{line.slice(4)}</h3>;
+        return <h3 key={idx} className="text-xs font-bold text-neutral-500 mt-3 mb-1 dark:text-slate-400">{line.slice(4)}</h3>;
       }
       
       // 2. Bullets
       if (line.startsWith('- ') || line.startsWith('* ')) {
-        return <li key={idx} className="text-xs text-neutral-600 list-disc ml-4 leading-normal dark:text-neutral-400">{line.slice(2)}</li>;
+        return <li key={idx} className="text-xs text-neutral-600 list-disc ml-4 leading-normal dark:text-slate-400">{line.slice(2)}</li>;
       }
       
       // 3. Blockquotes
       if (line.startsWith('> ')) {
-        return <blockquote key={idx} className="border-l-2 border-neutral-300 pl-3 py-1 my-2 text-xs italic text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">{line.slice(2)}</blockquote>;
+        return <blockquote key={idx} className="border-l-2 border-neutral-300 pl-3 py-1 my-2 text-xs italic text-neutral-500 dark:border-[#1e2026] dark:text-slate-400">{line.slice(2)}</blockquote>;
       }
 
       // 4. Code Blocks (simple representation)
@@ -133,7 +133,7 @@ export const NotesPage: React.FC = () => {
       }
 
       // Normal paragraph
-      return <p key={idx} className="text-xs text-neutral-600 leading-normal dark:text-neutral-400">{line}</p>;
+      return <p key={idx} className="text-xs text-neutral-600 leading-normal dark:text-slate-400">{line}</p>;
     });
   };
 
@@ -147,14 +147,14 @@ export const NotesPage: React.FC = () => {
       
       {/* Left Sidebar Pane: List of Notes */}
       <div className="space-y-3 md:col-span-1">
-        <div className="rounded border border-slate-200 bg-white p-4 dark:border-neutral-700/50 dark:bg-neutral-800/60">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 dark:border-neutral-700/50">
-            <h2 className="text-xs font-bold tracking-wider text-slate-900 uppercase font-mono dark:text-neutral-200">
+        <div className="rounded border border-slate-200 bg-white p-4 dark:border-[#1e2026] dark:bg-[#101116]">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 dark:border-[#1e2026]">
+            <h2 className="text-xs font-bold tracking-wider text-slate-900 uppercase font-mono dark:text-[#F8FAFC]">
               Study Notes ({notes.length})
             </h2>
             <button
               onClick={handleCreateNewNote}
-              className="rounded bg-slate-900 p-1 text-white hover:bg-slate-800 transition-colors dark:bg-neutral-50 dark:text-neutral-950"
+              className="rounded bg-slate-900 p-1 text-white hover:bg-slate-800 transition-colors dark:bg-white dark:text-[#07080a]"
               title="Create note"
             >
               <Plus className="h-4 w-4" />
@@ -179,8 +179,8 @@ export const NotesPage: React.FC = () => {
                     }}
                     className={`flex w-full flex-col text-left rounded p-2.5 transition-all duration-150 ${
                       isSelected 
-                        ? 'bg-slate-100 text-slate-900 dark:bg-neutral-800 dark:text-neutral-50' 
-                        : 'text-slate-600 hover:bg-slate-50 dark:text-neutral-400 dark:hover:bg-neutral-800/40'
+                        ? 'bg-slate-100 text-slate-900 dark:bg-[#101116] dark:text-[#F8FAFC]' 
+                        : 'text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-[#101116]/60'
                     }`}
                   >
                     <div className="flex items-center justify-between w-full">
@@ -208,13 +208,13 @@ export const NotesPage: React.FC = () => {
       {/* Right Content Pane: Editor & Linkage Form */}
       <div className="md:col-span-2">
         {activeNoteId ? (
-          <div className="rounded border border-slate-200 bg-white p-5 space-y-4 dark:border-neutral-700/50 dark:bg-neutral-800/60">
+          <div className="rounded border border-slate-200 bg-white p-5 space-y-4 dark:border-[#1e2026] dark:bg-[#101116]">
             
             {/* Editor Action Header */}
-            <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 border-b border-slate-150 pb-3 dark:border-neutral-700/50">
+            <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 border-b border-slate-150 pb-3 dark:border-[#1e2026]">
               <input
                 type="text"
-                className="text-base font-semibold text-slate-900 bg-transparent outline-hidden w-full max-w-sm dark:text-neutral-50"
+                className="text-base font-semibold text-slate-900 bg-transparent outline-hidden w-full max-w-sm dark:text-[#F8FAFC]"
                 value={title}
                 onChange={(e) => {
                   setTitle(e.target.value);
@@ -227,7 +227,7 @@ export const NotesPage: React.FC = () => {
               <div className="flex items-center space-x-2 shrink-0">
                 <button
                   onClick={() => setIsPreview(!isPreview)}
-                  className="inline-flex items-center space-x-1 rounded border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-50 transition-colors dark:border-neutral-700/50 dark:text-neutral-400"
+                  className="inline-flex items-center space-x-1 rounded border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-50 transition-colors dark:border-[#1e2026] dark:text-slate-400"
                   title={isPreview ? "Switch to Editor Mode" : "Switch to Preview Mode"}
                 >
                   {isPreview ? <Edit3 className="h-3.5 w-3.5 text-slate-450" /> : <Eye className="h-3.5 w-3.5 text-slate-450" />}
@@ -236,7 +236,7 @@ export const NotesPage: React.FC = () => {
 
                 <button
                   onClick={handleSaveNote}
-                  className="inline-flex items-center space-x-1 rounded bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors dark:bg-neutral-50 dark:text-neutral-950"
+                  className="inline-flex items-center space-x-1 rounded bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors dark:bg-white dark:text-[#07080a]"
                   title="Manual synchronization"
                 >
                   <Save className="h-3.5 w-3.5" />
@@ -245,7 +245,7 @@ export const NotesPage: React.FC = () => {
 
                 <button
                   onClick={handleDeleteNote}
-                  className="rounded border border-slate-200 p-1.5 text-slate-400 hover:text-red-600 transition-colors dark:border-neutral-700/50"
+                  className="rounded border border-slate-200 p-1.5 text-slate-400 hover:text-red-600 transition-colors dark:border-[#1e2026]"
                   title="Delete Note"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -254,12 +254,12 @@ export const NotesPage: React.FC = () => {
             </div>
 
             {/* Note Relation Linkage System (Relational database alignment) */}
-            <div className="bg-slate-50/50 rounded p-3.5 grid gap-3 sm:grid-cols-2 text-xs border border-slate-100 dark:bg-neutral-950/20 dark:border-neutral-700/50">
+            <div className="bg-slate-50/50 rounded p-3.5 grid gap-3 sm:grid-cols-2 text-xs border border-slate-100 dark:bg-[#07080a]/30 dark:border-[#1e2026]">
               
               <div>
                 <label className="block text-[9px] font-mono font-bold text-slate-400 uppercase">Link Curriculum Subject</label>
                 <select
-                  className="mt-1 w-full rounded border border-slate-200 p-1 bg-white text-slate-800 text-[11px] dark:bg-neutral-800/60 dark:border-neutral-700/50 dark:text-neutral-200"
+                  className="mt-1 w-full rounded border border-slate-200 p-1 bg-white text-slate-800 text-[11px] dark:bg-[#101116] dark:border-[#1e2026] dark:text-[#F8FAFC]"
                   value={linkedSubjectId}
                   onChange={(e) => {
                     setLinkedSubjectId(e.target.value);
@@ -279,7 +279,7 @@ export const NotesPage: React.FC = () => {
               <div>
                 <label className="block text-[9px] font-mono font-bold text-slate-400 uppercase">Link Curriculum Reading</label>
                 <select
-                  className="mt-1 w-full rounded border border-slate-200 p-1 bg-white text-slate-800 text-[11px] dark:bg-neutral-800/60 dark:border-neutral-700/50 dark:text-neutral-200"
+                  className="mt-1 w-full rounded border border-slate-200 p-1 bg-white text-slate-800 text-[11px] dark:bg-[#101116] dark:border-[#1e2026] dark:text-[#F8FAFC]"
                   value={linkedReadingId}
                   disabled={!linkedSubjectId}
                   onChange={(e) => {
@@ -298,7 +298,7 @@ export const NotesPage: React.FC = () => {
               <div>
                 <label className="block text-[9px] font-mono font-bold text-slate-400 uppercase">Link Learning Outcome Statement (LOS)</label>
                 <select
-                  className="mt-1 w-full rounded border border-slate-200 p-1 bg-white text-slate-800 text-[11px] dark:bg-neutral-800/60 dark:border-neutral-700/50 dark:text-neutral-200"
+                  className="mt-1 w-full rounded border border-slate-200 p-1 bg-white text-slate-800 text-[11px] dark:bg-[#101116] dark:border-[#1e2026] dark:text-[#F8FAFC]"
                   value={linkedLOSId}
                   disabled={!linkedReadingId}
                   onChange={(e) => setLinkedLOSId(e.target.value)}
@@ -314,7 +314,7 @@ export const NotesPage: React.FC = () => {
               <div>
                 <label className="block text-[9px] font-mono font-bold text-slate-400 uppercase">Link Document Resource</label>
                 <select
-                  className="mt-1 w-full rounded border border-slate-200 p-1 bg-white text-slate-800 text-[11px] dark:bg-neutral-800/60 dark:border-neutral-700/50 dark:text-neutral-200"
+                  className="mt-1 w-full rounded border border-slate-200 p-1 bg-white text-slate-800 text-[11px] dark:bg-[#101116] dark:border-[#1e2026] dark:text-[#F8FAFC]"
                   value={linkedResourceId}
                   onChange={(e) => setLinkedResourceId(e.target.value)}
                   onBlur={handleSaveNote}
@@ -336,7 +336,7 @@ export const NotesPage: React.FC = () => {
                 </div>
               ) : (
                 <textarea
-                  className="w-full min-h-[30vh] p-2 bg-transparent outline-hidden text-xs text-slate-800 font-mono resize-y leading-relaxed dark:text-neutral-200"
+                  className="w-full min-h-[30vh] p-2 bg-transparent outline-hidden text-xs text-slate-800 font-mono resize-y leading-relaxed dark:text-[#F8FAFC]"
                   placeholder="Supports standard markdown headers (#), bullet lists (-), quotes (>), and standard text..."
                   value={content}
                   onChange={(e) => {
@@ -350,23 +350,23 @@ export const NotesPage: React.FC = () => {
 
             {/* Linkage context badges */}
             {(linkedSubjectId || linkedResourceId) && (
-              <div className="pt-3 border-t border-slate-100 flex flex-wrap gap-2 text-[10px] text-slate-400 dark:border-neutral-700/50">
+              <div className="pt-3 border-t border-slate-100 flex flex-wrap gap-2 text-[10px] text-slate-400 dark:border-[#1e2026]">
                 <span className="font-mono flex items-center space-x-1">
                   <Link2 className="h-3 w-3 text-slate-400" />
                   <span>Linked Nodes:</span>
                 </span>
                 {linkedSubjectId && (
-                  <span className="bg-slate-50 px-1.5 py-0.5 rounded text-slate-500 dark:bg-neutral-800">
+                  <span className="bg-slate-50 px-1.5 py-0.5 rounded text-slate-500 dark:bg-[#101116]">
                     Subject: {subjects.find(s => s.id === linkedSubjectId)?.code}
                   </span>
                 )}
                 {linkedReadingId && (
-                  <span className="bg-slate-50 px-1.5 py-0.5 rounded text-slate-500 dark:bg-neutral-800">
+                  <span className="bg-slate-50 px-1.5 py-0.5 rounded text-slate-500 dark:bg-[#101116]">
                     Reading {readings.find(r => r.id === linkedReadingId)?.number}
                   </span>
                 )}
                 {linkedResourceId && (
-                  <span className="bg-slate-50 px-1.5 py-0.5 rounded text-slate-500 dark:bg-neutral-800 truncate max-w-xs">
+                  <span className="bg-slate-50 px-1.5 py-0.5 rounded text-slate-500 dark:bg-[#101116] truncate max-w-xs">
                     File: {resources.find(r => r.id === linkedResourceId)?.name}
                   </span>
                 )}
@@ -375,7 +375,7 @@ export const NotesPage: React.FC = () => {
 
           </div>
         ) : (
-          <div className="rounded border border-slate-200 bg-white p-12 text-center text-xs text-slate-400 dark:border-neutral-700/50">
+          <div className="rounded border border-slate-200 bg-white p-12 text-center text-xs text-slate-400 dark:border-[#1e2026]">
             Click "Create note" on the sidebar panel to write your first syllabus summary sheet.
           </div>
         )}

@@ -81,7 +81,7 @@ export interface KnowledgeNode {
   createdDate: string; // ISO String
   modifiedDate: string; // ISO String
   tags: string[];
-  difficulty: 'Easy' | 'Medium' | 'Hard' | 'Unspecified';
+  difficulty: 'Easy' | 'Medium' | 'Intermediate' | 'Hard' | 'Unspecified';
   confidence: number | null; // Qualitative recall rating (1-5)
   parentIds: string[];
   childIds: string[];

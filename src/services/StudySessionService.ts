@@ -133,6 +133,9 @@ export class StudySessionService {
     notesAddedIds?: string[];
     resourcesUsedIds?: string[];
     confidenceAfter?: number | null;
+    reflectionDifficulty?: 'Easy' | 'Medium' | 'Hard';
+    reflectionNotes?: string;
+    reflectionConfusion?: string;
   }): StudySession | null {
     const active = this.getActiveSession();
     if (!active) return null;
@@ -148,6 +151,9 @@ export class StudySessionService {
       notesAddedIds: params?.notesAddedIds || [],
       resourcesUsedIds: params?.resourcesUsedIds || [],
       confidenceAfter: params?.confidenceAfter !== undefined ? params.confidenceAfter : null,
+      reflectionDifficulty: params?.reflectionDifficulty,
+      reflectionNotes: params?.reflectionNotes,
+      reflectionConfusion: params?.reflectionConfusion,
       status: 'Completed'
     };
 

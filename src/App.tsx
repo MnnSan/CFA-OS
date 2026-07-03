@@ -6,6 +6,7 @@
 import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { Login } from './pages/Login';
@@ -65,7 +66,9 @@ function AppContent() {
         {/* Scrollable content pane */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 outline-hidden">
           <div className="w-full">
-            {renderActivePage()}
+            <ErrorBoundary>
+              {renderActivePage()}
+            </ErrorBoundary>
           </div>
         </main>
 

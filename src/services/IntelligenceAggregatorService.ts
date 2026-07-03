@@ -13,7 +13,8 @@ import {
   DailySnapshot,
   MockResult,
   IntelligenceDerivedMetrics,
-  PlannerReadingProgress
+  PlannerReadingProgress,
+  TimelineBlock
 } from '../types';
 import { learningIntelligenceService } from './LearningIntelligenceService';
 import { examReadinessService, ExamReadinessReport } from './ExamReadinessService';
@@ -32,6 +33,7 @@ export interface AggregatorInput {
   mockResults: MockResult[];
   settings: {
     examDate: string;
+    targetStartDate: string;
     targetDailyHours: number;
   };
   activeSessionLOSId?: string;
@@ -40,6 +42,7 @@ export interface AggregatorInput {
   readingSessionActiveReport: ReadingIntelligence | null;
   dailySnapshotsList: DailySnapshot[];
   plannerProgress: PlannerReadingProgress[];
+  activeBlock: TimelineBlock | null;
 }
 
 export interface AggregatorOutput {
@@ -82,10 +85,10 @@ export class IntelligenceAggregator {
       input.notes
     );
 
-    // 4. Exam Readiness
-    const today = new Date();
+    // 4. Exam Readiness — use targetStartDate as reference start
+    const referenceDate = new Date(input.settings.targetStartDate);
     const exam = new Date(input.settings.examDate);
-    const diffTime = exam.getTime() - today.getTime();
+    const diffTime = exam.getTime() - referenceDate.getTime();
     const daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 
     const examReadinessReport = examReadinessService.calculateReadiness(
@@ -99,18 +102,23 @@ export class IntelligenceAggregator {
       input.settings.examDate
     );
 
-    // 5. Daily Mission
-    const dailyMission = missionEngineService.calculateMission(
-      input.activeSessionLOSId,
-      input.selectedLOSId,
-      input.losList,
-      input.readings,
-      input.subjects,
-      input.formulas,
-      input.notes,
-      input.resources,
-      burnoutDetected
-    );
+    // 5. Daily Mission — only if today is on or after targetStartDate
+    const todayStr = new Date().toISOString().split('T')[0];
+    const startDateStr = input.settings.targetStartDate;
+    const dailyMission = todayStr >= startDateStr
+      ? missionEngineService.calculateMission(
+          input.activeSessionLOSId,
+          input.selectedLOSId,
+          input.activeBlock,
+          input.losList,
+          input.readings,
+          input.subjects,
+          input.formulas,
+          input.notes,
+          input.resources,
+          burnoutDetected
+        )
+      : null;
 
     return {
       graphAnalyzerHealthReport,
@@ -144,8 +152,8 @@ export class IntelligenceAggregator {
     const studyVelocityHours = uniqueDays > 0 ? totalHours / uniqueDays : 0;
 
     const exam = new Date(input.settings.examDate);
-    const today = new Date();
-    const daysUntilExam = Math.max(0, Math.ceil((exam.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+    const referenceDate = new Date(input.settings.targetStartDate);
+    const daysUntilExam = Math.max(0, Math.ceil((exam.getTime() - referenceDate.getTime()) / (1000 * 60 * 60 * 24)));
 
     return {
       syllabusCompletionPct: Math.round(syllabusCompletionPct),

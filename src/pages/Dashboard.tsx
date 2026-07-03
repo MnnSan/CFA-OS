@@ -6,6 +6,7 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { FormulaCard } from '../components/FormulaCard';
+import MissionControlCard from '../components/MissionControlCard';
 import { Formula, PlannerReadingProgress } from '../types';
 import { 
   Calendar, 
@@ -323,8 +324,10 @@ export const Dashboard: React.FC = () => {
           <div className="bg-white dark:bg-[#0B0F19] border border-slate-200 dark:border-slate-800 relative overflow-hidden">
             <div className={`absolute top-0 left-0 w-0.5 h-full ${dailyMission?.isRecoveryMission ? 'bg-rose-500' : activeSession ? 'bg-emerald-500' : 'bg-slate-900 dark:bg-slate-200'}`}></div>
             
-            {/* Mission Header */}
-            {dailyMission && (
+            {/* Sprint M10 — Mission Control */}
+            {dailyMission && <MissionControlCard />}
+            {/* Legacy preserved for rollback via {false && (...)} */}
+            {false && (
               <div className="p-6 pb-4 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center justify-between mb-3">
                   <div className="space-y-0.5">

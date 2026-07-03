@@ -1,6 +1,6 @@
 import { Reading, Subject, ReadingStudyTargets } from '../types';
 
-export const PLANNER_SUBJECTS: Subject[] = [
+export const PLANNER_SUBJECTS: any[] = [
   { id: 'sub-asset-allocation', level: 'Level III', name: 'Asset Allocation & CME', description: 'Capital market expectations and asset allocation frameworks.', code: 'AA' },
   { id: 'sub-portfolio-construction', level: 'Level III', name: 'Portfolio Construction', description: 'Equity and fixed-income portfolio management.', code: 'PC' },
   { id: 'sub-portfolio-pathway', level: 'Level III', name: 'Portfolio Pathway', description: 'Advanced portfolio strategies and risk management.', code: 'PP' },
@@ -18,7 +18,7 @@ const t = (page: number, los: number, eocq: number, video: string, videoMin: num
   videoDurationString: video, videoDurationMinutes: videoMin, weightingFactor: weight,
 });
 
-export const PLANNER_READINGS: Reading[] = [
+export const PLANNER_READINGS: any[] = [
   // === ASSET ALLOCATION & CME ===
   { id: 'pln-cme-1', subjectId: 'sub-asset-allocation', number: 1, title: 'Capital Market Expectations, Part 1: Framework', description: 'Framework for developing capital market expectations.', targets: t(54, 10, 16, '01:26:17', 86.28, 1.11) },
   { id: 'pln-cme-2', subjectId: 'sub-asset-allocation', number: 2, title: 'Capital Market Expectations, Part 2: Forecasting', description: 'Forecasting tools and applications.', targets: t(51, 8, 30, '02:19:02', 139.03, 1.05) },

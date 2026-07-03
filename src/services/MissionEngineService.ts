@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { LearningOutcomeStatement, Reading, Subject, Formula, StudyNote, Asset } from '../types';
+import { LearningOutcomeStatement, Reading, Subject, Formula, StudyNote, Asset, TimelineBlock } from '../types';
 
 export interface DailyMission {
   subjectId: string;
@@ -32,6 +32,7 @@ export class MissionEngineService {
   public calculateMission(
     activeSessionLOSId: string | undefined,
     selectedLOSId: string | null,
+    activeBlock: TimelineBlock | null,
     losList: LearningOutcomeStatement[],
     readings: Reading[],
     subjects: Subject[],
@@ -71,14 +72,55 @@ export class MissionEngineService {
 
     // Determine target focus LOS
     let targetLOS: LearningOutcomeStatement | undefined;
+
+    // Priority 1: Active session LOS (already in progress)
     if (activeSessionLOSId) {
       targetLOS = losList.find(l => l.id === activeSessionLOSId);
     }
+
+    // Priority 2: User-selected LOS
     if (!targetLOS && selectedLOSId) {
       targetLOS = losList.find(l => l.id === selectedLOSId);
     }
+
+    // Priority 3: Coach planner active block — subdivide into the exact reading for today
+    if (!targetLOS && activeBlock) {
+      const subjectReadings = readings
+        .filter(r => r.subjectId === activeBlock.subjectId)
+        .sort((a, b) => a.number - b.number);
+
+      if (subjectReadings.length > 0) {
+        let activeReading: Reading;
+
+        if (subjectReadings.length === 1) {
+          activeReading = subjectReadings[0];
+        } else {
+          // Subdivide block date range proportionally across readings
+          const blockStartMs = new Date(activeBlock.startDate).getTime();
+          const blockEndMs = new Date(activeBlock.endDate).getTime();
+          const todayMs = Date.now();
+          const msPerReading = (blockEndMs - blockStartMs) / subjectReadings.length;
+
+          const matchedReading = subjectReadings.find((_, idx) => {
+            const rStart = blockStartMs + idx * msPerReading;
+            const rEnd = idx === subjectReadings.length - 1
+              ? blockEndMs
+              : blockStartMs + (idx + 1) * msPerReading - 1;
+            return todayMs >= rStart && todayMs <= rEnd;
+          });
+
+          activeReading = matchedReading || subjectReadings[0];
+        }
+
+        targetLOS = losList.find(
+          l => l.readingId === activeReading.id && l.status !== 'Completed'
+        );
+      }
+      // If all LOS in the block's subject are completed, fall through
+    }
+
+    // Priority 4: First incomplete or low-confidence LOS across all subjects
     if (!targetLOS) {
-      // Find first incomplete or low-confidence LOS
       targetLOS = losList.find(l => l.status !== 'Completed') || losList[0];
     }
 
@@ -97,7 +139,11 @@ export class MissionEngineService {
     const remainingReadingHours = Number((incompleteReadingLOS.length * 1.2).toFixed(1));
 
     let reason = 'This is the primary incomplete task on your syllabus study path.';
-    if (targetLOS.confidence && targetLOS.confidence < 3) {
+
+    // Coach planner attribution
+    if (activeBlock && !activeSessionLOSId && !selectedLOSId) {
+      reason = `Coach Planner Schedule: You are in a "${subject.name}" block (${activeBlock.startDate} to ${activeBlock.endDate}). Today's reading is "${reading.title}" — this is the first incomplete LOS within it.`;
+    } else if (targetLOS.confidence && targetLOS.confidence < 3) {
       reason = `Critical recall vulnerability: Rated at ${targetLOS.confidence}/5 confidence. Reviewing this node will shore up core syllabus weaknesses.`;
     } else if (subject.code === 'AA' || subject.code === 'PWM') {
       reason = `High-Weight Core Topic: Portfolio Management & Asset Allocation carry major weights in the CFA Level III exam.`;
