@@ -125,7 +125,7 @@ export const DeveloperTools: React.FC = () => {
           <Database className="h-5 w-5 text-indigo-500 shrink-0" />
           <div className="min-w-0">
             <span className="text-[9px] font-mono font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Graph Nodes</span>
-            <span className="text-lg font-bold text-slate-800 dark:text-[#F8FAFC]">{knowledgeSnapshot.metadata.nodeCount}</span>
+            <span className="text-lg font-bold text-slate-800 dark:text-[#F8FAFC]">{knowledgeSnapshot.statistics.nodeCount}</span>
           </div>
         </div>
 
@@ -134,7 +134,7 @@ export const DeveloperTools: React.FC = () => {
           <Cpu className="h-5 w-5 text-emerald-500 shrink-0" />
           <div className="min-w-0">
             <span className="text-[9px] font-mono font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Graph Edges</span>
-            <span className="text-lg font-bold text-slate-800 dark:text-[#F8FAFC]">{knowledgeSnapshot.metadata.edgeCount}</span>
+            <span className="text-lg font-bold text-slate-800 dark:text-[#F8FAFC]">{knowledgeSnapshot.statistics.edgeCount}</span>
           </div>
         </div>
 
@@ -370,8 +370,8 @@ export const DeveloperTools: React.FC = () => {
               <div className="pt-2">
                 <button
                   onClick={() => {
-                    console.log("=== GRAPH SNAPSHOT NODES ===", knowledgeSnapshot.nodes);
-                    console.log("=== GRAPH SNAPSHOT EDGES ===", knowledgeSnapshot.edges);
+                    console.log("=== GRAPH SNAPSHOT NODES ===", knowledgeSnapshot.graph.nodes);
+                    console.log("=== GRAPH SNAPSHOT EDGES ===", knowledgeSnapshot.graph.edges);
                     alert("Graph snapshot structures printed to browser developer console.");
                   }}
                   className="rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-mono text-[10px] font-bold py-1.5 px-3 cursor-pointer dark:bg-indigo-950/20 dark:border-indigo-900/40 dark:text-indigo-400 transition-colors"
@@ -401,7 +401,7 @@ export const DeveloperTools: React.FC = () => {
                       <span className="text-[10px] text-slate-400">{formatTime(snap.metadata.buildStarted)}</span>
                     </div>
                     <div className="text-right text-[10px] text-slate-500 dark:text-slate-400 shrink-0">
-                      <span>{snap.metadata.nodeCount} N • {snap.metadata.edgeCount} E</span>
+                      <span>{snap.statistics.nodeCount} N • {snap.statistics.edgeCount} E</span>
                       <span className="block font-bold text-indigo-500">{snap.metadata.profileMetrics?.totalCompileTimeMs.toFixed(1) || '0'} ms</span>
                     </div>
                   </div>

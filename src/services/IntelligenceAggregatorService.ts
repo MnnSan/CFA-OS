@@ -38,6 +38,9 @@ export interface AggregatorInput {
   };
   activeSessionLOSId?: string;
   selectedLOSId: string | null;
+  selectedReadingId?: string | null;
+  selectedChapterId?: string | null;
+  selectedSubjectId?: string | null;
   activeReadingAssetId: string | null;
   readingSessionActiveReport: ReadingIntelligence | null;
   dailySnapshotsList: DailySnapshot[];
@@ -85,12 +88,9 @@ export class IntelligenceAggregator {
       input.notes
     );
 
-    // 4. Exam Readiness — use targetStartDate as reference start
-    const referenceDate = new Date(input.settings.targetStartDate);
-    const exam = new Date(input.settings.examDate);
-    const diffTime = exam.getTime() - referenceDate.getTime();
-    const daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-
+    // 4. Exam Readiness
+    const totalSyllabusHours = input.losList.reduce((acc, l) => acc + (l.estimatedHours || 0), 0);
+    const daysRemaining = Math.max(0, Math.ceil((new Date(input.settings.examDate).getTime() - new Date().getTime()) / 86400000));
     const examReadinessReport = examReadinessService.calculateReadiness(
       input.losList,
       input.formulas,
@@ -109,6 +109,9 @@ export class IntelligenceAggregator {
       ? missionEngineService.calculateMission(
           input.activeSessionLOSId,
           input.selectedLOSId,
+          input.selectedReadingId || null,
+          input.selectedChapterId || null,
+          input.selectedSubjectId || null,
           input.activeBlock,
           input.losList,
           input.readings,

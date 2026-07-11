@@ -50,6 +50,7 @@ export const ReadingWorkspace: React.FC<ReadingWorkspaceProps> = ({ readingId })
     toggleLOSBookmark,
     curriculumService,
     curriculumTreeService,
+    updateFormula,
     addNote,
     updateNote,
     addResource,
@@ -168,15 +169,10 @@ export const ReadingWorkspace: React.FC<ReadingWorkspaceProps> = ({ readingId })
     if (!selectedFormulaId) return;
     const formula = formulas.find(f => f.id === selectedFormulaId);
     if (formula) {
-      const linkedLOSIds = [...(formula.linkedLOSIds || [])];
       const rdLOS = losList.filter(l => l.readingId === readingId);
-      if (rdLOS.length > 0 && !linkedLOSIds.includes(rdLOS[0].id)) {
-        linkedLOSIds.push(rdLOS[0].id);
-        const contextUpdate = (useApp() as any).updateFormula;
-        if (contextUpdate) {
-          contextUpdate(formula.id, { linkedLOSIds });
-          alert('Formula linked successfully!');
-        }
+      if (rdLOS.length > 0) {
+        updateFormula(formula.id, { linkedLOSId: rdLOS[0].id });
+        alert('Formula linked successfully!');
       }
     }
   };
@@ -205,9 +201,10 @@ export const ReadingWorkspace: React.FC<ReadingWorkspaceProps> = ({ readingId })
     if (!newResourceName) return;
     addResource({
       name: newResourceName,
-      category: newResourceCategory,
+      category: newResourceCategory as any,
       url: '#',
       fileType: 'link',
+      isFavorite: false,
       description: 'Reference link',
       linkedReadingId: readingId
     });
@@ -219,7 +216,7 @@ export const ReadingWorkspace: React.FC<ReadingWorkspaceProps> = ({ readingId })
 
   const readingLOS = losList.filter(l => l && l.readingId === readingId);
   const readingFormulas = formulas.filter(f =>
-    f && Array.isArray(f.linkedLOSIds) && f.linkedLOSIds.some(id => readingLOS.some(l => l && l.id === id))
+    f && f.linkedLOSId && readingLOS.some(l => l && l.id === f.linkedLOSId)
   );
   const readingResources = resources.filter(r => r && r.linkedReadingId === readingId);
   const progress = getReadingProgress(readingId);
@@ -738,7 +735,8 @@ export const ReadingWorkspace: React.FC<ReadingWorkspaceProps> = ({ readingId })
                           eocqCount: readingForm.targets?.eocqCount || 0,
                           pageCount: readingForm.targets?.pageCount || 0,
                           totalLOSCount: readingForm.targets?.totalLOSCount || 0,
-                          videoDurationString: `${Math.floor(Number(e.target.value) / 60)}h ${Number(e.target.value) % 60}m`
+                          videoDurationString: `${Math.floor(Number(e.target.value) / 60)}h ${Number(e.target.value) % 60}m`,
+                          weightingFactor: readingForm.targets?.weightingFactor || 1.0
                         }
                       })}
                       className="w-full bg-slate-955 border border-slate-850 rounded-lg px-3 py-2 text-sm text-slate-205 focus:outline-none"
@@ -757,7 +755,8 @@ export const ReadingWorkspace: React.FC<ReadingWorkspaceProps> = ({ readingId })
                           eocqCount: Number(e.target.value),
                           pageCount: readingForm.targets?.pageCount || 0,
                           totalLOSCount: readingForm.targets?.totalLOSCount || 0,
-                          videoDurationString: readingForm.targets?.videoDurationString || '0h 0m'
+                          videoDurationString: readingForm.targets?.videoDurationString || '0h 0m',
+                          weightingFactor: readingForm.targets?.weightingFactor || 1.0
                         }
                       })}
                       className="w-full bg-slate-955 border border-slate-850 rounded-lg px-3 py-2 text-sm text-slate-205 focus:outline-none"
@@ -801,10 +800,12 @@ export const ReadingWorkspace: React.FC<ReadingWorkspaceProps> = ({ readingId })
                         <div key={form.id} className="p-4 bg-slate-950 border border-slate-850 rounded-lg space-y-2.5">
                           <div className="flex justify-between items-center">
                             <span className="text-sm font-bold text-emerald-400">{form.name}</span>
-                            <span className="text-xs px-2 py-0.5 bg-slate-900 rounded text-slate-400 font-semibold">{form.masteryLevel}</span>
+                            <span className="text-xs px-2 py-0.5 bg-slate-900 rounded text-slate-400 font-semibold">
+                              {form.confidenceRating ? `Recall: ${form.confidenceRating}/5` : 'Not Rated'}
+                            </span>
                           </div>
                           <p className="text-base font-mono bg-[#0d0e12] p-2.5 rounded text-slate-250 select-all overflow-x-auto">
-                            {form.latexExpression || form.latex || ''}
+                            {form.latexExpression || ''}
                           </p>
                           <p className="text-xs text-slate-500 font-medium">{form.description}</p>
                         </div>
@@ -823,7 +824,7 @@ export const ReadingWorkspace: React.FC<ReadingWorkspaceProps> = ({ readingId })
                     >
                       <option value="">Select Formula to link...</option>
                       {formulas.map(f => (
-                        <option key={f.id} value={f.id}>{f.name} ({f.code})</option>
+                        <option key={f.id} value={f.id}>{f.name} ({f.id.substring(0, 8)})</option>
                       ))}
                     </select>
                     <button

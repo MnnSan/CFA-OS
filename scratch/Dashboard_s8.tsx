@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -6,14 +6,7 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { FormulaCard } from '../components/FormulaCard';
-import MissionControlCard from '../components/MissionControlCard';
-import MissionBriefDrawer from '../components/MissionBriefDrawer';
-import { CfaSyllabusProgressPanel } from '../applications/cfa/curriculum/components/CfaSyllabusProgressPanel';
-import { CfaStudyPlanCard } from '../applications/cfa/curriculum/components/CfaStudyPlanCard';
-import { Formula, PlannerReadingProgress, WeakTopicsSummary } from '../types';
-import { useWeakTopics } from '../services/useIntelligenceStream';
-import { aiJobQueue } from '../services/AiJobQueueService';
-import { ContextBuilderService } from '../services/ContextBuilderService';
+import { Formula, PlannerReadingProgress } from '../types';
 import { 
   Calendar, 
   FileText, 
@@ -41,20 +34,10 @@ import {
   X,
   AlertTriangle,
   BarChart3,
-  Target,
-  Sparkles,
-  Brain
+  Layers,
+  Target
 } from 'lucide-react';
-
-interface MissionBriefData {
-  priorKnowledge: string[];
-  difficulty: string;
-  formulaLoad: string;
-  mentalMode: string;
-  estimatedFocus: string;
-  coachingTip: string;
-  expectedSuccess: string;
-}
+import { PLANNER_READINGS } from '../data/plannerReadings';
 
 export const Dashboard: React.FC = () => {
   const { 
@@ -96,8 +79,7 @@ export const Dashboard: React.FC = () => {
     isDegraded,
     plannerProgress,
     plannerReadings,
-    notes,
-    resources
+    notes
   } = useApp();
 
   const [showFinishRating, setShowFinishRating] = React.useState(false);
@@ -106,92 +88,6 @@ export const Dashboard: React.FC = () => {
   const [selectedDashboardFormula, setSelectedDashboardFormula] = React.useState<Formula | null>(null);
   const [showSessionSaved, setShowSessionSaved] = React.useState(false);
   const [sessionSavedProgress, setSessionSavedProgress] = React.useState(0);
-  const [coachInsight, setCoachInsight] = React.useState<string | null>(null);
-  const [coachInsightLoading, setCoachInsightLoading] = React.useState(false);
-  const [showMissionBrief, setShowMissionBrief] = React.useState(false);
-  const [missionBriefLoading, setMissionBriefLoading] = React.useState(false);
-  const [missionBrief, setMissionBrief] = React.useState<MissionBriefData | null>(null);
-  const [missionBriefFailed, setMissionBriefFailed] = React.useState(false);
-
-  const weakTopics = useWeakTopics();
-
-  const triggerMissionBrief = () => {
-    if (!settings || !dailyMission) return;
-    setMissionBriefLoading(true);
-    setMissionBriefFailed(false);
-    setShowMissionBrief(true);
-
-    const jobKey = `mission-brief-${dailyMission.readingId}-${dailyMission.losId}`;
-    
-    aiJobQueue.queueJob(
-      'task-mission-brief',
-      jobKey,
-      () => ContextBuilderService.buildMissionBriefContext(
-        {
-          number: dailyMission.readingNumber,
-          title: dailyMission.readingTitle,
-          subjectCode: dailyMission.subjectCode
-        },
-        {
-          code: dailyMission.losCode,
-          statement: dailyMission.statement,
-          difficulty: dailyMission.confidenceLevel ? String(dailyMission.confidenceLevel) : 'Medium',
-          estimatedHours: dailyMission.estimatedDurationHours,
-          confidence: typeof dailyMission.confidenceLevel === 'number' ? dailyMission.confidenceLevel : null
-        },
-        [], // prerequisites
-        formulas.filter(f => f.linkedReadingId === dailyMission.readingId),
-        notes.filter(n => n.linkedReadingId === dailyMission.readingId),
-        resources.filter(r => r.linkedReadingId === dailyMission.readingId),
-        [], // previousReflections
-        7, // studyStreak
-        revisionQueue?.length || 0,
-        settings.examDate,
-        dailyMission.reason
-      ),
-      settings,
-      (status, result) => {
-        if (status === 'READY' && result?.text) {
-          try {
-            let parsedBrief: MissionBriefData;
-            try {
-              parsedBrief = JSON.parse(result.text);
-            } catch {
-              const text = result.text;
-              const extractArray = (header: string): string[] => {
-                const match = text.match(new RegExp(`${header}:?\\s*\\n?([\\s\\S]*?)(?:\\n\\n|\\n[A-Z]|$)`, 'i'));
-                if (!match) return [];
-                return match[1].split('\n').map(l => l.replace(/^[-\*\s\d\.]+\s*/, '').trim()).filter(Boolean);
-              };
-              const extractString = (header: string): string => {
-                const match = text.match(new RegExp(`${header}:?\\s*\\n?([\\s\\S]*?)(?:\\n\\n|\\n[A-Z]|$)`, 'i'));
-                return match ? match[1].trim() : '';
-              };
-              parsedBrief = {
-                priorKnowledge: extractArray('Prior Knowledge') || extractArray('Prerequisites'),
-                difficulty: extractString('Difficulty') || 'Medium',
-                formulaLoad: extractString('Formula Load') || 'Moderate',
-                mentalMode: extractString('Mental Mode') || 'Conceptual',
-                estimatedFocus: extractString('Estimated Focus') || `${dailyMission.estimatedDurationHours}h`,
-                coachingTip: extractString('Coaching Tip') || extractString('Tip'),
-                expectedSuccess: extractString('Expected Success') || extractString('Success')
-              };
-            }
-            setMissionBrief(parsedBrief);
-          } catch (err) {
-            console.error('Failed to parse mission brief result:', err);
-            setMissionBriefFailed(true);
-          }
-        }
-        if (status === 'FAILED') {
-          setMissionBriefFailed(true);
-        }
-        if (status === 'READY' || status === 'FAILED') {
-          setMissionBriefLoading(false);
-        }
-      }
-    );
-  };
 
   const formatTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
@@ -239,25 +135,25 @@ export const Dashboard: React.FC = () => {
   const yesterdayMinutes = yesterdaySessions.reduce((acc, s) => acc + s.durationMinutes, 0);
   const yesterdayHours = (yesterdayMinutes / 60).toFixed(1);
 
-  // ── Mark Meldrum 60/40 Knowledge Coverage ──
-  const totalVideoTarget = plannerReadings.reduce((sum, r) => sum + (r.targets?.videoDurationMinutes || 0), 0);
+  // ΓöÇΓöÇ Mark Meldrum 60/40 Knowledge Coverage ΓöÇΓöÇ
+  const totalVideoTarget = PLANNER_READINGS.reduce((sum, r) => sum + (r.targets?.videoDurationMinutes || 0), 0);
   const totalVideoLogged = plannerProgress.reduce((sum, p) => sum + p.loggedVideoMinutes, 0);
   const videoPct = totalVideoTarget > 0 ? Math.min(100, Math.round((totalVideoLogged / totalVideoTarget) * 100)) : 0;
   const videoComponent = totalVideoTarget > 0 ? Math.min(60, Math.round((totalVideoLogged / totalVideoTarget) * 60)) : 0;
 
-  const totalEOCQTarget = plannerReadings.reduce((sum, r) => sum + (r.targets?.eocqCount || 0), 0);
+  const totalEOCQTarget = PLANNER_READINGS.reduce((sum, r) => sum + (r.targets?.eocqCount || 0), 0);
   const totalEOCQCompleted = plannerProgress.reduce((sum, p) => sum + p.completedEOCQ, 0);
   const eocqPct = totalEOCQTarget > 0 ? Math.min(100, Math.round((totalEOCQCompleted / totalEOCQTarget) * 100)) : 0;
   const eocqComponent = totalEOCQTarget > 0 ? Math.min(40, Math.round((totalEOCQCompleted / totalEOCQTarget) * 40)) : 0;
 
   const totalMMProgress = Math.min(100, videoComponent + eocqComponent);
 
-  // ── Study Resource Alignment (notes coverage ratio) ──
+  // ΓöÇΓöÇ Study Resource Alignment (notes coverage ratio) ΓöÇΓöÇ
   const uniqueReadingIdsWithNotes = new Set(notes.filter(n => n.linkedReadingId).map(n => n.linkedReadingId));
   const totalReadings = readings.length;
   const notesCoveragePct = totalReadings > 0 ? Math.round((uniqueReadingIdsWithNotes.size / totalReadings) * 100) : 0;
 
-  // ── Study Runway Velocity ──
+  // ΓöÇΓöÇ Study Runway Velocity ΓöÇΓöÇ
   const currentVelocity = examReadinessReport?.velocityHoursPerDay || 0;
   const targetVelocity = settings.targetDailyHours;
   const velocityRatio = targetVelocity > 0 ? Math.min(100, Math.round((currentVelocity / targetVelocity) * 100)) : 0;
@@ -350,7 +246,7 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Knowledge Coverage — MM 60/40 Dual Bar */}
+          {/* Knowledge Coverage ΓÇö MM 60/40 Dual Bar */}
           <div className="bg-white dark:bg-[#0B0F19] p-5 border border-slate-200 dark:border-slate-800 relative overflow-hidden flex flex-col justify-between">
             <div className="absolute top-0 left-0 w-0.5 bg-amber-500 h-full"></div>
             <div>
@@ -363,7 +259,7 @@ export const Dashboard: React.FC = () => {
             <div className="mt-4 space-y-2">
               <div className="space-y-0.5">
                 <div className="flex justify-between text-[9px] font-mono text-slate-500 dark:text-slate-500">
-                  <span>Instructional (60%) — {videoPct}%</span>
+                  <span>Instructional (60%) ΓÇö {videoPct}%</span>
                   <span>{Math.round(totalVideoLogged)} / {Math.round(totalVideoTarget)} min</span>
                 </div>
                 <div className="w-full bg-slate-100 dark:bg-slate-800 h-1 overflow-hidden">
@@ -372,7 +268,7 @@ export const Dashboard: React.FC = () => {
               </div>
               <div className="space-y-0.5">
                 <div className="flex justify-between text-[9px] font-mono text-slate-500 dark:text-slate-500">
-                  <span>Application (40%) — {eocqPct}%</span>
+                  <span>Application (40%) ΓÇö {eocqPct}%</span>
                   <span>{totalEOCQCompleted} / {totalEOCQTarget} Qs</span>
                 </div>
                 <div className="w-full bg-slate-100 dark:bg-slate-800 h-1 overflow-hidden">
@@ -427,10 +323,8 @@ export const Dashboard: React.FC = () => {
           <div className="bg-white dark:bg-[#0B0F19] border border-slate-200 dark:border-slate-800 relative overflow-hidden">
             <div className={`absolute top-0 left-0 w-0.5 h-full ${dailyMission?.isRecoveryMission ? 'bg-rose-500' : activeSession ? 'bg-emerald-500' : 'bg-slate-900 dark:bg-slate-200'}`}></div>
             
-            {/* Sprint M10 — Mission Control */}
-            {dailyMission && <MissionControlCard onTriggerBrief={triggerMissionBrief} />}
-            {/* Legacy preserved for rollback via {false && (...)} */}
-            {false && (
+            {/* Mission Header */}
+            {dailyMission && (
               <div className="p-6 pb-4 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center justify-between mb-3">
                   <div className="space-y-0.5">
@@ -553,7 +447,7 @@ export const Dashboard: React.FC = () => {
               </div>
             )}
 
-            {/* Timer Workspace — Direct extension of mission */}
+            {/* Timer Workspace ΓÇö Direct extension of mission */}
             <div className={`p-6 ${dailyMission ? '' : ''}`}>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
                 <div className="space-y-1">
@@ -606,10 +500,14 @@ export const Dashboard: React.FC = () => {
                     </div>
                     {dailyMission && (
                       <button
-                        onClick={triggerMissionBrief}
+                        onClick={() => startStudySession({
+                          linkedSubjectId: dailyMission.subjectId,
+                          linkedReadingId: dailyMission.readingId,
+                          linkedLOSId: dailyMission.losId
+                        })}
                         className="mt-4 w-full bg-slate-900 hover:bg-slate-800 text-white py-2 text-xs font-bold uppercase tracking-wider cursor-pointer font-sans dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
                       >
-                        Trigger Pre-Study Brief
+                        Start Session with Mission
                       </button>
                     )}
                   </div>
@@ -762,11 +660,11 @@ export const Dashboard: React.FC = () => {
 
                 {!activeSession ? (
                   <button
-                    onClick={() => {
-                      setMissionBriefLoading(true);
-                      setShowMissionBrief(true);
-                      setTimeout(() => setMissionBriefLoading(false), 1000);
-                    }}
+                    onClick={() => startStudySession({
+                      linkedSubjectId: dailyMission.subjectId,
+                      linkedReadingId: dailyMission.readingId,
+                      linkedLOSId: dailyMission.losId
+                    })}
                     className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200 flex items-center space-x-1.5 cursor-pointer"
                   >
                     <Play className="h-3.5 w-3.5 fill-current" />
@@ -797,19 +695,6 @@ export const Dashboard: React.FC = () => {
               </div>
             )}
           </div>
-
-          {/* Planner Widget */}
-          <CfaStudyPlanCard
-            readings={plannerReadings}
-            losList={losList}
-            sessionHistory={sessionHistory}
-            plannerProgress={plannerProgress}
-            targetFinishDateStr={examReadinessReport?.projectedFinishDate || settings.examDate || '2026-09-01'}
-            reviewBuffer={settings.reviewBuffer || 14}
-            examDate={settings.examDate || '2026-09-01'}
-            events={[]}
-            dailyMission={dailyMission}
-          />
 
           {/* 7-Day Performance Dynamics */}
           {dailySnapshotsList.length > 0 && (
@@ -858,11 +743,12 @@ export const Dashboard: React.FC = () => {
                           const x = i * step;
                           const yR = height - 10 - ((snap.readinessScore / 100) * 100);
                           const yH = height - 10 - ((snap.knowledgeHealth / 100) * 100);
-                            <g key={i} className="cursor-pointer">
-                              <title>{`Date: ${snap.date}`}</title>
+                          return (
+                            <g key={i} className="cursor-pointer" title={`Date: ${snap.date}`}>
                               <circle cx={x} cy={yR} r="3" fill="#4f46e5" />
                               <circle cx={x} cy={yH} r="2.5" fill="#10b981" />
                             </g>
+                          );
                         })}
                       </>
                     );
@@ -888,8 +774,8 @@ export const Dashboard: React.FC = () => {
 
         </div>
 
-        {/* Right Column (1/3): Active Memory Drawer */}
-        <div className="space-y-6 flex flex-col">
+        {/* Right Column (1/3): Active Memory Drawer ΓÇö Sticky */}
+        <div className="space-y-6 flex flex-col self-start sticky top-6">
           {/* Active Revision Queue */}
           {revisionQueue && (
             <div className="bg-white dark:bg-[#0B0F19] p-5 border border-slate-200 dark:border-slate-800 relative overflow-hidden space-y-4">
@@ -940,7 +826,7 @@ export const Dashboard: React.FC = () => {
                         </span>
                         {item.confidenceRating && (
                           <span className="block text-[8px] text-amber-500 font-bold font-mono">
-                            {item.confidenceRating.toFixed(1)} ★
+                            {item.confidenceRating.toFixed(1)} Γÿà
                           </span>
                         )}
                       </div>
@@ -1041,217 +927,9 @@ export const Dashboard: React.FC = () => {
             </div>
           )}
 
-          {/* Reading Completion Statistics */}
-          <div className="bg-white dark:bg-[#0B0F19] p-5 border border-slate-200 dark:border-slate-800 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="space-y-0.5">
-                <h2 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white font-sans">
-                  Reading Completion
-                </h2>
-                <p className="text-[9px] text-slate-500 dark:text-slate-400 font-mono tracking-wider">READING-LEVEL PROGRESS</p>
-              </div>
-              <BookOpen className="h-4 w-4 text-blue-500 shrink-0" />
-            </div>
-            {(() => {
-              const totalReadings = readings.length;
-              const completedReadings = readings.filter(r => {
-                const readingLos = losList.filter(l => l.readingId === r.id);
-                return readingLos.length > 0 && readingLos.every(l => l.status === 'Completed');
-              }).length;
-              const pct = totalReadings > 0 ? Math.round((completedReadings / totalReadings) * 100) : 0;
-              return (
-                <div className="space-y-2">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-2xl font-bold text-slate-900 dark:text-white font-mono">{pct}%</span>
-                    <span className="text-[10px] font-mono text-slate-500">{completedReadings} / {totalReadings} readings</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }}></div>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-
-          {/* Formula Coverage */}
-          <div className="bg-white dark:bg-[#0B0F19] p-5 border border-slate-200 dark:border-slate-800 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="space-y-0.5">
-                <h2 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white font-sans">
-                  Formula Coverage
-                </h2>
-                <p className="text-[9px] text-slate-500 dark:text-slate-400 font-mono tracking-wider">MEMORIZED EQUATIONS</p>
-              </div>
-              <HelpCircle className="h-4 w-4 text-amber-500 shrink-0" />
-            </div>
-            {(() => {
-              const total = formulas.length;
-              const memorized = formulas.filter(f => f.isMemorized).length;
-              const pct = total > 0 ? Math.round((memorized / total) * 100) : 0;
-              return (
-                <div className="space-y-2">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-2xl font-bold text-slate-900 dark:text-white font-mono">{pct}%</span>
-                    <span className="text-[10px] font-mono text-slate-500">{memorized} / {total} formulas</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-amber-500 rounded-full" style={{ width: `${pct}%` }}></div>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-
-          {/* AI Executive Coach Insight */}
-          <div className="bg-white dark:bg-[#0B0F19] p-5 border border-slate-200 dark:border-slate-800 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="space-y-0.5">
-                <h2 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white font-sans">
-                  Executive Coach
-                </h2>
-                <p className="text-[9px] text-slate-500 dark:text-slate-400 font-mono tracking-wider">DAILY RECOMMENDATION</p>
-              </div>
-              <Sparkles className="h-4 w-4 text-amber-500 shrink-0" />
-            </div>
-            {coachInsight ? (
-              <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                {coachInsight}
-              </p>
-            ) : coachInsightLoading ? (
-              <div className="space-y-2">
-                <div className="h-3 w-full rounded bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                  <div className="h-full w-3/4 rounded animate-shimmer" />
-                </div>
-                <div className="h-3 w-5/6 rounded bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                  <div className="h-full w-1/2 rounded animate-shimmer" />
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <p className="text-[10px] text-slate-400 italic">
-                  Generate a personalized coaching tip based on your current study patterns.
-                </p>
-                <button
-                  onClick={() => {
-                    if (!settings || !dailyMission) return;
-                    setCoachInsightLoading(true);
-                    const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-                    const yesterdaySessions = sessionHistory.filter(s =>
-                      s.startTime.startsWith(yesterdayStr) && s.status === 'Completed'
-                    );
-                    aiJobQueue.queueJob(
-                      'task-coach-recommendation',
-                      'dashboard-coach-tip',
-                      () => ContextBuilderService.buildCoachRecommendationContext(
-                        settings,
-                        {
-                          yesterdayHours: yesterdaySessions.reduce((acc, s) => acc + s.durationMinutes, 0) / 60,
-                          streakDays: user?.streakDays || 0,
-                          averageConfidence: losList.length > 0
-                            ? losList.reduce((acc, l) => acc + (l.confidence || 2.5), 0) / losList.length
-                            : 2.5,
-                          recentSessionsCount: sessionHistory.filter(s => s.status === 'Completed').length
-                        },
-                        {
-                          readingTitle: dailyMission.readingTitle,
-                          losCode: dailyMission.losCode,
-                          estimatedDurationHours: dailyMission.estimatedDurationHours
-                        }
-                      ),
-                      settings,
-                      (status, result) => {
-                        if (status === 'READY' && result?.text) {
-                          setCoachInsight(result.text);
-                        }
-                        if (status === 'READY' || status === 'FAILED') {
-                          setCoachInsightLoading(false);
-                        }
-                      }
-                    );
-                  }}
-                  className="px-3 py-1.5 text-[9px] font-mono font-bold uppercase border border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 cursor-pointer transition-all"
-                >
-                  Generate Tip
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Weak Topics Detection */}
-          {weakTopics && weakTopics.subjectWeakness.length > 0 && (
-            <div className="bg-white dark:bg-[#0B0F19] p-5 border border-slate-200 dark:border-slate-800 space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-                <div className="space-y-0.5">
-                  <h2 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white font-sans">
-                    Weak Topics
-                  </h2>
-                  <p className="text-[9px] text-slate-500 dark:text-slate-400 font-mono tracking-wider">INTELLIGENCE DETECTION</p>
-                </div>
-                <Brain className="h-4 w-4 text-rose-500 shrink-0" />
-              </div>
-              <div className="space-y-2">
-                {weakTopics.subjectWeakness.slice(0, 4).map(w => (
-                  <div key={w.subjectId} className="flex items-center justify-between text-[11px]">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-[9px] font-mono font-bold px-1 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 shrink-0">
-                        {w.code}
-                      </span>
-                      <span className="truncate text-slate-700 dark:text-slate-300">{w.name}</span>
-                    </div>
-                    <span className={`text-[10px] font-mono font-bold shrink-0 ml-2 ${
-                      w.weaknessScore > 70 ? 'text-rose-500' : w.weaknessScore > 40 ? 'text-amber-500' : 'text-emerald-500'
-                    }`}>
-                      {w.weaknessScore}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-              {weakTopics.topWeakestSubject && (
-                <p className="text-[9px] text-slate-400 italic">
-                  Weakest: {weakTopics.topWeakestSubject}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Syllabus Progress (moved to right column) */}
-          <CfaSyllabusProgressPanel
-            subjects={subjects}
-            readings={readings}
-            losList={losList}
-          />
-
         </div>
 
       </div>
-
-      {/* Mission Brief Drawer */}
-      {dailyMission && (
-        <MissionBriefDrawer
-          isOpen={showMissionBrief}
-          onClose={() => setShowMissionBrief(false)}
-          onBeginStudy={() => {
-            setShowMissionBrief(false);
-            startStudySession({
-              linkedSubjectId: dailyMission.subjectId,
-              linkedReadingId: dailyMission.readingId,
-              linkedLOSId: dailyMission.losId
-            });
-          }}
-          mission={{
-            subjectCode: dailyMission.subjectCode,
-            readingNumber: dailyMission.readingNumber,
-            readingTitle: dailyMission.readingTitle,
-            losCode: dailyMission.losCode,
-            statement: dailyMission.statement,
-            estimatedDurationHours: dailyMission.estimatedDurationHours,
-            confidenceLevel: dailyMission.confidenceLevel
-          }}
-          loading={missionBriefLoading}
-          failed={missionBriefFailed}
-          brief={missionBrief}
-        />
-      )}
 
       {/* Formula Active Recall Modal */}
       {selectedDashboardFormula && (
@@ -1270,7 +948,7 @@ export const Dashboard: React.FC = () => {
             </div>
             <FormulaCard 
               formula={selectedDashboardFormula} 
-              onUpdate={(id, updates) => {
+              onUpdateFormula={(updates) => {
                 updateFormula(selectedDashboardFormula.id, updates);
                 setSelectedDashboardFormula(prev => prev ? { ...prev, ...updates } : null);
               }} 

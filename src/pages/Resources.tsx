@@ -735,7 +735,7 @@ This external link has been registered inside your Knowledge Vault. Clicking "Op
                   onMouseUp={handleTextHighlight}
                   className="rounded border border-slate-200 bg-slate-50/20 p-4 text-[11px] font-serif text-slate-800 dark:border-[#1e2026] dark:bg-[#07080a]/30 dark:text-[#F8FAFC] min-h-60 max-h-96 overflow-y-auto leading-relaxed select-text"
                 >
-                  <MathRenderer text={previewPages[currentPage - 1]?.content || ''} />
+                  <MathRenderer math={previewPages[currentPage - 1]?.content || ''} />
                 </div>
 
                 {/* Highlighting Toolbar Helper */}

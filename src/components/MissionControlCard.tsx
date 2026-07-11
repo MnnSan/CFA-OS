@@ -168,7 +168,11 @@ const PhaseRow: React.FC<{
   );
 };
 
-const MissionControlCard: React.FC = () => {
+interface MissionControlCardProps {
+  onTriggerBrief?: () => void;
+}
+
+const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief }) => {
   const {
     dailyMission,
     settings,
@@ -178,6 +182,7 @@ const MissionControlCard: React.FC = () => {
     readings,
     plannerReadings,
     plannerProgress,
+    losList,
   } = useApp();
 
   const { missionControl, execution, coachRepository, adapter } = useMissionControl();
@@ -195,10 +200,16 @@ const MissionControlCard: React.FC = () => {
       (r: Resource) => r.linkedReadingId === dailyMission.readingId
     );
     const learningResources = adapter.toLearningResources(filtered);
+    const targetEOCQ = readings
+      .filter(r => r.id === dailyMission.readingId)
+      .reduce((sum, r) => sum + (r.targets?.eocqCount || 20), 0);
     const input: StackBuilderInput = {
       learningResources,
       formulas,
       notes,
+      losList,
+      plannerProgress: plannerProgress || [],
+      targetEOCQ,
       questionCount: filtered.length,
       dailyTargetHours: settings?.targetDailyHours || 2,
     };
@@ -373,7 +384,7 @@ const MissionControlCard: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex gap-2 mt-3 flex-wrap">
+        <div className="flex gap-2 mt-3 flex-wrap items-center">
           <span className={`px-2 py-0.5 text-[8px] font-mono font-bold uppercase tracking-wider border rounded ${loadColors[stack.cognitiveLoad] || loadColors.LOW}`}>
             {'\u26A1'} {stack.cognitiveLoad}
           </span>
@@ -384,6 +395,16 @@ const MissionControlCard: React.FC = () => {
             <span className="text-[8px] font-mono text-slate-400 italic self-center">
               {stack.cognitiveLoadReason}
             </span>
+          )}
+          {onTriggerBrief && (
+            <button
+              type="button"
+              onClick={onTriggerBrief}
+              className="px-2 py-0.5 text-[8px] font-mono font-bold uppercase tracking-wider border border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/50 rounded cursor-pointer transition-all duration-150 flex items-center gap-1 ml-auto"
+            >
+              <Sparkles className="h-2 w-2" />
+              <span>Pre-Study Brief</span>
+            </button>
           )}
         </div>
       </div>

@@ -32,6 +32,9 @@ export class MissionEngineService {
   public calculateMission(
     activeSessionLOSId: string | undefined,
     selectedLOSId: string | null,
+    selectedReadingId: string | null,
+    selectedChapterId: string | null,
+    selectedSubjectId: string | null,
     activeBlock: TimelineBlock | null,
     losList: LearningOutcomeStatement[],
     readings: Reading[],
@@ -81,6 +84,26 @@ export class MissionEngineService {
     // Priority 2: User-selected LOS
     if (!targetLOS && selectedLOSId) {
       targetLOS = losList.find(l => l.id === selectedLOSId);
+    }
+
+    // Priority 3: User-selected Reading (find first incomplete LOS, or first LOS if all completed)
+    if (!targetLOS && selectedReadingId) {
+      targetLOS = losList.find(l => l.readingId === selectedReadingId && l.status !== 'Completed')
+               || losList.find(l => l.readingId === selectedReadingId);
+    }
+
+    // Priority 4: User-selected Chapter (find first incomplete LOS, or first LOS if all completed)
+    if (!targetLOS && selectedChapterId) {
+      const chapterReadings = readings.filter(r => r.chapterId === selectedChapterId).map(r => r.id);
+      targetLOS = losList.find(l => chapterReadings.includes(l.readingId) && l.status !== 'Completed')
+               || losList.find(l => chapterReadings.includes(l.readingId));
+    }
+
+    // Priority 5: User-selected Subject (find first incomplete LOS, or first LOS if all completed)
+    if (!targetLOS && selectedSubjectId) {
+      const subjectReadings = readings.filter(r => r.subjectId === selectedSubjectId).map(r => r.id);
+      targetLOS = losList.find(l => subjectReadings.includes(l.readingId) && l.status !== 'Completed')
+               || losList.find(l => subjectReadings.includes(l.readingId));
     }
 
     // Priority 3: Coach planner active block — subdivide into the exact reading for today

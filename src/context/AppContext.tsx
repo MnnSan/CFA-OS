@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import {
   UserProfile,
   StudySettings,
@@ -24,7 +24,12 @@ import {
   DailySnapshot,
   GraphAnalyzerHealth,
   RevisionItem,
-  PlannerReadingProgress
+  PlannerReadingProgress,
+  Chapter,
+  CurriculumWorkspaceState,
+  TimelineTemplate,
+  TimelineBlock,
+  ReadingStudyTargets
 } from '../types';
 import { StudySessionService } from '../services/StudySessionService';
 import { CurriculumIntelligenceService } from '../services/CurriculumIntelligenceService';
@@ -61,8 +66,19 @@ import { IntelligenceAggregator } from '../services/IntelligenceAggregatorServic
 import { snapshotEngineService } from '../services/SnapshotEngineService';
 import { intelligenceQueryService, IntelligenceQueryService } from '../services/IntelligenceQueryService';
 import { intelligenceStream } from '../services/IntelligenceStream';
-import { PLANNER_READINGS, PLANNER_SUBJECTS, DEFAULT_PLANNER_PROGRESS } from '../data/plannerReadings';
 import { knowledgeIndexService } from '../services/KnowledgeIndexService';
+
+const LEGACY_ID_TO_NUMBER: Record<string, number> = {
+  'pln-cme-1': 1, 'pln-cme-2': 2, 'pln-aa-1': 3, 'pln-aa-2': 4, 'pln-aa-3': 5, 'pln-aa-4': 6,
+  'pln-eq-1': 10, 'pln-eq-2': 11, 'pln-fi-1': 12, 'pln-fi-2': 13, 'pln-ldi-1': 14, 'pln-yc-1': 15,
+  'pln-fi-deriv': 16, 'pln-pwm-1': 19, 'pln-pwm-2': 20, 'pln-pwm-3': 21, 'pln-inst-1': 22,
+  'pln-inst-2': 23, 'pln-perf-1': 24, 'pln-perf-2': 25, 'pln-eth-1': 26, 'pln-eth-2': 27,
+  'pln-alt-1': 28, 'pln-alt-2': 29, 'pln-risk-1': 30, 'pln-risk-2': 31, 'pln-case-1': 32,
+  'pln-case-2': 33
+};
+import { CurriculumService } from '../applications/cfa/curriculum/services/CurriculumService';
+import { CurriculumTreeService } from '../applications/cfa/curriculum/services/CurriculumTreeService';
+import { LearningResourceRepository, runMigration } from '../resources';
 
 /**
  * AppState holds the central, single-source-of-truth state for the operating system.
@@ -73,6 +89,8 @@ interface AppContextType {
   setActiveTab: (tab: string) => void;
   selectedSubjectId: string | null;
   setSelectedSubjectId: (id: string | null) => void;
+  selectedChapterId: string | null;
+  setSelectedChapterId: (id: string | null) => void;
   selectedReadingId: string | null;
   setSelectedReadingId: (id: string | null) => void;
   sidebarCollapsed: boolean;
@@ -195,193 +213,304 @@ interface AppContextType {
   updatePlannerReading: (id: string, updates: Partial<Reading>) => void;
   deletePlannerReading: (id: string) => void;
   addPlannerSubject: (subject: Omit<Subject, 'id'>) => string;
+
+  // Sprint 10 — Curriculum Tree (pre-existing page feature, not yet wired)
+  chapters: Chapter[];
+  curriculumService: CurriculumService;
+  curriculumTreeService: CurriculumTreeService;
+  workspaceState: CurriculumWorkspaceState;
+  updateWorkspaceState: (state: Partial<CurriculumWorkspaceState>) => void;
+
+  // Sprint 10 — Timeline Templates (pre-existing page feature, not yet wired)
+  templates: TimelineTemplate[];
+  activeTemplateId: string | null;
+  setActiveTemplate: (id: string | null) => void;
+  generateCoachPlan: () => void;
+  copyCoachToSandbox: () => void;
+  updateTemplateBlocks: (templateId: string, blocks: TimelineBlock[]) => void;
+  activeTemplate: TimelineTemplate | null;
+
+  // Reading workspace resource helpers
+  getResourcesByReading: (readingId: string) => any[];
+  markResourceOpened: (id: string) => void;
+  markResourceCompleted: (id: string) => void;
+  updateResourceProgress: (id: string, progress: number) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Initial Static Curriculum database for Level III (UUID-based relations)
-export const INITIAL_SUBJECTS: Subject[] = [
-  { id: 'e5b7b901-b258-45a7-96a8-a5b501d515a0', level: 'Level III', name: 'Ethical and Professional Standards', description: 'Application of Code and Standards, Asset Manager Code of Professional Conduct, and GIPS standards.', code: 'ETH' },
-  { id: '4d306b3a-5f05-4cbb-bb78-75c1a798ee73', level: 'Level III', name: 'Capital Market Expectations', description: 'Forecasting capital market returns, identifying economic indicators, and assessing risks.', code: 'CME' },
-  { id: '9c4bf2f5-d06a-49f3-a3d8-11f87a8b4bcf', level: 'Level III', name: 'Asset Allocation', description: 'Strategic and tactical asset allocation, optimization techniques, and implementation hurdles.', code: 'AA' },
-  { id: '7c9a4e05-c49b-4bc9-93e1-32a21008064d', level: 'Level III', name: 'Fixed Income Portfolio Management', description: 'Liability-driven investing, active yield curve strategies, and credit portfolio management.', code: 'FI' },
-  { id: '1c2f0d92-7f72-4752-9c16-8367a84e62ad', level: 'Level III', name: 'Equity Portfolio Management', description: 'Passive investing, active strategy execution, portfolio construction, and trading cost analytics.', code: 'EQ' },
-  { id: 'ea05b47a-6df2-47c5-a6e5-3ab45aef34fe', level: 'Level III', name: 'Alternative Investments', description: 'Hedge fund strategies, private equity, real estate, and asset allocation integrations.', code: 'ALT' },
-  { id: 'bc78e874-94c6-4b2a-89a1-5d9c2cfde548', level: 'Level III', name: 'Private Wealth Management', description: 'Tax management, estate planning, concentrated wealth positioning, and retirement analytics.', code: 'PWM' },
-  { id: '31d044fa-cf5b-43fe-b391-766cf2cde129', level: 'Level III', name: 'Institutional Asset Management', description: 'Pension plans, endowments, sovereign wealth funds, and investment policy statement constraints.', code: 'IAM' },
-  { id: 'df412a80-bfd7-463c-91df-cde24d5432ba', level: 'Level III', name: 'Portfolio Performance Evaluation', description: 'Benchmarking, attribution analysis, and assessing the skill vs. luck of active managers.', code: 'PE' },
-  { id: '9d8e1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b', level: 'Level III', name: 'Derivatives & Currency Management', description: 'Options, swaps, currency overlay, and cross-hedging strategies for institutional portfolios.', code: 'DC' },
-  { id: '1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d', level: 'Level III', name: 'Trading, Execution & Rebalancing', description: 'Trade cost analytics, implementation shortfall, portfolio rebalancing, and tax-aware trading.', code: 'TE' }
-];
+import {
+  INITIAL_2027_SUBJECTS,
+  INITIAL_2027_CHAPTERS,
+  INITIAL_2027_READINGS,
+  INITIAL_2027_LOS
+} from '../applications/cfa/curriculum/data/initialCurriculum';
 
-export const INITIAL_READINGS: Reading[] = [
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d001', subjectId: 'e5b7b901-b258-45a7-96a8-a5b501d515a0', number: 1, title: 'Code of Ethics & Standards of Professional Conduct', description: 'Ethical framework and professional requirements for investment professionals.' },
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d002', subjectId: 'e5b7b901-b258-45a7-96a8-a5b501d515a0', number: 2, title: 'Guidance for Standards I–VII', description: 'Deep dive into standard operations, compliance advice, and violation scenarios.' },
-  
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d005', subjectId: '4d306b3a-5f05-4cbb-bb78-75c1a798ee73', number: 5, title: 'Capital Market Expectations: Forecasting Tools', description: 'Overview of quantitative and qualitative forecasting methods and sources of measurement error.' },
-  
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d008', subjectId: '9c4bf2f5-d06a-49f3-a3d8-11f87a8b4bcf', number: 8, title: 'Principles of Asset Allocation', description: 'Mean-variance optimization, Black-Litterman model, and Monte Carlo simulation in asset mixing.' },
-  
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d012', subjectId: '7c9a4e05-c49b-4bc9-93e1-32a21008064d', number: 12, title: 'Liability-Driven & Index-Based Fixed Income Strategies', description: 'Immunization techniques, cash flow matching, and tracking fixed-income indexes.' },
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d013', subjectId: '7c9a4e05-c49b-4bc9-93e1-32a21008064d', number: 13, title: 'Yield Curve Strategies', description: 'Formulating active strategies based on yield curve shifts, twists, and key rate durations.' },
-  
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d015', subjectId: '1c2f0d92-7f72-4752-9c16-8367a84e62ad', number: 15, title: 'Active Equity Investing: Strategies', description: 'Fundamental vs. quantitative active equity approaches, factor modeling, and structural styles.' },
-  
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d019', subjectId: 'bc78e874-94c6-4b2a-89a1-5d9c2cfde548', number: 19, title: 'Taxes & Private Wealth Management', description: 'Impact of tax environments, asset location, tax-loss harvesting, and wealth transfer vehicles.' },
-
-  // === Portfolio Management Pathway Seeding (Sprint 9) ===
-  // Ethics (Pathway)
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d003', subjectId: 'e5b7b901-b258-45a7-96a8-a5b501d515a0', number: 3, title: 'Asset Manager Code of Professional Conduct', description: 'Professional obligations for asset management firms and compliance procedures.' },
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d004', subjectId: 'e5b7b901-b258-45a7-96a8-a5b501d515a0', number: 4, title: 'Global Investment Performance Standards (GIPS)', description: 'GIPS standards for performance presentation, verification, and composite construction.' },
-
-  // Capital Market Expectations (Pathway)
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d006', subjectId: '4d306b3a-5f05-4cbb-bb78-75c1a798ee73', number: 6, title: 'Capital Market Expectations: Economic Growth & Investment Decision', description: 'Economic growth theory, productivity trends, and demographic impact on investment decisions.' },
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d007', subjectId: '4d306b3a-5f05-4cbb-bb78-75c1a798ee73', number: 7, title: 'Capital Market Expectations: Forecasting Application', description: 'Applying forecasting tools to build asset class return expectations across equity, fixed income, and alternatives.' },
-
-  // Asset Allocation (Pathway)
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d009', subjectId: '9c4bf2f5-d06a-49f3-a3d8-11f87a8b4bcf', number: 9, title: 'Asset Allocation: Beyond Mean-Variance', description: 'Goals-based allocation, risk parity, factor-based allocation, and Monte Carlo simulation applications.' },
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d010', subjectId: '9c4bf2f5-d06a-49f3-a3d8-11f87a8b4bcf', number: 10, title: 'Asset Allocation: Implementation & Rebalancing', description: 'Rebalancing strategies, implementation constraints, illiquid assets, and rebalancing governance.' },
-
-  // Fixed Income (Pathway)
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d011', subjectId: '7c9a4e05-c49b-4bc9-93e1-32a21008064d', number: 11, title: 'Credit Strategies in Fixed Income', description: 'Credit analysis, relative value, credit curve strategies, and distressed debt investing.' },
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d014', subjectId: '7c9a4e05-c49b-4bc9-93e1-32a21008064d', number: 14, title: 'Fixed-Income Derivatives & Structured Products', description: 'Futures, swaps, options, swaptions, CDS, and structured credit portfolio strategies.' },
-
-  // Equity (Pathway)
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d016', subjectId: '1c2f0d92-7f72-4752-9c16-8367a84e62ad', number: 16, title: 'Passive & Semi-Active Equity Investing', description: 'Index-based, enhanced indexing, smart beta, and factor-based equity portfolio strategies.' },
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d017', subjectId: '1c2f0d92-7f72-4752-9c16-8367a84e62ad', number: 17, title: 'Equity Portfolio Construction & Implementation', description: 'Portfolio construction process, risk budgeting, trading costs, and implementation decisions.' },
-
-  // Alternatives (Pathway)
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d018', subjectId: 'ea05b47a-6df2-47c5-a6e5-3ab45aef34fe', number: 18, title: 'Hedge Fund Strategies & Portfolio Integration', description: 'Hedge fund strategies, fees, due diligence, and portfolio construction with alternative assets.' },
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d020', subjectId: 'ea05b47a-6df2-47c5-a6e5-3ab45aef34fe', number: 20, title: 'Private Equity & Real Estate Investing', description: 'Private equity fund structures, valuation, real estate investment trusts, and direct property investing.' },
-
-  // Derivatives & Currency Management (Pathway)
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d021', subjectId: '9d8e1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b', number: 21, title: 'Currency Management: An Introduction', description: 'Foreign exchange risk, currency return decomposition, and strategic currency allocation.', estimatedHours: 4 },
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d022', subjectId: '9d8e1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b', number: 22, title: 'Currency Hedging & Overlay Strategies', description: 'Forward hedging, options-based hedging, cross-hedging, and currency overlay mandates.', estimatedHours: 5 },
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d023', subjectId: '9d8e1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b', number: 23, title: 'Options & Swaps Strategies', description: 'Option strategies for portfolio management, interest rate swaps, total return swaps, and volatility trading.', estimatedHours: 6 },
-
-  // Trading, Execution & Rebalancing (Pathway)
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d024', subjectId: '1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d', number: 24, title: 'Trading Costs & Execution Analytics', description: 'Implementation shortfall, VWAP, arrival price algorithms, and best execution frameworks.', estimatedHours: 3 },
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d025', subjectId: '1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d', number: 25, title: 'Portfolio Rebalancing & Tax Management', description: 'Rebalancing triggers, tax-aware rebalancing, asset location, and tax-loss harvesting strategies.', estimatedHours: 4 },
-
-  // Performance Evaluation (Pathway)
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d026', subjectId: 'df412a80-bfd7-463c-91df-cde24d5432ba', number: 26, title: 'Portfolio Performance Evaluation', description: 'Benchmark selection, performance measurement, return decomposition, and skill vs luck assessment.', estimatedHours: 4 },
-  { id: 'ab102030-4050-4060-8070-90a0b0c0d027', subjectId: 'df412a80-bfd7-463c-91df-cde24d5432ba', number: 27, title: 'Performance Attribution & Risk-Adjusted Returns', description: 'Factor-based attribution, Brinson attribution, currency attribution, and risk-adjusted return metrics.', estimatedHours: 5 }
-];
-
-export const INITIAL_LOS: LearningOutcomeStatement[] = [
-  // Ethics Reading 1
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d10a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d001', code: '1.a', statement: 'Demonstrate the application of the Code of Ethics and Standards of Professional Conduct to situations involving issues of professional integrity.', status: 'In Progress', confidence: 3, difficulty: 'Medium', bookmarked: true, estimatedHours: 2, actualHours: 1.5, questionsAttempted: 10, questionsCorrect: 7 },
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d10b', readingId: 'ab102030-4050-4060-8070-90a0b0c0d001', code: '1.b', statement: 'Distinguish between conduct that conforms to the Code and Standards and conduct that violates them.', status: 'Not Started', confidence: null, difficulty: 'Medium', bookmarked: false },
-  
-  // CME Reading 5
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d50a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d005', code: '5.a', statement: 'Discuss the role of capital market expectations in the asset allocation process.', status: 'Completed', confidence: 5, difficulty: 'Easy', bookmarked: false, estimatedHours: 1, actualHours: 1, questionsAttempted: 5, questionsCorrect: 5 },
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d50b', readingId: 'ab102030-4050-4060-8070-90a0b0c0d005', code: '5.b', statement: 'Compare formal forecasting tools, including statistical models, discounted cash flow models, risk premium approaches, and financial market surveys.', status: 'In Progress', confidence: 2, difficulty: 'Hard', bookmarked: true, estimatedHours: 4, actualHours: 3, questionsAttempted: 15, questionsCorrect: 8, relatedFormulas: ['f02f0d92-7f72-4752-9c16-8367a84e6202'], formulaIds: ['f02f0d92-7f72-4752-9c16-8367a84e6202'] },
-  
-  // Asset Allocation Reading 8
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d80a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d008', code: '8.a', statement: 'Explain the principles of strategic asset allocation and the role of the investment policy statement (IPS).', status: 'Not Started', confidence: null, difficulty: 'Medium', bookmarked: false, relatedFormulas: ['f02f0d92-7f72-4752-9c16-8367a84e6204'], formulaIds: ['f02f0d92-7f72-4752-9c16-8367a84e6204'] },
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d80b', readingId: 'ab102030-4050-4060-8070-90a0b0c0d008', code: '8.b', statement: 'Critique mean–variance optimization and discuss its limitations, including input sensitivity and concentrated allocations.', status: 'Not Started', confidence: null, difficulty: 'Hard', bookmarked: false, relatedFormulas: ['f02f0d92-7f72-4752-9c16-8367a84e6205'], formulaIds: ['f02f0d92-7f72-4752-9c16-8367a84e6205'] },
-  
-  // Fixed Income Reading 12
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d12a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d012', code: '12.a', statement: 'Discuss the roles of assets and liabilities and the relative importance of immunizing vs. cash-flow matching.', status: 'Completed', confidence: 4, difficulty: 'Medium', bookmarked: false, estimatedHours: 3, actualHours: 2.5, questionsAttempted: 12, questionsCorrect: 10, relatedNotes: ['11111111-2222-3333-4444-555555555551'] },
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d12b', readingId: 'ab102030-4050-4060-8070-90a0b0c0d012', code: '12.b', statement: 'Formulate a liability-driven investment strategy (e.g., duration matching, contingent immunization).', status: 'Not Started', confidence: null, difficulty: 'Hard', bookmarked: false },
-  
-  // Fixed Income Reading 13
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d13a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d013', code: '13.a', statement: 'Formulate a portfolio strategy based on capital market expectations for the yield curve (including bullet, barbell, ladder, and yield curve shifts).', status: 'In Progress', confidence: 3, difficulty: 'Hard', bookmarked: true, estimatedHours: 5, actualHours: 4, questionsAttempted: 22, questionsCorrect: 15, relatedFormulas: ['f02f0d92-7f72-4752-9c16-8367a84e6203'], formulaIds: ['f02f0d92-7f72-4752-9c16-8367a84e6203'] },
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d13b', readingId: 'ab102030-4050-4060-8070-90a0b0c0d013', code: '13.b', statement: 'Explain yield curve strategies using derivatives (futures, options, swaps) and how they impact duration and convexity.', status: 'Not Started', confidence: null, difficulty: 'Hard', bookmarked: false },
-
-  // Equity Reading 15
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d15a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d015', code: '15.a', statement: 'Compare fundamental and quantitative active investment approaches to equity portfolio management.', status: 'Not Started', confidence: null, difficulty: 'Easy', bookmarked: false, relatedFormulas: ['f02f0d92-7f72-4752-9c16-8367a84e6201'], formulaIds: ['f02f0d92-7f72-4752-9c16-8367a84e6201'] },
-  
-  // PWM Reading 19
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d19a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d019', code: '19.a', statement: 'Discuss the effects of different tax systems (income tax, wealth tax, capital gains tax) on post-tax asset accumulation.', status: 'Not Started', confidence: null, difficulty: 'Medium', bookmarked: false, relatedFormulas: ['f02f0d92-7f72-4752-9c16-8367a84e6206'], formulaIds: ['f02f0d92-7f72-4752-9c16-8367a84e6206'] },
-
-  // === Portfolio Management Pathway LOS (Sprint 9) ===
-  // Ethics — Asset Manager Code (Reading 3)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d03a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d003', code: '3.a', statement: 'Explain the provisions of the Asset Manager Code of Professional Conduct.', status: 'Not Started', confidence: null, difficulty: 'Easy', bookmarked: false },
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d03b', readingId: 'ab102030-4050-4060-8070-90a0b0c0d003', code: '3.b', statement: 'Discuss the ethical responsibilities of asset managers to clients and beneficiaries.', status: 'Not Started', confidence: null, difficulty: 'Medium', bookmarked: false },
-
-  // Ethics — GIPS (Reading 4)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d04a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d004', code: '4.a', statement: 'Explain the key provisions of the Global Investment Performance Standards.', status: 'Not Started', confidence: null, difficulty: 'Medium', bookmarked: false },
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d04b', readingId: 'ab102030-4050-4060-8070-90a0b0c0d004', code: '4.b', statement: 'Evaluate compliance with GIPS standards in composite construction and performance presentation.', status: 'Not Started', confidence: null, difficulty: 'Hard', bookmarked: false },
-
-  // CME — Economic Growth (Reading 6)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d06a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d006', code: '6.a', statement: 'Analyze the relationship between economic growth, productivity, and investment returns.', status: 'Not Started', confidence: null, difficulty: 'Medium', bookmarked: false },
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d06b', readingId: 'ab102030-4050-4060-8070-90a0b0c0d006', code: '6.b', statement: 'Evaluate demographic trends and their impact on capital market expectations.', status: 'Not Started', confidence: null, difficulty: 'Hard', bookmarked: false },
-
-  // CME — Forecasting Application (Reading 7)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d07a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d007', code: '7.a', statement: 'Apply forecasting tools to develop capital market expectations for major asset classes.', status: 'Not Started', confidence: null, difficulty: 'Medium', bookmarked: false },
-
-  // AA — Beyond Mean-Variance (Reading 9)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d09a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d009', code: '9.a', statement: 'Compare goals-based, risk parity, and factor-based approaches to asset allocation.', status: 'Not Started', confidence: null, difficulty: 'Medium', bookmarked: false },
-
-  // AA — Implementation & Rebalancing (Reading 10)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d10a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d010', code: '10.a', statement: 'Formulate rebalancing strategies considering transaction costs, taxes, and liquidity constraints.', status: 'Not Started', confidence: null, difficulty: 'Hard', bookmarked: false },
-
-  // FI — Credit Strategies (Reading 11)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d11a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d011', code: '11.a', statement: 'Analyze credit portfolio strategies including relative value and credit curve positioning.', status: 'Not Started', confidence: null, difficulty: 'Hard', bookmarked: false },
-
-  // FI — Derivatives & Structured (Reading 14)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d14a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d014', code: '14.a', statement: 'Evaluate the use of fixed-income derivatives for portfolio risk management and yield enhancement.', status: 'Not Started', confidence: null, difficulty: 'Hard', bookmarked: false, estimatedHours: 4 },
-
-  // EQ — Passive & Semi-Active (Reading 16)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d16a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d016', code: '16.a', statement: 'Compare passive, enhanced indexing, and smart beta equity portfolio strategies.', status: 'Not Started', confidence: null, difficulty: 'Medium', bookmarked: false },
-
-  // EQ — Portfolio Construction (Reading 17)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d17a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d017', code: '17.a', statement: 'Evaluate equity portfolio construction decisions including risk budgeting and implementation constraints.', status: 'Not Started', confidence: null, difficulty: 'Hard', bookmarked: false, estimatedHours: 3 },
-
-  // ALT — Hedge Funds (Reading 18)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d18a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d018', code: '18.a', statement: 'Analyze hedge fund strategies and evaluate their role in multi-asset portfolios.', status: 'Not Started', confidence: null, difficulty: 'Medium', bookmarked: false },
-
-  // ALT — Private Equity & Real Estate (Reading 20)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d20a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d020', code: '20.a', statement: 'Evaluate private equity and real estate as portfolio asset classes including valuation and risk.', status: 'Not Started', confidence: null, difficulty: 'Hard', bookmarked: false },
-
-  // DC — Currency Introduction (Reading 21)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d21a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d021', code: '21.a', statement: 'Analyze foreign exchange risk and currency return decomposition in global portfolios.', status: 'Not Started', confidence: null, difficulty: 'Medium', bookmarked: false },
-
-  // DC — Currency Hedging (Reading 22)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d22a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d022', code: '22.a', statement: 'Formulate currency hedging strategies using forwards, options, and overlay mandates.', status: 'Not Started', confidence: null, difficulty: 'Hard', bookmarked: false, estimatedHours: 4 },
-
-  // DC — Options & Swaps (Reading 23)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d23a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d023', code: '23.a', statement: 'Evaluate option and swap strategies for institutional portfolio management.', status: 'Not Started', confidence: null, difficulty: 'Hard', bookmarked: false, estimatedHours: 4 },
-
-  // TE — Trading Costs (Reading 24)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d24a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d024', code: '24.a', statement: 'Evaluate trade execution quality using implementation shortfall and benchmark algorithms.', status: 'Not Started', confidence: null, difficulty: 'Medium', bookmarked: false },
-
-  // TE — Rebalancing & Tax (Reading 25)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d25a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d025', code: '25.a', statement: 'Design tax-aware portfolio rebalancing strategies including asset location and tax-loss harvesting.', status: 'Not Started', confidence: null, difficulty: 'Hard', bookmarked: false, estimatedHours: 3 },
-
-  // PE — Performance Evaluation (Reading 26)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d26a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d026', code: '26.a', statement: 'Evaluate portfolio performance using appropriate benchmarks and return decomposition.', status: 'Not Started', confidence: null, difficulty: 'Medium', bookmarked: false },
-
-  // PE — Attribution (Reading 27)
-  { id: 'cf102030-4050-4060-8070-90a0b0c0d27a', readingId: 'ab102030-4050-4060-8070-90a0b0c0d027', code: '27.a', statement: 'Apply Brinson and factor-based attribution to decompose portfolio returns and assess manager skill.', status: 'Not Started', confidence: null, difficulty: 'Hard', bookmarked: false, estimatedHours: 4 }
-];
+export const INITIAL_SUBJECTS: Subject[] = INITIAL_2027_SUBJECTS;
+export const INITIAL_READINGS: Reading[] = INITIAL_2027_READINGS;
+export const INITIAL_LOS: LearningOutcomeStatement[] = INITIAL_2027_LOS;
 
 // ── Pathway Configuration ──
 export const CHOSEN_PATHWAY = 'PortfolioManagement';
 
-// Subject IDs excluded from the chosen pathway (Private Wealth Management, Private Markets)
-const PWM_SUBJECT_IDS = ['bc78e874-94c6-4b2a-89a1-5d9c2cfde548'];
-const PWM_PLANNER_SUBJECT_IDS = ['sub-private-wealth'];
+const PWM_SUBJECT_IDS: string[] = [];
 
-export const FILTERED_SUBJECTS: Subject[] = INITIAL_SUBJECTS.filter(s => !PWM_SUBJECT_IDS.includes(s.id));
-export const FILTERED_READINGS: Reading[] = INITIAL_READINGS.filter(r => !PWM_SUBJECT_IDS.includes(r.subjectId));
-export const FILTERED_LOS: LearningOutcomeStatement[] = INITIAL_LOS.filter(l => {
-  const reading = INITIAL_READINGS.find(r => r.id === l.readingId);
-  return !reading || !PWM_SUBJECT_IDS.includes(reading.subjectId);
-});
+export const FILTERED_SUBJECTS: Subject[] = INITIAL_SUBJECTS;
+export const FILTERED_READINGS: Reading[] = INITIAL_READINGS;
+export const FILTERED_LOS: LearningOutcomeStatement[] = INITIAL_LOS;
 
-const FILTERED_PLANNER_READINGS = PLANNER_READINGS.filter(r => !PWM_PLANNER_SUBJECT_IDS.includes(r.subjectId));
-const FILTERED_PLANNER_SUBJECTS = PLANNER_SUBJECTS.filter(s => !PWM_PLANNER_SUBJECT_IDS.includes(s.id));
-const FILTERED_PLANNER_DEFAULT_PROGRESS = FILTERED_PLANNER_READINGS.map(r => ({
-  readingId: r.id, loggedVideoMinutes: 0, completedEOCQ: 0
-}));
+// PWM Planner Configuration
+const PWM_PLANNER_SUBJECT_IDS: string[] = [];
+
+// UUID to 2027 Curriculum ID Mapping Dictionary
+export const UUID_TO_2027_MAP: Record<string, string> = {
+  // Subjects
+  'e5b7b901-b258-45a7-96a8-a5b501d515a0': 'sub-ethical-professional',
+  '4d306b3a-5f05-4cbb-bb78-75c1a798ee73': 'sub-asset-allocation',
+  '9c4bf2f5-d06a-49f3-a3d8-11f87a8b4bcf': 'sub-asset-allocation',
+  '7c9a4e05-c49b-4bc9-93e1-32a21008064d': 'sub-portfolio-construction',
+  '1c2f0d92-7f72-4752-9c16-8367a84e62ad': 'sub-portfolio-construction',
+  'ea05b47a-6df2-47c5-a6e5-3ab45aef34fe': 'sub-portfolio-construction',
+  'bc78e874-94c6-4b2a-89a1-5d9c2cfde548': 'sub-portfolio-construction',
+  '31d044fa-cf5b-43fe-b391-766cf2cde129': 'sub-portfolio-construction',
+  'df412a80-bfd7-463c-91df-cde24d5432ba': 'sub-performance-measurement',
+  '9d8e1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b': 'sub-derivatives-risk-mgmt',
+  '1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d': 'sub-portfolio-construction',
+
+  // Readings
+  'ab102030-4050-4060-8070-90a0b0c0d001': 'read-eth-code',
+  'ab102030-4050-4060-8070-90a0b0c0d002': 'read-eth-std-1',
+  'ab102030-4050-4060-8070-90a0b0c0d003': 'read-eth-asset-code',
+  'ab102030-4050-4060-8070-90a0b0c0d004': 'read-perf-gips',
+  'ab102030-4050-4060-8070-90a0b0c0d005': 'read-cme-2',
+  'ab102030-4050-4060-8070-90a0b0c0d006': 'read-cme-1',
+  'ab102030-4050-4060-8070-90a0b0c0d007': 'read-cme-2',
+  'ab102030-4050-4060-8070-90a0b0c0d008': 'read-aa-principles',
+  'ab102030-4050-4060-8070-90a0b0c0d009': 'read-aa-principles',
+  'ab102030-4050-4060-8070-90a0b0c0d010': 'read-aa-constraints',
+  'ab102030-4050-4060-8070-90a0b0c0d011': 'read-path-fi-credit',
+  'ab102030-4050-4060-8070-90a0b0c0d012': 'read-path-ldi',
+  'ab102030-4050-4060-8070-90a0b0c0d013': 'read-path-yc',
+  'ab102030-4050-4060-8070-90a0b0c0d014': 'read-path-yc',
+  'ab102030-4050-4060-8070-90a0b0c0d015': 'read-path-active-eq',
+  'ab102030-4050-4060-8070-90a0b0c0d016': 'read-path-index-eq',
+  'ab102030-4050-4060-8070-90a0b0c0d017': 'read-path-active-eq-const',
+  'ab102030-4050-4060-8070-90a0b0c0d018': 'read-pc-alternatives',
+  'ab102030-4050-4060-8070-90a0b0c0d019': 'read-pc-pwm',
+  'ab102030-4050-4060-8070-90a0b0c0d020': 'read-pc-alternatives',
+  'ab102030-4050-4060-8070-90a0b0c0d021': 'read-deriv-currency',
+  'ab102030-4050-4060-8070-90a0b0c0d022': 'read-deriv-currency',
+  'ab102030-4050-4060-8070-90a0b0c0d023': 'read-deriv-options',
+  'ab102030-4050-4060-8070-90a0b0c0d024': 'read-path-trade-exec',
+  'ab102030-4050-4060-8070-90a0b0c0d025': 'read-path-trade-exec',
+  'ab102030-4050-4060-8070-90a0b0c0d026': 'read-perf-evaluation',
+  'ab102030-4050-4060-8070-90a0b0c0d027': 'read-perf-evaluation',
+
+  // LOS
+  'cf102030-4050-4060-8070-90a0b0c0d10a': 'los-19a',
+  'cf102030-4050-4060-8070-90a0b0c0d10b': 'los-19b',
+  'cf102030-4050-4060-8070-90a0b0c0d50a': 'los-2a',
+  'cf102030-4050-4060-8070-90a0b0c0d50b': 'los-2c',
+  'cf102030-4050-4060-8070-90a0b0c0d80a': 'los-3a',
+  'cf102030-4050-4060-8070-90a0b0c0d80b': 'los-4a',
+  'cf102030-4050-4060-8070-90a0b0c0d12a': 'los-p4a',
+  'cf102030-4050-4060-8070-90a0b0c0d12b': 'los-p4c',
+  'cf102030-4050-4060-8070-90a0b0c0d13a': 'los-p5b',
+  'cf102030-4050-4060-8070-90a0b0c0d13b': 'los-p5d',
+  'cf102030-4050-4060-8070-90a0b0c0d15a': 'los-p2a',
+  'cf102030-4050-4060-8070-90a0b0c0d19a': 'los-9d',
+  'cf102030-4050-4060-8070-90a0b0c0d03a': 'los-22a',
+  'cf102030-4050-4060-8070-90a0b0c0d03b': 'los-22b',
+  'cf102030-4050-4060-8070-90a0b0c0d04a': 'los-15a',
+  'cf102030-4050-4060-8070-90a0b0c0d04b': 'los-15b',
+  'cf102030-4050-4060-8070-90a0b0c0d06a': 'los-1c',
+  'cf102030-4050-4060-8070-90a0b0c0d06b': 'los-1d',
+  'cf102030-4050-4060-8070-90a0b0c0d07a': 'los-2h',
+  'cf102030-4050-4060-8070-90a0b0c0d09a': 'los-4i',
+  'cf102030-4050-4060-8070-90a0b0c0d11a': 'los-p6c',
+  'cf102030-4050-4060-8070-90a0b0c0d14a': 'los-p6g',
+  'cf102030-4050-4060-8070-90a0b0c0d16a': 'los-p1a',
+  'cf102030-4050-4060-8070-90a0b0c0d17a': 'los-p3b',
+  'cf102030-4050-4060-8070-90a0b0c0d18a': 'los-8f',
+  'cf102030-4050-4060-8070-90a0b0c0d20a': 'los-8f',
+  'cf102030-4050-4060-8070-90a0b0c0d21a': 'los-18a',
+  'cf102030-4050-4060-8070-90a0b0c0d22a': 'los-18c',
+  'cf102030-4050-4060-8070-90a0b0c0d23a': 'los-17a',
+  'cf102030-4050-4060-8070-90a0b0c0d24a': 'los-11c',
+  'cf102030-4050-4060-8070-90a0b0c0d25a': 'los-5b',
+  'cf102030-4050-4060-8070-90a0b0c0d26a': 'los-13e',
+  'cf102030-4050-4060-8070-90a0b0c0d27a': 'los-13f'
+};
+
+export function migrateAndMergeLOS(savedLosRaw: string | null): LearningOutcomeStatement[] {
+  let savedLos: LearningOutcomeStatement[] = [];
+  if (savedLosRaw) {
+    try {
+      const parsed = JSON.parse(savedLosRaw);
+      if (Array.isArray(parsed)) {
+        savedLos = parsed;
+      }
+    } catch (e) { }
+  }
+
+  const savedStateMap = new Map<string, Partial<LearningOutcomeStatement>>();
+  for (const item of savedLos) {
+    if (!item || !item.id) continue;
+    const migratedId = UUID_TO_2027_MAP[item.id] || item.id;
+    savedStateMap.set(migratedId, {
+      status: item.status,
+      confidence: item.confidence,
+      bookmarked: item.bookmarked,
+      actualHours: item.actualHours,
+      questionsAttempted: item.questionsAttempted,
+      questionsCorrect: item.questionsCorrect,
+      relatedNotes: item.relatedNotes?.map(noteId => UUID_TO_2027_MAP[noteId] || noteId),
+      relatedFormulas: item.relatedFormulas?.map(fId => UUID_TO_2027_MAP[fId] || fId),
+      formulaIds: item.formulaIds?.map(fId => UUID_TO_2027_MAP[fId] || fId)
+    });
+  }
+
+  return INITIAL_2027_LOS.map(los => {
+    const saved = savedStateMap.get(los.id);
+    if (saved) {
+      return {
+        ...los,
+        status: saved.status ?? los.status,
+        confidence: saved.confidence !== undefined ? saved.confidence : los.confidence,
+        bookmarked: saved.bookmarked ?? los.bookmarked,
+        actualHours: saved.actualHours ?? los.actualHours,
+        questionsAttempted: saved.questionsAttempted ?? los.questionsAttempted,
+        questionsCorrect: saved.questionsCorrect ?? los.questionsCorrect,
+        relatedNotes: saved.relatedNotes ?? los.relatedNotes,
+        relatedFormulas: saved.relatedFormulas ?? los.relatedFormulas,
+        formulaIds: saved.formulaIds ?? los.formulaIds
+      };
+    }
+    return los;
+  });
+}
+
+export function migrateNotes(savedNotesRaw: string | null): StudyNote[] {
+  let notes: StudyNote[] = [];
+  if (savedNotesRaw) {
+    try {
+      const parsed = JSON.parse(savedNotesRaw);
+      if (Array.isArray(parsed)) {
+        notes = parsed;
+      }
+    } catch (e) { }
+  } else {
+    notes = INITIAL_NOTES;
+  }
+
+  return notes.map(n => ({
+    ...n,
+    linkedSubjectId: n.linkedSubjectId ? (UUID_TO_2027_MAP[n.linkedSubjectId] || n.linkedSubjectId) : undefined,
+    linkedReadingId: n.linkedReadingId ? (UUID_TO_2027_MAP[n.linkedReadingId] || n.linkedReadingId) : undefined,
+    linkedLOSId: n.linkedLOSId ? (UUID_TO_2027_MAP[n.linkedLOSId] || n.linkedLOSId) : undefined
+  }));
+}
+
+export function migrateResources(savedResourcesRaw: string | null): Resource[] {
+  let resources: Resource[] = [];
+  if (savedResourcesRaw) {
+    try {
+      const parsed = JSON.parse(savedResourcesRaw);
+      if (Array.isArray(parsed)) {
+        resources = parsed;
+      }
+    } catch (e) { }
+  }
+  if (!resources || resources.length === 0) {
+    resources = INITIAL_RESOURCES;
+  }
+
+  return resources.map(r => ({
+    ...r,
+    linkedSubjectId: r.linkedSubjectId ? (UUID_TO_2027_MAP[r.linkedSubjectId] || r.linkedSubjectId) : undefined,
+    linkedReadingId: r.linkedReadingId ? (UUID_TO_2027_MAP[r.linkedReadingId] || r.linkedReadingId) : undefined,
+    linkedLOSId: r.linkedLOSId ? (UUID_TO_2027_MAP[r.linkedLOSId] || r.linkedLOSId) : undefined
+  }));
+}
+
+export function adaptLearningResources(lrs: any[]): Resource[] {
+  return lrs.map(lr => ({
+    id: lr.id,
+    name: lr.title,
+    category: 'Videos' as const,
+    url: lr.launchUrl || '#',
+    fileType: lr.resourceType === 'Lecture' || lr.resourceType === 'Video' ? 'mp4' : 'pdf',
+    dateAdded: lr.importMetadata?.importedAt ? lr.importMetadata.importedAt.split('T')[0] : new Date().toISOString().split('T')[0],
+    isFavorite: false,
+    description: lr.description,
+    linkedReadingId: lr.readingId,
+    linkedLOSId: lr.losIds?.[0],
+    readingProgress: lr.progress?.completed ? 100 : Math.round(((lr.progress?.minutesCompleted || 0) / (lr.duration || 1)) * 100) || 0,
+    lastReadPage: lr.progress?.resumeState ? parseInt(lr.progress.resumeState) || undefined : undefined,
+    lastReadAt: lr.progress?.lastOpenedAt || undefined
+  }));
+}
+
+export function getReadingWithTargets(
+  r: Reading,
+  losList: LearningOutcomeStatement[],
+  resources: Resource[]
+): Reading & { targets: ReadingStudyTargets } {
+  const readingVideos = resources.filter(res => res.linkedReadingId === r.id && res.fileType === 'mp4');
+  const videoDurationMinutes = readingVideos.reduce((sum, res) => {
+    const repo = new LearningResourceRepository();
+    const lr = repo.getById(res.id);
+    return sum + (lr?.duration || 0);
+  }, 0);
+
+  const pageCount = r.targets?.pageCount || 40;
+  const eocqCount = r.targets?.eocqCount || 15;
+  const weightingFactor = r.targets?.weightingFactor || 1.0;
+  const totalLOSCount = losList.filter(l => l.readingId === r.id).length || r.targets?.totalLOSCount || 0;
+
+  const finalVideoDuration = videoDurationMinutes || r.targets?.videoDurationMinutes || 60;
+  const h = Math.floor(finalVideoDuration / 60);
+  const m = Math.round(finalVideoDuration % 60);
+  const videoDurationString = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00`;
+
+  return {
+    ...r,
+    targets: {
+      pageCount,
+      totalLOSCount,
+      eocqCount,
+      videoDurationMinutes: finalVideoDuration,
+      videoDurationString,
+      weightingFactor
+    }
+  };
+}
+
+export function migrateEvents(savedEventsRaw: string | null): CalendarEvent[] {
+  let events: CalendarEvent[] = [];
+  if (savedEventsRaw) {
+    try {
+      const parsed = JSON.parse(savedEventsRaw);
+      if (Array.isArray(parsed)) {
+        events = parsed;
+      }
+    } catch (e) { }
+  } else {
+    events = INITIAL_EVENTS;
+  }
+
+  return events.map(e => ({
+    ...e,
+    linkedSubjectId: e.linkedSubjectId ? (UUID_TO_2027_MAP[e.linkedSubjectId] || e.linkedSubjectId) : undefined,
+    linkedReadingId: e.linkedReadingId ? (UUID_TO_2027_MAP[e.linkedReadingId] || e.linkedReadingId) : undefined
+  }));
+}
 
 export const INITIAL_RESOURCES: Resource[] = [
-  { id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee1', name: 'CFA Institute Level III Volume 4 Fixed Income.pdf', category: 'Curriculum PDFs', url: '#', fileType: 'pdf', fileSize: '18.4 MB', dateAdded: '2026-06-15', isFavorite: true, description: 'Official CFA curriculum reading coverage for Fixed Income Portfolio Management.', linkedReadingId: 'ab102030-4050-4060-8070-90a0b0c0d012', linkedLOSId: 'cf102030-4050-4060-8070-90a0b0c0d12a' },
+  { id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee1', name: 'CFA Institute Level III Volume 4 Fixed Income.pdf', category: 'Curriculum PDFs', url: '#', fileType: 'pdf', fileSize: '18.4 MB', dateAdded: '2026-06-15', isFavorite: true, description: 'Official CFA curriculum reading coverage for Fixed Income Portfolio Management.', linkedReadingId: 'read-path-ldi', linkedLOSId: 'los-p4a' },
   { id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee2', name: 'Schweser Secret Sauce Level III - Formulas & Tips.pdf', category: 'Schweser', url: '#', fileType: 'pdf', fileSize: '2.1 MB', dateAdded: '2026-06-20', isFavorite: true, description: 'Quick revision and key formula guidelines for final weeks.' },
-  { id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee3', name: 'Active Yield Curve Trades & Twists Cheat Sheet', category: 'Formula Sheets', url: '#', fileType: 'link', dateAdded: '2026-06-22', isFavorite: false, description: 'A custom quick reference matrix linking yield curve actions to changes in flat, steep, or curved rates.', linkedReadingId: 'ab102030-4050-4060-8070-90a0b0c0d013', linkedLOSId: 'cf102030-4050-4060-8070-90a0b0c0d13a' },
-  { id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee4', name: 'Private Wealth Estate Planning Framework', category: 'Mind Maps', url: '#', fileType: 'link', dateAdded: '2026-06-25', isFavorite: false, description: 'Visual map connecting wealth transfer vehicles, tax wrappers, and trustee controls.', linkedReadingId: 'ab102030-4050-4060-8070-90a0b0c0d019', linkedLOSId: 'cf102030-4050-4060-8070-90a0b0c0d19a' }
+  { id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee3', name: 'Active Yield Curve Trades & Twists Cheat Sheet', category: 'Formula Sheets', url: '#', fileType: 'link', dateAdded: '2026-06-22', isFavorite: false, description: 'A custom quick reference matrix linking yield curve actions to changes in flat, steep, or curved rates.', linkedReadingId: 'read-path-yc', linkedLOSId: 'los-p5b' },
+  { id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee4', name: 'Private Wealth Estate Planning Framework', category: 'Mind Maps', url: '#', fileType: 'link', dateAdded: '2026-06-25', isFavorite: false, description: 'Visual map connecting wealth transfer vehicles, tax wrappers, and trustee controls.', linkedReadingId: 'read-pc-pwm', linkedLOSId: 'los-9d' }
 ];
 
 export const INITIAL_NOTES: StudyNote[] = [
@@ -391,9 +520,9 @@ export const INITIAL_NOTES: StudyNote[] = [
     content: `# Immunization vs. Cash Flow Matching\n\nThis note captures key trade-offs for liability-driven investing (LDI) under **Reading 12**.\n\n## 1. Classical Immunization\n- **Concept:** Lock in a rate of return over a specified horizon regardless of interest rate shifts.\n- **Rules:**\n  1. \`D_A = D_L\`\n  2. \`PV_A \\ge PV_L\`\n  3. Asset convexity exceeds liability convexity.\n`,
     createdTime: '2026-06-26T14:30:00Z',
     updatedTime: '2026-06-27T10:15:00Z',
-    linkedSubjectId: '7c9a4e05-c49b-4bc9-93e1-32a21008064d',
-    linkedReadingId: 'ab102030-4050-4060-8070-90a0b0c0d012',
-    linkedLOSId: 'cf102030-4050-4060-8070-90a0b0c0d12a',
+    linkedSubjectId: 'sub-portfolio-construction',
+    linkedReadingId: 'read-path-ldi',
+    linkedLOSId: 'los-p4a',
     relatedFormula: ['f02f0d92-7f72-4752-9c16-8367a84e6203']
   },
   {
@@ -402,23 +531,87 @@ export const INITIAL_NOTES: StudyNote[] = [
     content: `# CFA Code of Ethics Summary\n\n- **Integrity First:** Client interest above all.\n- **Reasonable Care:** Objective independence.\n`,
     createdTime: '2026-06-24T09:00:00Z',
     updatedTime: '2026-06-24T09:30:00Z',
-    linkedSubjectId: 'e5b7b901-b258-45a7-96a8-a5b501d515a0',
-    linkedReadingId: 'ab102030-4050-4060-8070-90a0b0c0d001'
+    linkedSubjectId: 'sub-ethical-professional',
+    linkedReadingId: 'read-eth-code'
   }
 ];
 
 export const INITIAL_EVENTS: CalendarEvent[] = [
-  { id: 'cccccccc-cccc-cccc-cccc-cccccccccccc', title: 'Deep Study: Yield Curve Derivatives', date: '2026-06-29', startTime: '09:00', endTime: '11:30', type: 'Study Session', description: 'Master Reading 13 derivative modifications (futures, options, swaps).', isCompleted: false, linkedSubjectId: '7c9a4e05-c49b-4bc9-93e1-32a21008064d', linkedReadingId: 'ab102030-4050-4060-8070-90a0b0c0d013' },
-  { id: 'cccccccc-cccc-cccc-cccc-cccccccccccd', title: 'Standard Ethics Revision Check', date: '2026-06-30', startTime: '14:00', endTime: '15:30', type: 'Revision', description: 'Review Standards of Professional Conduct scenarios in Ethics.', isCompleted: false, linkedSubjectId: 'e5b7b901-b258-45a7-96a8-a5b501d515a0', linkedReadingId: 'ab102030-4050-4060-8070-90a0b0c0d001' },
-  { id: 'cccccccc-cccc-cccc-cccc-ccccccccccce', title: 'Fixed Income Practice Exam', date: '2026-07-04', startTime: '08:00', endTime: '11:00', type: 'Mock Exam', description: 'Simulated morning section covering asset liability and active fixed income.', isCompleted: false, linkedSubjectId: '7c9a4e05-c49b-4bc9-93e1-32a21008064d' }
+  { id: 'cccccccc-cccc-cccc-cccc-cccccccccccc', title: 'Deep Study: Yield Curve Derivatives', date: '2026-06-29', startTime: '09:00', endTime: '11:30', type: 'Study Session', description: 'Master Reading 13 derivative modifications (futures, options, swaps).', isCompleted: false, linkedSubjectId: 'sub-portfolio-construction', linkedReadingId: 'read-path-yc' },
+  { id: 'cccccccc-cccc-cccc-cccc-cccccccccccd', title: 'Standard Ethics Revision Check', date: '2026-06-30', startTime: '14:00', endTime: '15:30', type: 'Revision', description: 'Review Standards of Professional Conduct scenarios in Ethics.', isCompleted: false, linkedSubjectId: 'sub-ethical-professional', linkedReadingId: 'read-eth-code' },
+  { id: 'cccccccc-cccc-cccc-cccc-ccccccccccce', title: 'Fixed Income Practice Exam', date: '2026-07-04', startTime: '08:00', endTime: '11:00', type: 'Mock Exam', description: 'Simulated morning section covering asset liability and active fixed income.', isCompleted: false, linkedSubjectId: 'sub-portfolio-construction' }
 ];
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  React.useEffect(() => {
+    console.log('[DevLog] AppContext initialized');
+  }, []);
+
   // Navigation State
   const [activeTab, setActiveTabState] = useState('dashboard');
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
-  const [selectedReadingId, setSelectedReadingId] = useState<string | null>(null);
+  const [selectedSubjectId, setSelectedSubjectIdState] = useState<string | null>(null);
+  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
+  const [selectedReadingId, setSelectedReadingIdState] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const setSelectedSubjectId = (id: string | null) => {
+    setSelectedSubjectIdState(id);
+    setWorkspaceState(prev => {
+      if (prev.selectedSubjectId === id) return prev;
+      return { ...prev, selectedSubjectId: id || undefined };
+    });
+  };
+
+  const setSelectedReadingId = (id: string | null) => {
+    setSelectedReadingIdState(id);
+    if (id) {
+      const reading = readings.find(r => r.id === id);
+      if (reading) {
+        setWorkspaceState(prev => {
+          if (prev.selectedReadingId === id) return prev;
+          return {
+            ...prev,
+            selectedSubjectId: reading.subjectId,
+            selectedChapterId: reading.chapterId,
+            selectedReadingId: id,
+            mode: 'reading' as const
+          };
+        });
+        setSelectedSubjectIdState(reading.subjectId);
+        if (reading.chapterId) setSelectedChapterId(reading.chapterId);
+      }
+    } else {
+      setWorkspaceState(prev => {
+        if (prev.selectedReadingId === undefined) return prev;
+        return { ...prev, selectedReadingId: undefined };
+      });
+    }
+  };
+
+  // Safe localStorage wrapper to prevent QuotaExceededError crashes
+  const safeSetItem = (key: string, value: string) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+        console.warn(`[Storage] Quota exceeded for key "${key}". Data not persisted.`);
+      } else {
+        console.warn(`[Storage] Failed to write key "${key}":`, e);
+      }
+    }
+  };
+
+  // Clean up any oversized localStorage entries that could cause quota issues
+  const STORAGE_KEYS = ['cfa_planner_readings', 'cfa_planner_subjects', 'cfa_planner_progress', 'cfa_activity_log', 'cfa_events', 'cfa_notes'];
+  for (const key of STORAGE_KEYS) {
+    try {
+      const val = localStorage.getItem(key);
+      if (val && val.length > 500000) {
+        console.warn(`[Storage] Key "${key}" is ${val.length} bytes, clearing to free quota.`);
+        localStorage.removeItem(key);
+      }
+    } catch (_) {}
+  }
 
   // Sprint 8 Intelligence States & Telemetry Cache
   const [activeReadingAssetId, setActiveReadingAssetId] = useState<string | null>(null);
@@ -499,9 +692,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return {
       theme: 'light',
       examDate: '2026-08-25',
+      targetStartDate: '2026-06-01',
       targetDailyHours: 3.5,
       preferredSessionLength: 45,
       notificationsEnabled: true,
+      reviewBuffer: 30,
       notificationPreferences: {
         email: true,
         push: false,
@@ -511,50 +706,83 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   });
 
-  // State collections persisted to LocalStorage for realistic, durable student interaction
-  const [losList, setLosList] = useState<LearningOutcomeStatement[]>(() => {
-    const saved = localStorage.getItem('cfa_los_state');
+  // ── Synchronous Curriculum Data Migration on Boot ──
+  const runSyncMigration = React.useMemo(() => {
+    const savedLos = localStorage.getItem('cfa_los_state');
+    const hasOldUUIDs = savedLos && (savedLos.includes('cf102030-') || savedLos.includes('ab102030-'));
+    if (hasOldUUIDs || !savedLos) {
+      const migratedLos = migrateAndMergeLOS(savedLos);
+      localStorage.setItem('cfa_los_state', JSON.stringify(migratedLos));
+    }
+
+    const savedNotes = localStorage.getItem('cfa_notes');
+    if (savedNotes && savedNotes.includes('ab102030-')) {
+      const migratedNotes = migrateNotes(savedNotes);
+      localStorage.setItem('cfa_notes', JSON.stringify(migratedNotes));
+    }
+
+    const savedResources = localStorage.getItem('cfa_resources');
+    if (savedResources && savedResources.includes('ab102030-')) {
+      const migratedResources = migrateResources(savedResources);
+      localStorage.setItem('cfa_resources', JSON.stringify(migratedResources));
+    }
+
+    const savedEvents = localStorage.getItem('cfa_events');
+    if (savedEvents && savedEvents.includes('ab102030-')) {
+      const migratedEvents = migrateEvents(savedEvents);
+      localStorage.setItem('cfa_events', JSON.stringify(migratedEvents));
+    }
+    return true;
+  }, []);
+
+  // Central curriculum states
+  const [subjects, setSubjects] = useState<Subject[]>(() => {
+    const saved = localStorage.getItem('cfa_subjects');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { }
     }
-    return FILTERED_LOS;
+    return FILTERED_SUBJECTS;
+  });
+
+  const [chapters, setChapters] = useState<Chapter[]>(() => {
+    const saved = localStorage.getItem('cfa_chapters');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { }
+    }
+    return INITIAL_2027_CHAPTERS;
+  });
+
+  const [readings, setReadings] = useState<Reading[]>(() => {
+    const saved = localStorage.getItem('cfa_readings');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { }
+    }
+    return FILTERED_READINGS;
+  });
+
+  const [losList, setLosList] = useState<LearningOutcomeStatement[]>(() => {
+    const saved = localStorage.getItem('cfa_los_state');
+    return migrateAndMergeLOS(saved);
   });
 
   const [resources, setResources] = useState<Resource[]>(() => {
+    const repo = new LearningResourceRepository();
+    const lrs = repo.getAll();
+    if (lrs.length > 0) {
+      return adaptLearningResources(lrs);
+    }
     const saved = localStorage.getItem('cfa_resources');
-    let loaded: Resource[] = [];
-    if (saved) {
-      try { loaded = JSON.parse(saved); } catch (e) { }
-    }
-    if (!loaded || loaded.length === 0) {
-      loaded = INITIAL_RESOURCES.filter(r => !r.linkedReadingId || !PWM_SUBJECT_IDS.includes(INITIAL_READINGS.find(rd => rd.id === r.linkedReadingId)?.subjectId || ''));
-    }
-    return loaded.map(r => ({
-      ...r,
-      readingProgress: r.readingProgress ?? 0,
-      lastReadAt: r.lastReadAt ?? null,
-      status: r.status ?? 'Ready',
-      chunks: r.chunks ?? [],
-      highlightsList: r.highlightsList ?? [],
-      annotations: r.annotations ?? [],
-      timeline: r.timeline ?? []
-    }));
+    return migrateResources(saved);
   });
 
   const [events, setEvents] = useState<CalendarEvent[]>(() => {
     const saved = localStorage.getItem('cfa_events');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { }
-    }
-    return INITIAL_EVENTS;
+    return migrateEvents(saved);
   });
 
   const [notes, setNotes] = useState<StudyNote[]>(() => {
     const saved = localStorage.getItem('cfa_notes');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { }
-    }
-    return INITIAL_NOTES;
+    return migrateNotes(saved);
   });
 
   const [formulas, setFormulas] = useState<Formula[]>(() => {
@@ -565,31 +793,103 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return INITIAL_FORMULAS;
   });
 
-  // Sprint 6.5 – MM Planner tracking state
+  // Services instantiation
+  const curriculumService = React.useMemo(() => {
+    return new CurriculumService();
+  }, []);
+
+  const curriculumTreeService = React.useMemo(() => {
+    return new CurriculumTreeService(curriculumService);
+  }, [curriculumService]);
+
+  // Sync state with CurriculumService updates
+  useEffect(() => {
+    const sync = () => {
+      setSubjects([...curriculumService.getSubjects()]);
+      setChapters([...curriculumService.getChapters()]);
+      setReadings([...curriculumService.getReadings()]);
+      setLosList([...curriculumService.getLOSList()]);
+    };
+    // Sync initial state from service (loads from localStorage or seeds)
+    sync();
+    return curriculumService.subscribe(sync);
+  }, [curriculumService]);
+
+  // Run LearningResourceRepository migration on mount
+  useEffect(() => {
+    const performMigration = async () => {
+      const repo = new LearningResourceRepository();
+      const stats = await runMigration(repo);
+      if (stats.ssciCount > 0) {
+        const lrs = repo.getAll();
+        setResources(adaptLearningResources(lrs));
+      }
+    };
+    performMigration();
+  }, []);
+
+  // Sprint 6.5 — MM Planner tracking state
   const [plannerProgress, setPlannerProgress] = useState<PlannerReadingProgress[]>(() => {
     const saved = localStorage.getItem('cfa_planner_progress');
+    let parsed: any[] = [];
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { }
+      try { parsed = JSON.parse(saved); } catch (e) { }
     }
-    return FILTERED_PLANNER_DEFAULT_PROGRESS;
+
+    const initialProgressMap = new Map<string, PlannerReadingProgress>();
+
+    // Seed default progress entries for all initial readings
+    INITIAL_2027_READINGS.forEach(r => {
+      initialProgressMap.set(r.id, {
+        readingId: r.id,
+        loggedVideoMinutes: 0,
+        completedEOCQ: 0
+      });
+    });
+
+    if (parsed && Array.isArray(parsed)) {
+      parsed.forEach(p => {
+        if (!p || !p.readingId) return;
+
+        let targetReadingId = p.readingId;
+
+        // If it's a legacy pln- ID, map it to the corresponding read- ID
+        if (p.readingId.startsWith('pln-')) {
+          const num = LEGACY_ID_TO_NUMBER[p.readingId];
+          if (num !== undefined) {
+            const match = INITIAL_2027_READINGS.find(r => r.number === num);
+            if (match) {
+              targetReadingId = match.id;
+            }
+          }
+        }
+
+        const existing = initialProgressMap.get(targetReadingId);
+        if (existing) {
+          initialProgressMap.set(targetReadingId, {
+            ...existing,
+            loggedVideoMinutes: Math.max(existing.loggedVideoMinutes, p.loggedVideoMinutes || 0),
+            completedEOCQ: Math.max(existing.completedEOCQ, p.completedEOCQ || 0),
+          });
+        } else {
+          initialProgressMap.set(targetReadingId, {
+            readingId: targetReadingId,
+            loggedVideoMinutes: p.loggedVideoMinutes || 0,
+            completedEOCQ: p.completedEOCQ || 0
+          });
+        }
+      });
+    }
+
+    return Array.from(initialProgressMap.values());
   });
 
-  // Sprint 9 — plannerReadings as mutable state (was const)
-  const [plannerReadings, setPlannerReadings] = useState<Reading[]>(() => {
-    const saved = localStorage.getItem('cfa_planner_readings');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { }
-    }
-    return FILTERED_PLANNER_READINGS;
-  });
+  // Derived planner states (Sprint M10.5A)
+  const plannerReadings = useMemo(() => {
+    return readings.map(r => getReadingWithTargets(r, losList, resources));
+  }, [readings, losList, resources]);
 
-  const [plannerSubjects, setPlannerSubjects] = useState<Subject[]>(() => {
-    const saved = localStorage.getItem('cfa_planner_subjects');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { }
-    }
-    return FILTERED_PLANNER_SUBJECTS;
-  });
+  const plannerSubjects = subjects;
 
   const [activityFeed, setActivityFeed] = useState<ActivityItem[]>(() => {
     const saved = localStorage.getItem('cfa_activity_log');
@@ -790,7 +1090,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     if (changed) {
       setLosList(newLOS);
-      localStorage.setItem('cfa_los_state', JSON.stringify(newLOS));
+      safeSetItem('cfa_los_state', JSON.stringify(newLOS));
     }
   }, []);
 
@@ -808,19 +1108,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       mockResults: [],
       settings: {
         examDate: settings.examDate,
+        targetStartDate: settings.targetStartDate,
         targetDailyHours: settings.targetDailyHours
       },
       activeSessionLOSId: activeSession?.linkedLOSId,
       selectedLOSId,
+      selectedReadingId,
+      selectedChapterId,
+      selectedSubjectId,
       activeReadingAssetId,
       readingSessionActiveReport,
       dailySnapshotsList,
-      plannerProgress
+      plannerProgress,
+      activeBlock: null
     });
   }, [
     losList, formulas, notes, resources, sessionHistory,
     settings.examDate, settings.targetDailyHours,
-    activeSession, selectedLOSId,
+    activeSession, selectedLOSId, selectedReadingId, selectedChapterId, selectedSubjectId,
     activeReadingAssetId, readingSessionActiveReport, dailySnapshotsList,
     plannerProgress
   ]);
@@ -913,13 +1218,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             resources,
             sessions: sessionHistory,
             mockResults: [],
-            settings: { examDate: settings.examDate, targetDailyHours: settings.targetDailyHours },
+            settings: { examDate: settings.examDate, targetStartDate: settings.targetStartDate, targetDailyHours: settings.targetDailyHours },
             activeSessionLOSId: activeSession?.linkedLOSId,
             selectedLOSId,
+            selectedReadingId,
+            selectedChapterId,
             activeReadingAssetId,
             readingSessionActiveReport,
             dailySnapshotsList,
-            plannerProgress
+            plannerProgress,
+            activeBlock: null
           },
           {
             graphAnalyzerHealthReport: store.graphAnalyzerHealthReport as any,
@@ -965,13 +1273,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       resources,
       sessions: sessionHistory,
       mockResults: [],
-      settings: { examDate: settings.examDate, targetDailyHours: settings.targetDailyHours },
+      settings: { examDate: settings.examDate, targetStartDate: settings.targetStartDate, targetDailyHours: settings.targetDailyHours },
       activeSessionLOSId: activeSession?.linkedLOSId,
       selectedLOSId,
+      selectedReadingId,
+      selectedChapterId,
       activeReadingAssetId,
       readingSessionActiveReport,
       dailySnapshotsList,
-      plannerProgress
+      plannerProgress,
+      activeBlock: null
     };
     // Record with the last event from the buffer if available
     const lastEvent = intelligenceOrchestratorService.getLastEventByType('*');
@@ -1065,33 +1376,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ==========================================
 
   const addPlannerReading = (reading: Omit<Reading, 'id'>): string => {
-    const id = `pln-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-    const newReading: Reading = { ...reading, id };
-    setPlannerReadings(prev => [...prev, newReading]);
-    // Also create a default progress entry
+    let chapterId = (reading as any).chapterId;
+    if (!chapterId) {
+      const subjectChaps = chapters.filter(c => c.subjectId === reading.subjectId);
+      if (subjectChaps.length > 0) {
+        chapterId = subjectChaps[0].id;
+      } else {
+        chapterId = curriculumService.addChapter(reading.subjectId, 'General Study', 'General study materials');
+      }
+    }
+    const id = curriculumService.addReading(chapterId, reading.title, reading.description || '');
+    curriculumService.updateReading(id, { number: reading.number });
     setPlannerProgress(prev => [...prev, { readingId: id, loggedVideoMinutes: 0, completedEOCQ: 0 }]);
     logActivity('resource', `Added custom reading node: ${reading.title}`);
     return id;
   };
 
   const updatePlannerReading = (id: string, updates: Partial<Reading>) => {
-    setPlannerReadings(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
+    curriculumService.updateReading(id, updates);
     logActivity('resource', `Updated reading node: ${id}`);
   };
 
   const deletePlannerReading = (id: string) => {
-    setPlannerReadings(prev => {
-      const target = prev.find(r => r.id === id);
-      if (target) logActivity('resource', `Deleted reading node: ${target.title}`);
-      return prev.filter(r => r.id !== id);
-    });
-    // Also clean up progress entry
+    curriculumService.deleteReading(id);
+    logActivity('resource', `Deleted reading node: ${id}`);
     setPlannerProgress(prev => prev.filter(p => p.readingId !== id));
   };
 
   const addPlannerSubject = (subject: Omit<Subject, 'id'>): string => {
-    const id = `sub-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-    setPlannerSubjects(prev => [...prev, { ...subject, id }]);
+    const id = curriculumService.addSubject(subject.name, subject.description || '', subject.code);
+    logActivity('resource', `Added custom subject: ${subject.name}`);
     return id;
   };
 
@@ -1214,11 +1528,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Sync state mutations to LocalStorage
   useEffect(() => {
-    localStorage.setItem('cfa_user', JSON.stringify(user));
+    safeSetItem('cfa_user', JSON.stringify(user));
   }, [user]);
 
   useEffect(() => {
-    localStorage.setItem('cfa_settings', JSON.stringify(settings));
+    safeSetItem('cfa_settings', JSON.stringify(settings));
     // Apply visual dark theme
     if (settings.theme === 'dark') {
       document.documentElement.classList.add('dark');
@@ -1228,59 +1542,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [settings]);
 
   useEffect(() => {
-    localStorage.setItem('cfa_los_state', JSON.stringify(losList));
+    safeSetItem('cfa_los_state', JSON.stringify(losList));
   }, [losList]);
 
   useEffect(() => {
-    localStorage.setItem('cfa_resources', JSON.stringify(resources));
+    safeSetItem('cfa_subjects', JSON.stringify(subjects));
+  }, [subjects]);
+
+  useEffect(() => {
+    safeSetItem('cfa_chapters', JSON.stringify(chapters));
+  }, [chapters]);
+
+  useEffect(() => {
+    safeSetItem('cfa_readings', JSON.stringify(readings));
+  }, [readings]);
+
+  useEffect(() => {
+    safeSetItem('cfa_resources', JSON.stringify(resources));
   }, [resources]);
 
   useEffect(() => {
-    localStorage.setItem('cfa_events', JSON.stringify(events));
+    safeSetItem('cfa_events', JSON.stringify(events));
   }, [events]);
 
   useEffect(() => {
-    localStorage.setItem('cfa_notes', JSON.stringify(notes));
+    safeSetItem('cfa_notes', JSON.stringify(notes));
   }, [notes]);
 
   useEffect(() => {
-    localStorage.setItem('cfa_formulas_state', JSON.stringify(formulas));
+    safeSetItem('cfa_formulas_state', JSON.stringify(formulas));
   }, [formulas]);
 
   useEffect(() => {
-    localStorage.setItem('cfa_planner_progress', JSON.stringify(plannerProgress));
+    safeSetItem('cfa_planner_progress', JSON.stringify(plannerProgress));
   }, [plannerProgress]);
 
   useEffect(() => {
-    localStorage.setItem('cfa_planner_readings', JSON.stringify(plannerReadings));
-  }, [plannerReadings]);
-
-  useEffect(() => {
-    localStorage.setItem('cfa_planner_subjects', JSON.stringify(plannerSubjects));
-  }, [plannerSubjects]);
-
-  useEffect(() => {
-    if (selectedLOSId) localStorage.setItem('cfa_selected_los', selectedLOSId);
+    if (selectedLOSId) safeSetItem('cfa_selected_los', selectedLOSId);
     else localStorage.removeItem('cfa_selected_los');
   }, [selectedLOSId]);
 
   useEffect(() => {
-    if (selectedResourceId) localStorage.setItem('cfa_selected_resource', selectedResourceId);
+    if (selectedResourceId) safeSetItem('cfa_selected_resource', selectedResourceId);
     else localStorage.removeItem('cfa_selected_resource');
   }, [selectedResourceId]);
 
   useEffect(() => {
-    if (selectedNoteId) localStorage.setItem('cfa_selected_note', selectedNoteId);
+    if (selectedNoteId) safeSetItem('cfa_selected_note', selectedNoteId);
     else localStorage.removeItem('cfa_selected_note');
   }, [selectedNoteId]);
 
   useEffect(() => {
-    if (currentSessionId) localStorage.setItem('cfa_current_session', currentSessionId);
+    if (currentSessionId) safeSetItem('cfa_current_session', currentSessionId);
     else localStorage.removeItem('cfa_current_session');
   }, [currentSessionId]);
 
   useEffect(() => {
-    localStorage.setItem('cfa_activity_log', JSON.stringify(activityFeed));
+    safeSetItem('cfa_activity_log', JSON.stringify(activityFeed));
   }, [activityFeed]);
 
   // Unified logging hook
@@ -1868,6 +2186,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const [workspaceState, setWorkspaceState] = useState<CurriculumWorkspaceState>({
+    mode: 'subject',
+    activeTab: 'overview'
+  });
+
+  const updateWorkspaceState = (state: Partial<CurriculumWorkspaceState>) => {
+    setWorkspaceState(prev => {
+      const next = { ...prev, ...state };
+      if (state.selectedSubjectId !== undefined) {
+        setSelectedSubjectIdState(state.selectedSubjectId);
+      }
+      if (state.selectedChapterId !== undefined) {
+        setSelectedChapterId(state.selectedChapterId);
+      }
+      if (state.selectedReadingId !== undefined) {
+        setSelectedReadingIdState(state.selectedReadingId || null);
+      }
+      return next;
+    });
+  };
+
+  const getResourcesByReading = (readingId: string): any[] => {
+    const repo = new LearningResourceRepository();
+    return repo.getByReadingId(readingId);
+  };
+
+  const markResourceOpened = (id: string) => {
+    const repo = new LearningResourceRepository();
+    repo.markOpened(id);
+    setResources(prev => prev.map((r): Resource => r.id === id ? { ...r, lastReadAt: new Date().toISOString() } : r));
+  };
+
+  const markResourceCompleted = (id: string) => {
+    const repo = new LearningResourceRepository();
+    repo.markCompleted(id);
+    setResources(prev => prev.map((r): Resource => r.id === id ? { ...r, readingProgress: 100 } : r));
+  };
+
+  const updateResourceProgress = (id: string, progress: number) => {
+    const repo = new LearningResourceRepository();
+    const lr = repo.getById(id);
+    if (lr) {
+      const minutesCompleted = Math.round((progress / 100) * lr.duration);
+      repo.updateProgress(id, { minutesCompleted, completed: progress >= 100 });
+    }
+    setResources(prev => prev.map((r): Resource => r.id === id ? { ...r, readingProgress: progress } : r));
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -1875,6 +2241,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveTab,
         selectedSubjectId,
         setSelectedSubjectId,
+        selectedChapterId,
+        setSelectedChapterId,
         selectedReadingId,
         setSelectedReadingId,
         sidebarCollapsed,
@@ -1905,8 +2273,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateSettings,
         activeLevel,
         setActiveLevel,
-        subjects: FILTERED_SUBJECTS,
-        readings: FILTERED_READINGS,
+        subjects,
+        readings,
         losList,
         updateLOS,
         toggleLOSBookmark,
@@ -1963,7 +2331,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addPlannerReading,
         updatePlannerReading,
         deletePlannerReading,
-        addPlannerSubject
+        addPlannerSubject,
+        chapters,
+        curriculumService,
+        curriculumTreeService,
+        workspaceState,
+        updateWorkspaceState,
+        templates: [],
+        activeTemplateId: null,
+        setActiveTemplate: () => {},
+        generateCoachPlan: () => {},
+        copyCoachToSandbox: () => {},
+        updateTemplateBlocks: () => {},
+        activeTemplate: null,
+        getResourcesByReading,
+        markResourceOpened,
+        markResourceCompleted,
+        updateResourceProgress
       }}
     >
       {children}

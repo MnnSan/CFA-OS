@@ -1,14 +1,17 @@
-﻿import { StudyStack, StudyPhase, CompletionEvidence, PhaseStatus, CognitiveLoad, MissionProfile, MissionTemplateId, MissionResourceReference, StudyStepType } from '../types';
+import { StudyStack, StudyPhase, CompletionEvidence, PhaseStatus, CognitiveLoad, MissionProfile, MissionTemplateId, MissionResourceReference, StudyStepType } from '../types';
 import { LearningResourceAdapter } from '../resources/adapters/LearningResourceAdapter';
 import { LearningResource } from '../resources/types';
 import { DailyMission } from './MissionEngineService';
-import { Formula, StudyNote } from '../types';
+import { Formula, StudyNote, LearningOutcomeStatement, PlannerReadingProgress } from '../types';
 import { getTemplate } from './MissionTemplate';
 
 export interface StackBuilderInput {
   learningResources: LearningResource[];
   formulas: Formula[];
   notes: StudyNote[];
+  losList: LearningOutcomeStatement[];
+  plannerProgress: PlannerReadingProgress[];
+  targetEOCQ: number;
   questionCount: number;
   dailyTargetHours: number;
 }
@@ -42,6 +45,49 @@ export class StudyStackBuilder {
       const phaseResources = isAlwaysPresent && !hasResources
         ? this.createDefaultReflectionResource(dailyMission)
         : resourcesForPhase;
+
+      // Dynamically calculate progress of resources based on database state
+      phaseResources.forEach(r => {
+        if (phaseDef.stepType === 'Reading') {
+          const readingLOS = input.losList.filter(l => l.readingId === dailyMission.readingId);
+          const completedLOS = readingLOS.filter(l => l.status === 'Completed').length;
+          const totalLOS = readingLOS.length;
+          const pct = totalLOS > 0 ? completedLOS / totalLOS : 0;
+          r.progress = {
+            completed: pct >= 1.0,
+            minutesCompleted: Math.round(pct * r.duration),
+            lastOpenedAt: r.progress?.lastOpenedAt || null,
+            resumeState: r.progress?.resumeState || null,
+          };
+        } else if (phaseDef.stepType === 'Formula') {
+          const f = input.formulas.find(form => form.id === r.id);
+          r.progress = {
+            completed: f ? f.isMemorized : false,
+            minutesCompleted: f && f.isMemorized ? r.duration : 0,
+            lastOpenedAt: r.progress?.lastOpenedAt || null,
+            resumeState: r.progress?.resumeState || null,
+          };
+        } else if (phaseDef.stepType === 'Questions') {
+          const prog = input.plannerProgress.find(p => p.readingId === dailyMission.readingId);
+          const completedEOCQ = prog?.completedEOCQ || 0;
+          const targetEOCQ = input.targetEOCQ || 20;
+          const pct = Math.min(1.0, completedEOCQ / targetEOCQ);
+          r.progress = {
+            completed: completedEOCQ >= targetEOCQ,
+            minutesCompleted: Math.round(pct * r.duration),
+            lastOpenedAt: r.progress?.lastOpenedAt || null,
+            resumeState: r.progress?.resumeState || null,
+          };
+        } else if (phaseDef.stepType === 'Notebook') {
+          const notesCount = input.notes.filter(n => n.linkedReadingId === dailyMission.readingId).length;
+          r.progress = {
+            completed: notesCount > 0,
+            minutesCompleted: notesCount > 0 ? r.duration : 0,
+            lastOpenedAt: r.progress?.lastOpenedAt || null,
+            resumeState: r.progress?.resumeState || null,
+          };
+        }
+      });
 
       const allCompleted = phaseResources.every(r => r.progress?.completed ?? false);
       const anyActive = phaseResources.some(r => !r.progress?.completed && (r.progress?.minutesCompleted ?? 0) > 0);
@@ -116,25 +162,132 @@ export class StudyStackBuilder {
   }
 
   private getResourcesForStepType(stepType: StudyStepType, input: StackBuilderInput, mission: DailyMission): LearningResource[] {
-    const typeMapping: Record<StudyStepType, string[]> = {
-      Lecture: ['Lecture', 'Video'],
-      Reading: ['PDF', 'Notes'],
-      Formula: [],
-      Notebook: ['Notes', 'Interactive'],
-      Questions: ['Question Bank'],
-      Reflection: [],
-    };
-    const types = typeMapping[stepType] || [];
-    if (stepType === 'Formula') return [];
-    if (stepType === 'Reflection') return [];
-    return input.learningResources.filter(r =>
-      types.includes(r.resourceType) &&
-      r.readingId === mission.readingId
-    );
+    if (stepType === 'Lecture') {
+      return input.learningResources.filter(r => r.resourceType === 'Lecture' && r.readingId === mission.readingId);
+    }
+    
+    if (stepType === 'Reading') {
+      return [{
+        id: `reading-pdf-${mission.readingId}`,
+        readingId: mission.readingId,
+        provider: 'CFA Institute',
+        resourceType: 'PDF',
+        title: `${mission.readingTitle} Curriculum Chapter`,
+        description: `Read the official CFA curriculum chapter for ${mission.readingTitle}`,
+        duration: 45,
+        progress: {
+          minutesCompleted: 0,
+          completed: false,
+          lastOpenedAt: null,
+          resumeState: null,
+        },
+        lectureCode: '',
+        subject: mission.subjectCode,
+        reading: mission.readingId,
+        subReadingTag: '',
+        runtimeMinutes: 45,
+        resourceLinks: []
+      }] as any[];
+    }
+
+    if (stepType === 'Formula') {
+      const matchingFormulas = input.formulas.filter(f => f.linkedReadingId === mission.readingId);
+      return matchingFormulas.map(f => ({
+        id: f.id,
+        readingId: mission.readingId,
+        provider: 'SSCI',
+        resourceType: 'Formula',
+        title: `${f.name} Equation`,
+        description: f.description || '',
+        duration: 10,
+        progress: {
+          minutesCompleted: f.isMemorized ? 10 : 0,
+          completed: f.isMemorized,
+          lastOpenedAt: null,
+          resumeState: null,
+        },
+        lectureCode: '',
+        subject: mission.subjectCode,
+        reading: mission.readingId,
+        subReadingTag: '',
+        runtimeMinutes: 10,
+        resourceLinks: []
+      })) as any[];
+    }
+
+    if (stepType === 'Notebook') {
+      return [{
+        id: `notebook-${mission.readingId}`,
+        readingId: mission.readingId,
+        provider: 'NotebookLM',
+        resourceType: 'Notebook',
+        title: `${mission.readingTitle} AI Study Guide`,
+        description: 'NotebookLM generated synthesis',
+        duration: 15,
+        progress: {
+          minutesCompleted: 0,
+          completed: false,
+          lastOpenedAt: null,
+          resumeState: null,
+        },
+        lectureCode: '',
+        subject: mission.subjectCode,
+        reading: mission.readingId,
+        subReadingTag: '',
+        runtimeMinutes: 15,
+        resourceLinks: []
+      }] as any[];
+    }
+
+    if (stepType === 'Questions') {
+      return [{
+        id: `qbank-${mission.readingId}`,
+        readingId: mission.readingId,
+        provider: 'Question Bank',
+        resourceType: 'Questions',
+        title: `${mission.readingTitle} Q-Bank Drill`,
+        description: 'Practice questions for active recall',
+        duration: 30,
+        progress: {
+          minutesCompleted: 0,
+          completed: false,
+          lastOpenedAt: null,
+          resumeState: null,
+        },
+        lectureCode: '',
+        subject: mission.subjectCode,
+        reading: mission.readingId,
+        subReadingTag: '',
+        runtimeMinutes: 30,
+        resourceLinks: []
+      }] as any[];
+    }
+
+    return [];
   }
 
   private createDefaultReflectionResource(mission: DailyMission): LearningResource[] {
-    return [];
+    return [{
+      id: `reflection-${mission.readingId}`,
+      readingId: mission.readingId,
+      provider: 'Personal',
+      resourceType: 'Reflection',
+      title: 'Daily Study Reflection',
+      description: 'Reflect on key takeaways and confusion areas',
+      duration: 10,
+      progress: {
+        minutesCompleted: 0,
+        completed: false,
+        lastOpenedAt: null,
+        resumeState: null,
+      },
+      lectureCode: '',
+      subject: mission.subjectCode,
+      reading: mission.readingId,
+      subReadingTag: '',
+      runtimeMinutes: 10,
+      resourceLinks: []
+    }] as any[];
   }
 
   private isPreviousPhasesCompleted(phases: StudyPhase[], previousPhaseId: string): boolean {

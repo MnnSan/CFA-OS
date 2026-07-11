@@ -17,7 +17,15 @@ export async function runMigration(repository: LearningResourceRepository): Prom
   ssciCount: number;
   totalCount: number;
 }> {
-  if (isMigrationCompleted()) {
+  const lrs = repository.getAll();
+  const needsRepair = lrs.length > 0 && lrs.some(r => !r.readingId || r.readingId === "");
+
+  if (needsRepair) {
+    console.warn('[Migration] Corrupt resources detected (missing readingId). Triggering self-healing repair...');
+    repository.clear();
+    localStorage.removeItem('cfa_ssci_import_completed');
+    localStorage.removeItem(MIGRATION_KEY);
+  } else if (isMigrationCompleted()) {
     const existing = repository.count();
     return { ssciCount: existing, totalCount: existing };
   }
@@ -33,7 +41,8 @@ export async function runMigration(repository: LearningResourceRepository): Prom
       ssciCount = result.imported.length;
       SSCIImporter.markImported();
     }
-  } catch {
+  } catch (err) {
+    console.error('[Migration] Dynamic Excel import failed:', err);
   }
 
   if (ssciCount === 0) {

@@ -35,6 +35,7 @@ export class IntelligenceOrchestratorService {
   private eventBuffer: StoredEvent[] = [];
 
   constructor(private eventBus?: EventBus) {
+    console.log('[DevLog] IntelligenceOrchestratorService initialized');
     if (this.eventBus) {
       this.eventBusUnsubscribe = this.eventBus.subscribe('*', this.handleRawEvent);
     }

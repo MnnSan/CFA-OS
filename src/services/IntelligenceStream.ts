@@ -61,6 +61,7 @@ export class IntelligenceStream {
   readonly raw: StreamChannel<IntelligenceStore>;
 
   constructor() {
+    console.log('[DevLog] IntelligenceStream initialized');
     // Define channels without wiring to orchestrator yet
     this.readiness = this.createChannel<ExamReadinessReport | null>('readiness');
     this.mission = this.createChannel<DailyMission | null>('mission');
@@ -100,7 +101,7 @@ export class IntelligenceStream {
     return this.unsubscribeOrchestrator !== null;
   }
 
-  // ── Internal ──
+  // ─── Internal ───
 
   private createChannel<T>(key: string): StreamChannel<T> {
     this.channels.set(key, new Set());
@@ -146,7 +147,7 @@ export class IntelligenceStream {
   destroy(): void {
     this.unsubscribeOrchestrator?.();
     this.unsubscribeOrchestrator = null;
-    this.channels.clear();
+    this.channels.forEach(set => set.clear());
     this.lastValues.clear();
     this.selectors.clear();
   }

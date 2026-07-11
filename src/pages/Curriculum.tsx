@@ -296,7 +296,7 @@ export const Curriculum: React.FC = () => {
                               chapterReadings.map(reading => {
                                 const readingLOS = losList.filter(l => l && l.readingId === reading.id);
                                 const noteCount = notes.filter(n => n && (n.linkedReadingId === reading.id || readingLOS.some(l => l && l.id === n.linkedLOSId))).length;
-                                const formulaCount = formulas.filter(f => f && Array.isArray(f.linkedLOSIds) && f.linkedLOSIds.some(id => readingLOS.some(l => l && l.id === id))).length;
+                                const formulaCount = formulas.filter(f => f && f.linkedLOSId && readingLOS.some(l => l && l.id === f.linkedLOSId)).length;
                                 
                                 const progressVal = getReadingProgress(reading.id);
                                 const avgConfidence = readingLOS.length > 0

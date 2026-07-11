@@ -32,7 +32,9 @@ export class IntelligenceQueryService {
       readings: Reading[];
       subjects: Subject[];
     }
-  ) {}
+  ) {
+    console.log('[DevLog] IntelligenceQueryService initialized');
+  }
 
   /** Today's recommended learning mission */
   getTodayMission(): DailyMission | null {

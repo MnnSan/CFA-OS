@@ -9,6 +9,7 @@ export class CurriculumService {
   private listeners: Set<CurriculumChangeListener> = new Set();
 
   constructor(repository?: CurriculumRepository) {
+    console.log('[DevLog] CurriculumService initialized');
     this.repository = repository || new CurriculumRepository();
   }
 

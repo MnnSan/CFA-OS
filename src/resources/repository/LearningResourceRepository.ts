@@ -39,6 +39,7 @@ export class LearningResourceRepository {
   private resources: LearningResource[];
 
   constructor() {
+    console.log('[DevLog] LearningResourceRepository initialized');
     this.resources = loadFromStorage();
   }
 
