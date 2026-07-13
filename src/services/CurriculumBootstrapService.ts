@@ -15,7 +15,7 @@ export interface BootstrapMetadata {
 export class CurriculumBootstrapService {
   private static instance: CurriculumBootstrapService;
   private METADATA_KEY = 'cfa_bootstrap_metadata';
-  private SCHEMA_VERSION = 1;
+  private SCHEMA_VERSION = 2;
   private CURRICULUM_VERSION = '2027_v1';
   private RESOURCE_VERSION = '1.2.0';
 
