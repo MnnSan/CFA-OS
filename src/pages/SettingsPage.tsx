@@ -19,6 +19,7 @@ import {
 import { AIProviderRegistry } from '../services/AIProvider';
 import { aiJobQueue } from '../services/AiJobQueueService';
 import { DeveloperDiagnosticsPanel } from '../components/DeveloperDiagnosticsPanel';
+import { syncService } from '../services/sync/SyncService';
 
 export const SettingsPage: React.FC = () => {
   const { user, settings, updateSettings, updateProfile, subjects, readings, losList, generateCoachPlan, eventBus, setActiveTab } = useApp();
@@ -636,6 +637,68 @@ export const SettingsPage: React.FC = () => {
               <span className="block text-[9px] text-slate-400 uppercase">Calculated Cost ($)</span>
               <span className="text-emerald-600 dark:text-emerald-400 font-bold">${(telemetry?.costUSD || 0).toFixed(5)}</span>
             </div>
+          </div>
+        </div>
+
+        {/* Backup and Restore Data (Sprint 10) */}
+        <div className="mt-4 p-4 rounded bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-[#1e2026] space-y-3">
+          <span className="block text-[10px] font-bold font-mono text-slate-500 uppercase tracking-wide">
+            CFA OS Export & Restore
+          </span>
+          <p className="text-[10px] text-slate-400 leading-normal">
+            Save a backup JSON snapshot of your complete templates, study strategy, streaks, quiz logs, session logs, notes, and local settings, or restore them below.
+          </p>
+          <div className="flex flex-wrap gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  const data = syncService.exportBackup();
+                  const blob = new Blob([data], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `cfa_os_backup_${new Date().toISOString().split('T')[0]}.json`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                } catch (e) {
+                  alert("Failed to export backup: " + String(e));
+                }
+              }}
+              className="rounded bg-slate-900 px-3.5 py-1.5 text-[10px] font-semibold text-white hover:bg-slate-800 transition-colors dark:bg-white dark:text-[#07080a] dark:hover:bg-slate-200 cursor-pointer"
+            >
+              Backup CFA OS (JSON Export)
+            </button>
+            
+            <label className="rounded border border-slate-350 dark:border-slate-800 dark:bg-[#1e2026] hover:bg-slate-100 dark:hover:bg-slate-800 px-3.5 py-1.5 text-[10px] font-semibold text-slate-700 dark:text-slate-350 transition-colors cursor-pointer inline-flex items-center">
+              Restore Backup...
+              <input
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = (evt) => {
+                    try {
+                      const content = evt.target?.result as string;
+                      const success = syncService.restoreBackup(content);
+                      if (success) {
+                        alert("CFA OS Backup restored successfully! Rewrites enqueued for Cloud synchronization.");
+                      } else {
+                        alert("Failed to restore backup: Invalid file format.");
+                      }
+                    } catch (err: any) {
+                      alert("Failed to restore backup: " + err.message);
+                    }
+                  };
+                  reader.readAsText(file);
+                }}
+              />
+            </label>
           </div>
         </div>
 

@@ -11,10 +11,11 @@ import { ConflictResolver } from './ConflictResolver';
 import { MigrationService } from './MigrationService';
 import { coachPlanRepository } from '../../repositories/CoachPlanRepository';
 import { studyStrategyRepository } from '../../repositories/StudyStrategyRepository';
-import { collection, doc, getDoc, setDoc, getDocs } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { aiStudyMemoryService } from '../AIStudyMemoryService';
 import { analyticsAggregator } from './AnalyticsAggregator';
+import { AuditService } from './AuditService';
 
 export interface SyncStatus {
   authStatus: 'authenticated' | 'unauthenticated' | 'loading';
@@ -34,11 +35,15 @@ export interface SyncStatus {
   conflictStatus: string | null;
   healthCheckStatus: 'Healthy' | 'Inconsistent' | 'Repaired' | 'Unchecked';
   backupStatus: 'Active' | 'None';
+  healthScore?: number;
+  auditDetails?: string[];
+  auditSummary?: any;
+  syncState?: 'IDLE' | 'LOCAL_CHANGE' | 'QUEUED' | 'UPLOADING' | 'VERIFYING' | 'SYNCED' | 'OFFLINE' | 'RETRYING';
 }
 
 export interface PendingSyncOp {
   id: string;
-  type: 'coachPlan' | 'deleteCoachPlan' | 'studyStrategy' | 'metadata';
+  type: 'coachPlan' | 'deleteCoachPlan' | 'studyStrategy' | 'metadata' | 'aiStudyMemory' | 'analyticsSummary' | 'analyticsEvent';
   key: string;
   payload: any;
   timestamp: string;
@@ -64,10 +69,16 @@ export class SyncService {
     version: 'v3',
     conflictStatus: null,
     healthCheckStatus: 'Unchecked',
-    backupStatus: 'None'
+    backupStatus: 'None',
+    healthScore: 100,
+    auditDetails: [],
+    auditSummary: null,
+    syncState: 'IDLE'
   };
 
   private listeners: (() => void)[] = [];
+  private unsubs: (() => void)[] = [];
+  private reconciliationInterval: any = null;
   
   // Buffers for 2-second debounce
   private debounceTimer: NodeJS.Timeout | null = null;
@@ -91,6 +102,7 @@ export class SyncService {
       this.status.syncStatus = this.status.firestoreStatus === 'offline' 
         ? 'offline' 
         : (this.status.pendingWrites > 0 ? 'syncing' : 'idle');
+      this.status.syncState = syncQueue.getSyncState();
       this.status.backupStatus = syncQueue.hasBackup() ? 'Active' : 'None';
       this.notify();
     });
@@ -314,6 +326,10 @@ export class SyncService {
       // 7. Perform repository health check
       this.healthCheck();
 
+      // 8. Attach real-time Firestore listeners and reconcilers
+      this.setupRealtimeListeners(uid, setters);
+      this.setupReconciliationTimer(uid, setters);
+
       // Trigger sync of queued writes
       syncQueue.setNetworkStatus(navigator.onLine);
       syncQueue.process();
@@ -341,6 +357,15 @@ export class SyncService {
     this.status.cloudCount = 0;
     this.status.conflictStatus = null;
     this.status.healthCheckStatus = 'Unchecked';
+
+    // Clear listeners & timers
+    this.unsubs.forEach(unsub => unsub());
+    this.unsubs = [];
+    if (this.reconciliationInterval) {
+      clearInterval(this.reconciliationInterval);
+      this.reconciliationInterval = null;
+    }
+
     localStorage.removeItem('cfa_sync_uid');
     this.notify();
   }
@@ -357,7 +382,7 @@ export class SyncService {
     const localActiveId = coachPlanRepository.getActiveTemplateId();
 
     try {
-      // Check cache values
+      // 1. Check cache values alignment
       const cachedTemplatesStr = localStorage.getItem('cfa_timeline_templates') || '[]';
       const cachedTemplates = JSON.parse(cachedTemplatesStr) as TimelineTemplate[];
       const cachedStrategyStr = localStorage.getItem('cfa_study_strategy');
@@ -365,19 +390,52 @@ export class SyncService {
       const cachedActiveId = localStorage.getItem('cfa_active_template_id');
 
       let inconsistent = false;
+      let scoreDeduction = 0;
+      const details: string[] = [];
 
-      // 1. Validate template lengths and IDs
-      if (localTemplates.length !== cachedTemplates.length) inconsistent = true;
-      for (const t of localTemplates) {
-        if (!cachedTemplates.some(o => o.id === t.id)) inconsistent = true;
+      if (localTemplates.length !== cachedTemplates.length) {
+        inconsistent = true;
+        scoreDeduction += 15;
+        details.push("Cache: Cached template count does not match memory repository.");
+      }
+      if (JSON.stringify(localStrategy) !== JSON.stringify(cachedStrategy)) {
+        inconsistent = true;
+        scoreDeduction += 15;
+        details.push("Cache: Cached study strategy does not match memory repository.");
+      }
+      if (localActiveId !== cachedActiveId) {
+        inconsistent = true;
+        scoreDeduction += 10;
+        details.push("Cache: Cached active template ID does not match memory repository.");
       }
 
-      // 2. Validate strategy and active template ID
-      if (JSON.stringify(localStrategy) !== JSON.stringify(cachedStrategy)) inconsistent = true;
-      if (localActiveId !== cachedActiveId) inconsistent = true;
+      // 2. Perform Repository Audits
+      const audit = AuditService.audit();
+      if (audit.templates === 'FAIL') {
+        inconsistent = true;
+        scoreDeduction += 20;
+      }
+      if (audit.strategy === 'FAIL') {
+        inconsistent = true;
+        scoreDeduction += 20;
+      }
+      if (audit.readings === 'FAIL') {
+        inconsistent = true;
+        scoreDeduction += 10;
+      }
+      if (audit.resources === 'FAIL') {
+        inconsistent = true;
+        scoreDeduction += 10;
+      }
+
+      const allDetails = [...details, ...audit.details];
+      
+      this.status.healthScore = Math.max(0, 100 - scoreDeduction);
+      this.status.auditDetails = allDetails;
+      this.status.auditSummary = audit;
 
       if (inconsistent) {
-        console.warn("SyncService Health Check: Inconsistencies detected! Executing auto-repair...");
+        console.warn("SyncService Health Check: Inconsistencies detected! Executing auto-repair...", allDetails);
         this.status.healthCheckStatus = 'Inconsistent';
         this.notify();
         this.repairRepository();
@@ -387,8 +445,11 @@ export class SyncService {
       this.status.healthCheckStatus = 'Healthy';
       this.notify();
       return true;
-    } catch (e) {
+    } catch (e: any) {
       console.error("SyncService: Health check error. Performing auto-repair.", e);
+      this.status.healthScore = 50;
+      this.status.healthCheckStatus = 'Inconsistent';
+      this.status.auditDetails = [`Audit crashed: ${e.message || String(e)}`];
       this.repairRepository();
       return false;
     }
@@ -560,6 +621,275 @@ export class SyncService {
       },
       modifiedBy: 'CFA Candidate'
     };
+  }
+
+  private setupRealtimeListeners(uid: string, setters: any) {
+    // Unsubscribe previous listeners first
+    this.unsubs.forEach(unsub => unsub());
+    this.unsubs = [];
+
+    // 1. Listen to coachPlans subcollection
+    const plansUnsub = onSnapshot(collection(db, 'users', uid, 'coachPlans'), (snapshot) => {
+      let changed = false;
+      const currentTemplates = coachPlanRepository.getAll();
+      const updatedTemplates = [...currentTemplates];
+
+      snapshot.docChanges().forEach((change) => {
+        const cloudPlan = change.doc.data() as TimelineTemplate;
+        const id = change.doc.id;
+        
+        // Skip verification receipts
+        if (!cloudPlan.id) return;
+
+        const localPlan = currentTemplates.find(t => t.id === id);
+
+        if (change.type === 'removed') {
+          if (localPlan && localPlan.status !== 'DELETED') {
+            coachPlanRepository.softDelete(id);
+            changed = true;
+          }
+        } else {
+          // Add or modify
+          const resolved = ConflictResolver.resolveTemplate(localPlan, cloudPlan);
+          if (resolved.winner === 'cloud') {
+            const idx = updatedTemplates.findIndex(t => t.id === id);
+            if (idx >= 0) {
+              updatedTemplates[idx] = resolved.data;
+            } else {
+              updatedTemplates.push(resolved.data);
+            }
+            changed = true;
+          }
+        }
+      });
+
+      if (changed) {
+        coachPlanRepository.setTemplates(updatedTemplates);
+        localStorage.setItem('cfa_timeline_templates', JSON.stringify(updatedTemplates));
+        setters.setTemplates(updatedTemplates.filter(t => t.status !== 'DELETED'));
+        this.status.templateCount = updatedTemplates.filter(t => t.status !== 'DELETED').length;
+        this.status.repositoryCount = updatedTemplates.length;
+        console.log("SyncService: Real-time listener updated coach plans.");
+        this.healthCheck();
+        this.notify();
+      }
+    }, (err) => {
+      console.error("SyncService: Coach plans real-time listener error", err);
+    });
+    this.unsubs.push(plansUnsub);
+
+    // 2. Listen to studyStrategy doc
+    const strategyUnsub = onSnapshot(doc(db, 'users', uid, 'studyStrategy', 'main'), (snap) => {
+      if (snap.exists()) {
+        const cloudStrategy = snap.data() as StudyStrategy;
+        const localStrategy = studyStrategyRepository.get();
+        const resolved = ConflictResolver.resolveStrategy(localStrategy || undefined, cloudStrategy);
+        
+        if (resolved.winner === 'cloud') {
+          studyStrategyRepository.set(resolved.data);
+          localStorage.setItem('cfa_study_strategy', JSON.stringify(resolved.data));
+          setters.setStudyStrategy(resolved.data);
+          this.status.strategyLoaded = true;
+          console.log("SyncService: Real-time listener updated study strategy.");
+          this.healthCheck();
+          this.notify();
+        }
+      }
+    }, (err) => {
+      console.error("SyncService: Strategy real-time listener error", err);
+    });
+    this.unsubs.push(strategyUnsub);
+
+    // 3. Listen to metadata doc
+    const metadataUnsub = onSnapshot(doc(db, 'users', uid, 'metadata', 'main'), (snap) => {
+      if (snap.exists()) {
+        const cloudMetadata = snap.data();
+        const localActiveId = coachPlanRepository.getActiveTemplateId();
+        if (cloudMetadata && cloudMetadata.activeTemplateId && cloudMetadata.activeTemplateId !== localActiveId) {
+          coachPlanRepository.setActiveTemplateId(cloudMetadata.activeTemplateId);
+          localStorage.setItem('cfa_active_template_id', cloudMetadata.activeTemplateId);
+          setters.setActiveTemplateId(cloudMetadata.activeTemplateId);
+          this.status.activeTemplateId = cloudMetadata.activeTemplateId;
+          console.log("SyncService: Real-time listener updated active template ID.");
+          this.healthCheck();
+          this.notify();
+        }
+      }
+    }, (err) => {
+      console.error("SyncService: Metadata real-time listener error", err);
+    });
+    this.unsubs.push(metadataUnsub);
+  }
+
+  private setupReconciliationTimer(uid: string, setters: any) {
+    if (this.reconciliationInterval) {
+      clearInterval(this.reconciliationInterval);
+    }
+
+    this.reconciliationInterval = setInterval(async () => {
+      if (syncQueue.getSyncState() === 'IDLE' && navigator.onLine) {
+        console.log("SyncService: Running background 5-minute reconciliation...");
+        try {
+          const cloudPlans = await firestoreAdapter.getCoachPlans(uid);
+          const rawCloudStrategy = await firestoreAdapter.getStudyStrategy(uid);
+          const rawCloudMetadata = await firestoreAdapter.getMetadata(uid);
+
+          const localTemplates = coachPlanRepository.getAll();
+          const localStrategy = studyStrategyRepository.get();
+          const localActiveId = coachPlanRepository.getActiveTemplateId();
+
+          let changed = false;
+          
+          const mergedTemplatesMap: Record<string, TimelineTemplate> = {};
+          const allTemplateIds = new Set([
+            ...localTemplates.map(t => t.id),
+            ...Object.keys(cloudPlans)
+          ]);
+
+          for (const id of allTemplateIds) {
+            const cloudPlan = cloudPlans[id];
+            const localPlan = localTemplates.find(t => t.id === id);
+
+            const res = ConflictResolver.resolveTemplate(localPlan, cloudPlan);
+            mergedTemplatesMap[id] = res.data;
+            if (res.winner === 'cloud') {
+              changed = true;
+            } else if (res.winner === 'local') {
+              syncQueue.enqueue('coachPlan', id, this.mapPlanForFirestore(res.data));
+            }
+          }
+
+          let finalStrategy = localStrategy;
+          if (rawCloudStrategy || localStrategy) {
+            const res = ConflictResolver.resolveStrategy(localStrategy || undefined, rawCloudStrategy);
+            finalStrategy = res.data;
+            if (res.winner === 'cloud') {
+              changed = true;
+            } else if (res.winner === 'local') {
+              syncQueue.enqueue('studyStrategy', 'main', finalStrategy);
+            }
+          }
+
+          let finalActiveId = localActiveId;
+          if (rawCloudMetadata && rawCloudMetadata.activeTemplateId) {
+            if (rawCloudMetadata.activeTemplateId !== localActiveId) {
+              finalActiveId = rawCloudMetadata.activeTemplateId;
+              changed = true;
+            }
+          } else if (localActiveId) {
+            syncQueue.enqueue('metadata', 'main', { activeTemplateId: localActiveId });
+          }
+
+          if (changed) {
+            const finalTemplates = Object.values(mergedTemplatesMap);
+            coachPlanRepository.setTemplates(finalTemplates);
+            coachPlanRepository.setActiveTemplateId(finalActiveId);
+            studyStrategyRepository.set(finalStrategy);
+
+            localStorage.setItem('cfa_timeline_templates', JSON.stringify(finalTemplates));
+            localStorage.setItem('cfa_active_template_id', finalActiveId || '');
+            localStorage.setItem('cfa_study_strategy', JSON.stringify(finalStrategy));
+
+            setters.setTemplates(finalTemplates.filter(t => t.status !== 'DELETED'));
+            setters.setActiveTemplateId(finalActiveId);
+            setters.setStudyStrategy(finalStrategy);
+
+            this.healthCheck();
+            this.notify();
+            console.log("SyncService: Background reconciliation successfully repaired out-of-sync states.");
+          } else {
+            console.log("SyncService: Background reconciliation verified all repositories are fully synchronized.");
+          }
+        } catch (e) {
+          console.error("SyncService: Background reconciliation failed", e);
+        }
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+  }
+
+  public exportBackup(): string {
+    const backupData = {
+      version: 1,
+      timestamp: new Date().toISOString(),
+      templates: coachPlanRepository.getAll(),
+      activeTemplateId: coachPlanRepository.getActiveTemplateId(),
+      studyStrategy: studyStrategyRepository.get(),
+      aiStudyMemory: aiStudyMemoryService.getMemory(),
+      localStorage: {
+        cfa_study_settings: localStorage.getItem('cfa_study_settings'),
+        cfa_user_profile: localStorage.getItem('cfa_user_profile'),
+        cfa_note_data: localStorage.getItem('cfa_note_data'),
+        cfa_study_session_history: localStorage.getItem('cfa_study_session_history'),
+        cfa_planner_progress: localStorage.getItem('cfa_planner_progress')
+      }
+    };
+    return JSON.stringify(backupData, null, 2);
+  }
+
+  public restoreBackup(backupJson: string): boolean {
+    try {
+      const backup = JSON.parse(backupJson);
+      if (!backup || !backup.version) return false;
+
+      // Restore repositories
+      if (backup.templates) {
+        coachPlanRepository.setTemplates(backup.templates);
+        localStorage.setItem('cfa_timeline_templates', JSON.stringify(backup.templates));
+        
+        backup.templates.forEach((t: any) => {
+          syncQueue.enqueue('coachPlan', t.id, this.mapPlanForFirestore(t));
+        });
+      }
+      if (backup.activeTemplateId) {
+        coachPlanRepository.setActiveTemplateId(backup.activeTemplateId);
+        localStorage.setItem('cfa_active_template_id', backup.activeTemplateId);
+        syncQueue.enqueue('metadata', 'main', { activeTemplateId: backup.activeTemplateId });
+      }
+      if (backup.studyStrategy) {
+        studyStrategyRepository.set(backup.studyStrategy);
+        localStorage.setItem('cfa_study_strategy', JSON.stringify(backup.studyStrategy));
+        syncQueue.enqueue('studyStrategy', 'main', backup.studyStrategy);
+      }
+      if (backup.aiStudyMemory) {
+        aiStudyMemoryService.setMemory(backup.aiStudyMemory);
+        syncQueue.enqueue('aiStudyMemory' as any, 'main', backup.aiStudyMemory);
+      }
+
+      // Restore localStorage properties
+      if (backup.localStorage) {
+        Object.entries(backup.localStorage).forEach(([key, val]) => {
+          if (val) {
+            localStorage.setItem(key, val as string);
+          }
+        });
+      }
+
+      // Trigger React context updates
+      if (this.appContextSetters) {
+        const finalTemplates = coachPlanRepository.getAll();
+        this.appContextSetters.setTemplates(finalTemplates.filter(t => t.status !== 'DELETED'));
+        this.appContextSetters.setActiveTemplateId(coachPlanRepository.getActiveTemplateId());
+        this.appContextSetters.setStudyStrategy(studyStrategyRepository.get());
+        
+        try {
+          if (localStorage.getItem('cfa_user_profile') && (this.appContextSetters as any).setUserProfile) {
+            const profile = JSON.parse(localStorage.getItem('cfa_user_profile') || '{}');
+            (this.appContextSetters as any).setUserProfile(profile);
+          }
+          if (localStorage.getItem('cfa_study_settings') && (this.appContextSetters as any).setSettings) {
+            const settings = JSON.parse(localStorage.getItem('cfa_study_settings') || '{}');
+            (this.appContextSetters as any).setSettings(settings);
+          }
+        } catch (_) {}
+      }
+
+      this.healthCheck();
+      syncQueue.process();
+      return true;
+    } catch (e) {
+      console.error("SyncService: Restore backup failed", e);
+      return false;
+    }
   }
 }
 

@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { aiDiagnostics, AIDiagnosticRecord } from '../services/AIDiagnosticsService';
 import { syncService, SyncStatus } from '../services/sync/SyncService';
 import { ChevronDown, ChevronRight, Trash2, AlertTriangle, CheckCircle2, Clock, XCircle, Database, Cpu, Wifi, RefreshCw } from 'lucide-react';
+import { coachPlanRepository } from '../repositories/CoachPlanRepository';
+import { studyStrategyRepository } from '../repositories/StudyStrategyRepository';
+import { aiStudyMemoryService } from '../services/AIStudyMemoryService';
+import { checksumService } from '../services/sync/ChecksumService';
 
 export const DeveloperDiagnosticsPanel: React.FC = () => {
   const [isOpen, setIsOpen] = useState(true);
@@ -221,6 +225,85 @@ export const DeveloperDiagnosticsPanel: React.FC = () => {
               </span>
             </div>
           </div>
+
+          {/* Audit Scorecard and Checksums Monitor (Sprint 10) */}
+          {(() => {
+            const localTemplatesHash = checksumService.compute(coachPlanRepository.getAll());
+            const localStrategyHash = checksumService.compute(studyStrategyRepository.get());
+            const localMemoryHash = checksumService.compute(aiStudyMemoryService.getMemory());
+
+            return (
+              <div className="mt-2.5 p-2.5 bg-slate-50 dark:bg-[#0f1115] border border-slate-200/50 dark:border-slate-800/40 rounded space-y-2 font-mono text-[9px]">
+                <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-850 pb-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                    <Database className="w-3 h-3 text-indigo-400" /> System Integrity & Checksums
+                  </span>
+                  <span className={`font-bold px-2 py-0.5 rounded text-[10px] ${
+                    (syncStatus.healthScore || 100) >= 90 ? 'bg-emerald-100/10 text-emerald-450 border border-emerald-500/20' :
+                    (syncStatus.healthScore || 100) >= 70 ? 'bg-amber-100/10 text-amber-450 border border-amber-500/20' :
+                    'bg-rose-100/10 text-rose-450 border border-rose-500/20'
+                  }`}>
+                    Health Score: {syncStatus.healthScore || 100}%
+                  </span>
+                </div>
+
+                <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
+                  <div className="p-1.5 bg-white dark:bg-slate-950/40 rounded border border-slate-100 dark:border-slate-850/50">
+                    <span className="text-[7.5px] block text-slate-500 uppercase">Templates Repo</span>
+                    <span className={`font-bold ${syncStatus.auditSummary?.templates === 'FAIL' ? 'text-rose-450' : 'text-emerald-450'}`}>
+                      {syncStatus.auditSummary?.templates || 'PASS'}
+                    </span>
+                  </div>
+                  <div className="p-1.5 bg-white dark:bg-slate-950/40 rounded border border-slate-100 dark:border-slate-850/50">
+                    <span className="text-[7.5px] block text-slate-500 uppercase">Strategy Repo</span>
+                    <span className={`font-bold ${syncStatus.auditSummary?.strategy === 'FAIL' ? 'text-rose-450' : 'text-emerald-450'}`}>
+                      {syncStatus.auditSummary?.strategy || 'PASS'}
+                    </span>
+                  </div>
+                  <div className="p-1.5 bg-white dark:bg-slate-950/40 rounded border border-slate-100 dark:border-slate-850/50">
+                    <span className="text-[7.5px] block text-slate-500 uppercase">Readings Catalog</span>
+                    <span className={`font-bold ${syncStatus.auditSummary?.readings === 'FAIL' ? 'text-rose-450' : 'text-emerald-450'}`}>
+                      {syncStatus.auditSummary?.readings || 'PASS'}
+                    </span>
+                  </div>
+                  <div className="p-1.5 bg-white dark:bg-slate-950/40 rounded border border-slate-100 dark:border-slate-850/50">
+                    <span className="text-[7.5px] block text-slate-500 uppercase">Resource Catalog</span>
+                    <span className={`font-bold ${syncStatus.auditSummary?.resources === 'FAIL' ? 'text-rose-450' : 'text-emerald-450'}`}>
+                      {syncStatus.auditSummary?.resources || 'PASS'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid gap-2 grid-cols-3 pt-1 border-t border-slate-200/50 dark:border-slate-850/50 pt-2">
+                  <div>
+                    <span className="block text-[7px] text-slate-500 uppercase">Templates Checksum</span>
+                    <span className="font-bold font-mono text-[8.5px] text-indigo-400">{localTemplatesHash}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[7px] text-slate-500 uppercase">Strategy Checksum</span>
+                    <span className="font-bold font-mono text-[8.5px] text-indigo-400">{localStrategyHash}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[7px] text-slate-500 uppercase">AI Memory Checksum</span>
+                    <span className="font-bold font-mono text-[8.5px] text-indigo-400">{localMemoryHash}</span>
+                  </div>
+                </div>
+
+                {syncStatus.auditDetails && syncStatus.auditDetails.length > 0 && (
+                  <div className="p-2 bg-rose-500/5 rounded border border-rose-500/10 space-y-1">
+                    <span className="text-rose-450 font-bold uppercase text-[7.5px] flex items-center gap-1">
+                      <AlertTriangle className="w-2.5 h-2.5 text-rose-500" /> Audit Issue Logs:
+                    </span>
+                    <div className="max-h-[90px] overflow-y-auto space-y-0.5 text-[8px] text-rose-350">
+                      {syncStatus.auditDetails.map((detail, idx) => (
+                        <div key={idx} className="leading-tight">• {detail}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 

@@ -119,15 +119,27 @@ className={`text-xs tracking-tight transition-colors duration-150 shrink-0 font-
           {syncStatus.authStatus === 'authenticated' && (
             <div className="flex items-center space-x-1.5 text-[10px] bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-full px-2.5 py-1">
               <span className={`inline-block w-1.5 h-1.5 rounded-full ${
-                syncStatus.syncStatus === 'syncing' ? 'bg-amber-400 animate-ping' :
-                syncStatus.syncStatus === 'offline' ? 'bg-rose-400' :
-                'bg-emerald-400'
+                syncStatus.syncState === 'UPLOADING' ? 'bg-amber-400 animate-ping' :
+                syncStatus.syncState === 'VERIFYING' ? 'bg-sky-400 animate-pulse' :
+                syncStatus.syncState === 'RETRYING' ? 'bg-rose-450 animate-bounce' :
+                syncStatus.syncState === 'QUEUED' ? 'bg-amber-500' :
+                syncStatus.syncState === 'LOCAL_CHANGE' ? 'bg-fuchsia-450 animate-pulse' :
+                syncStatus.syncState === 'OFFLINE' || syncStatus.firestoreStatus === 'offline' ? 'bg-rose-500' :
+                'bg-emerald-450'
               }`} />
               <span className="text-slate-500 dark:text-slate-400 font-mono tracking-tight text-[9px]">
-                {syncStatus.syncStatus === 'syncing' ? (
-                  `Syncing... (${syncStatus.pendingWrites} pending)`
-                ) : syncStatus.syncStatus === 'offline' ? (
+                {syncStatus.firestoreStatus === 'offline' || syncStatus.syncState === 'OFFLINE' ? (
                   "Sync Offline"
+                ) : syncStatus.syncState === 'UPLOADING' ? (
+                  "Uploading..."
+                ) : syncStatus.syncState === 'VERIFYING' ? (
+                  "Verifying..."
+                ) : syncStatus.syncState === 'RETRYING' ? (
+                  "Retrying..."
+                ) : syncStatus.syncState === 'QUEUED' ? (
+                  `Queued (${syncStatus.pendingWrites} pending)`
+                ) : syncStatus.syncState === 'LOCAL_CHANGE' ? (
+                  "Local Change..."
                 ) : (
                   `Synced ${syncStatus.lastSync === 'Never' ? '' : `${Math.max(0, Math.round((Date.now() - new Date(syncStatus.lastSync).getTime()) / 1000))}s ago`} ✔ Cloud`
                 )}

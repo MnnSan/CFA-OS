@@ -3,11 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { writeBatch, doc } from 'firebase/firestore';
+import { writeBatch, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { PendingSyncOp } from './SyncService';
 import { coachPlanRepository } from '../../repositories/CoachPlanRepository';
 import { studyStrategyRepository } from '../../repositories/StudyStrategyRepository';
+import { checksumService } from './ChecksumService';
+
+export type SyncState = 'IDLE' | 'LOCAL_CHANGE' | 'QUEUED' | 'UPLOADING' | 'VERIFYING' | 'SYNCED' | 'OFFLINE' | 'RETRYING';
 
 export class SyncQueue {
   private static instance: SyncQueue;
@@ -16,6 +19,21 @@ export class SyncQueue {
   private onStatusChange: (() => void) | null = null;
   private lastError: string | null = null;
   private firestoreStatus: 'connected' | 'offline' = 'connected';
+  private syncState: SyncState = 'IDLE';
+  private lastSyncTimestamp: string | null = null;
+
+  public getSyncState(): SyncState {
+    return this.syncState;
+  }
+
+  public setSyncState(state: SyncState) {
+    this.syncState = state;
+    if (this.onStatusChange) this.onStatusChange();
+  }
+
+  public getLastSyncTimestamp(): string | null {
+    return this.lastSyncTimestamp;
+  }
 
   private constructor() {
     this.loadFromCache();
@@ -127,6 +145,7 @@ export class SyncQueue {
   // --- Queue Mutations & Deduplication ---
 
   public enqueue(type: PendingSyncOp['type'], key: string, payload: any) {
+    this.setSyncState('LOCAL_CHANGE');
     // Remove previous operations targeting the exact same record (merges rapid updates)
     this.queue = this.queue.filter(op => !(op.type === type && op.key === key));
     
@@ -141,9 +160,11 @@ export class SyncQueue {
       timestamp: new Date().toISOString()
     });
     this.saveToCache();
+    this.setSyncState('QUEUED');
   }
 
   public enqueueAnalytics(event: any) {
+    this.setSyncState('LOCAL_CHANGE');
     this.queue.push({
       id: event.id || `op-an-${Math.random().toString(36).substring(7)}`,
       type: 'analyticsEvent' as any,
@@ -152,6 +173,7 @@ export class SyncQueue {
       timestamp: event.timestamp || new Date().toISOString()
     });
     this.saveToCache();
+    this.setSyncState('QUEUED');
   }
 
   public filterQueueAgainstCompleted(completedIds: string[]) {
@@ -165,15 +187,68 @@ export class SyncQueue {
 
   // --- Process Queue via WriteBatch ---
 
+  private async verifyWrites(opsToProcess: PendingSyncOp[], uid: string): Promise<boolean> {
+    this.setSyncState('VERIFYING');
+    let success = true;
+    
+    for (const op of opsToProcess) {
+      // Only verify actual persistent entity collections
+      if (op.type !== 'coachPlan' && op.type !== 'studyStrategy' && op.type !== 'aiStudyMemory') {
+        continue;
+      }
+      
+      try {
+        let docRef;
+        if (op.type === 'coachPlan') {
+          docRef = doc(db, 'users', uid, 'coachPlans', op.key);
+        } else if (op.type === 'studyStrategy') {
+          docRef = doc(db, 'users', uid, 'studyStrategy', 'main');
+        } else {
+          docRef = doc(db, 'users', uid, 'aiStudyMemory', 'main');
+        }
+        
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) {
+          console.error(`SyncQueue Verification: Document missing for ${op.type} key ${op.key}`);
+          success = false;
+          // Re-enqueue for write retry
+          this.enqueue(op.type, op.key, op.payload);
+          continue;
+        }
+        
+        const cloudData = snap.data();
+        const cloudHash = checksumService.compute(cloudData);
+        const localHash = checksumService.compute(op.payload);
+        
+        if (cloudHash !== localHash) {
+          console.warn(`SyncQueue Verification: Checksum mismatch for ${op.type} key ${op.key}. Cloud: ${cloudHash}, Local: ${localHash}. Triggering automatic repair.`);
+          success = false;
+          // Re-enqueue rewrite
+          this.enqueue(op.type, op.key, op.payload);
+        } else {
+          console.log(`SyncQueue Verification: Checksum MATCH for ${op.type} key ${op.key} (hash: ${cloudHash})`);
+        }
+      } catch (e) {
+        console.error(`SyncQueue Verification: Failed to verify op ${op.id}`, e);
+        success = false;
+      }
+    }
+    
+    return success;
+  }
+
   public async process() {
     if (this.isProcessing) return;
-    if (this.queue.length === 0) return;
+    if (this.queue.length === 0) {
+      this.setSyncState('SYNCED');
+      return;
+    }
 
     const uid = localStorage.getItem('cfa_sync_uid');
     if (!uid) return;
 
     this.isProcessing = true;
-    if (this.onStatusChange) this.onStatusChange();
+    this.setSyncState('UPLOADING');
 
     // 1. Take a safety backup of local storage
     this.saveBackup();
@@ -225,7 +300,10 @@ export class SyncQueue {
       // 3. Atomically commit all writes
       await batch.commit();
 
-      // 4. Update memory queue
+      // 4. Perform Write Verification (Acknowledgement)
+      const verificationSuccess = await this.verifyWrites(opsToProcess, uid);
+
+      // 5. Update memory queue
       const processedIds = opsToProcess.map(o => o.id);
       this.queue = this.queue.filter(op => !processedIds.includes(op.id));
       
@@ -241,9 +319,17 @@ export class SyncQueue {
 
       this.firestoreStatus = 'connected';
       this.lastError = null;
+      this.lastSyncTimestamp = new Date().toISOString();
 
       // Flush error reports if we were offline
       this.flushOfflineErrors(uid);
+
+      if (!verificationSuccess) {
+        this.setSyncState('RETRYING');
+        this.isProcessing = false;
+        setTimeout(() => this.process(), 500);
+        return;
+      }
 
       // If there are still items in the queue, schedule the next batch
       if (this.queue.length > 0) {
@@ -252,15 +338,16 @@ export class SyncQueue {
         return;
       }
 
+      this.setSyncState('SYNCED');
+
     } catch (error: any) {
       console.error("SyncQueue: WriteBatch commit failed. Rolling back.", error);
       this.firestoreStatus = 'offline';
       this.lastError = error.message || String(error);
+      this.setSyncState('OFFLINE');
       
       // Report sync failure
       this.reportError(uid, error);
-      
-      if (this.onStatusChange) this.onStatusChange();
     }
 
     this.isProcessing = false;
