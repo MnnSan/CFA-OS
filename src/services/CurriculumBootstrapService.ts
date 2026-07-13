@@ -51,10 +51,26 @@ export class CurriculumBootstrapService {
   }
 
   /**
+   * Cleans up known old/unused localStorage keys to free quota space.
+   */
+  private cleanupStorage(): void {
+    const staleKeys = [
+      'cfa_import_diagnostics',
+      'cfa_ssci_import_completed',
+      'cfa_bootstrap_metadata_old',
+      'cfa_mission_audit_log_archive',
+    ];
+    for (const key of staleKeys) {
+      try { localStorage.removeItem(key); } catch {}
+    }
+  }
+
+  /**
    * Performs the bootstrap logic.
    */
   public async bootstrap(force = false): Promise<{ bootstrapped: boolean; reason: string }> {
     console.log('[CurriculumBootstrapService] Starting conditional bootstrap verification...');
+    this.cleanupStorage();
     const filePath = '/data/datasets/CFA Level 3 Coding Sheet_2026.xlsx';
 
     try {
@@ -154,8 +170,9 @@ export class CurriculumBootstrapService {
             return { bootstrapped: false, reason: 'Aborted: 0 valid lectures imported.' };
           }
 
-          // Save diagnostics
-          localStorage.setItem('cfa_import_diagnostics', JSON.stringify(validationDiagnostics));
+          // Log diagnostics to console instead of localStorage (avoids quota exceeded errors)
+          console.log('[CurriculumBootstrapService] Import diagnostics:', validationDiagnostics);
+          try { localStorage.removeItem('cfa_import_diagnostics'); } catch {} // clean up old data
 
           // Clean old resources
           learningResourceRepository.clear();
@@ -312,10 +329,13 @@ export class CurriculumBootstrapService {
 
           return { bootstrapped: true, reason: 'Bootstrapped and validated Excel coding sheet with dynamic resource additions' };
         } catch (innerErr) {
-          // Rollback on any failure
+          // Rollback on any failure, then let outer catch handle fallback
           console.error('[CurriculumBootstrapService] Validation or import failure. Rolling back transaction...', innerErr);
           learningResourceRepository.rollbackTransaction();
           throw innerErr;
+        } finally {
+          // Clean up diagnostic data whether successful or not
+          try { localStorage.removeItem('cfa_import_diagnostics'); } catch {} // ignore
         }
       } else {
         console.log('[CurriculumBootstrapService] Checksum & versions match stored metadata. Skipping bootstrap.');
