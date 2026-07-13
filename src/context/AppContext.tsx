@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   auth, 
   db, 
@@ -43,6 +43,7 @@ import {
   TimelineBlock,
   ReadingStudyTargets
 } from '../types';
+import { generateCoachTemplate, CoachEngineParams } from '../services/CoachEngine';
 import { StudySessionService } from '../services/StudySessionService';
 import { CurriculumIntelligenceService } from '../services/CurriculumIntelligenceService';
 import {
@@ -865,6 +866,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return INITIAL_FORMULAS;
   });
+
+  // Sprint 10 — Timeline Templates
+  const [templates, setTemplates] = useState<TimelineTemplate[]>(() => {
+    const saved = localStorage.getItem('cfa_timeline_templates');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { }
+    }
+    return [];
+  });
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+
+  const activeTemplate = useMemo(() => {
+    if (!activeTemplateId) return null;
+    return templates.find(t => t.id === activeTemplateId) || null;
+  }, [templates, activeTemplateId]);
+
+  // Persist templates to localStorage
+  useEffect(() => {
+    localStorage.setItem('cfa_timeline_templates', JSON.stringify(templates));
+  }, [templates]);
+
+  // Auto-generate Coach AI Blueprint on first load
+  const coachPlanGeneratedRef = useRef(false);
+  useEffect(() => {
+    if (subjects.length === 0 || readings.length === 0 || losList.length === 0) return;
+    if (coachPlanGeneratedRef.current) return;
+    const hasCoach = templates.some(t => t.id === 'coach-blueprint');
+    if (!hasCoach && settings.targetStartDate && settings.examDate) {
+      coachPlanGeneratedRef.current = true;
+      generateCoachPlan();
+    }
+  }, [subjects, readings, losList, settings.targetStartDate, settings.examDate]);
 
   // Services instantiation
   const curriculumService = React.useMemo(() => {
@@ -2224,6 +2257,65 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  // Sprint 10 — Timeline Templates
+  const setActiveTemplate = useCallback((id: string | null) => {
+    setActiveTemplateId(id);
+  }, []);
+
+  const generateCoachPlan = useCallback(() => {
+    const blocks = generateCoachTemplate({
+      startDate: settings.targetStartDate || settings.examDate,
+      examDate: settings.examDate,
+      bufferDays: settings.reviewBuffer || 30,
+      subjects,
+      readings,
+      losList,
+    });
+    const now = new Date().toISOString();
+    const newTemplate: TimelineTemplate = {
+      id: 'coach-blueprint',
+      name: 'Coach AI Blueprint',
+      description: 'AI-generated study schedule based on LOS distribution and exam timeline.',
+      isEditable: false,
+      blocks,
+      createdAt: now,
+      updatedAt: now,
+    };
+    setTemplates(prev => {
+      const filtered = prev.filter(t => t.id !== 'coach-blueprint');
+      return [...filtered, newTemplate];
+    });
+    setActiveTemplateId('coach-blueprint');
+    logActivity('planner', 'Generated Coach AI Blueprint schedule');
+  }, [settings, subjects, readings, losList, logActivity]);
+
+  const copyCoachToSandbox = useCallback(() => {
+    const coach = templates.find(t => t.id === 'coach-blueprint');
+    if (!coach) return;
+    const now = new Date().toISOString();
+    const sandbox: TimelineTemplate = {
+      id: 'sandbox-default',
+      name: 'My Personal Sandbox',
+      description: 'Your editable schedule. Modify blocks, dates, and order freely.',
+      isEditable: true,
+      blocks: JSON.parse(JSON.stringify(coach.blocks)),
+      createdAt: now,
+      updatedAt: now,
+    };
+    setTemplates(prev => {
+      const filtered = prev.filter(t => t.id !== 'sandbox-default');
+      return [...filtered, sandbox];
+    });
+    setActiveTemplateId('sandbox-default');
+    logActivity('planner', 'Copied Coach AI Blueprint to Personal Sandbox');
+  }, [templates, logActivity]);
+
+  const updateTemplateBlocks = useCallback((templateId: string, blocks: TimelineBlock[]) => {
+    setTemplates(prev => prev.map(t =>
+      t.id === templateId ? { ...t, blocks, updatedAt: new Date().toISOString() } : t
+    ));
+  }, []);
+
   const updateFormula = (id: string, updates: Partial<Formula>) => {
     setFormulas(prev =>
       prev.map(f => {
@@ -2591,13 +2683,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         curriculumTreeService,
         workspaceState,
         updateWorkspaceState,
-        templates: [],
-        activeTemplateId: null,
-        setActiveTemplate: () => {},
-        generateCoachPlan: () => {},
-        copyCoachToSandbox: () => {},
-        updateTemplateBlocks: () => {},
-        activeTemplate: null,
+        templates,
+        activeTemplateId,
+        setActiveTemplate,
+        generateCoachPlan,
+        copyCoachToSandbox,
+        updateTemplateBlocks,
+        activeTemplate,
         getResourcesByReading,
         markResourceOpened,
         markResourceCompleted,
