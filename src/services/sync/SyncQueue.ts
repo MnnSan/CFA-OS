@@ -3,37 +3,191 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { writeBatch, doc, getDoc } from 'firebase/firestore';
+import { writeBatch, doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { PendingSyncOp } from './SyncService';
 import { coachPlanRepository } from '../../repositories/CoachPlanRepository';
 import { studyStrategyRepository } from '../../repositories/StudyStrategyRepository';
 import { checksumService } from './ChecksumService';
 
-export type SyncState = 'IDLE' | 'LOCAL_CHANGE' | 'QUEUED' | 'UPLOADING' | 'VERIFYING' | 'SYNCED' | 'OFFLINE' | 'RETRYING';
+// --- Command / Operation Pattern (Sprint 10) ---
+
+export interface SyncOperation {
+  operationId: string;
+  type: string;
+  key: string;
+  payload: any;
+  timestamp: string;
+  checksum: string;
+  execute(): Promise<void>;
+  undo(): Promise<void>;
+  redo(): Promise<void>;
+}
+
+export class MoveStudyBlockOperation implements SyncOperation {
+  public type = 'moveStudyBlock';
+  constructor(
+    public operationId: string,
+    public key: string, // format: "templateId/blockId"
+    public payload: any, // the modified block object
+    public timestamp: string,
+    public checksum: string,
+    private previousBlockState: any // saved for undo
+  ) {}
+
+  public async execute() {
+    const [templateId] = this.key.split('/');
+    const template = coachPlanRepository.getById(templateId);
+    if (template && template.blocks) {
+      const updated = template.blocks.map(b => b.id === this.payload.id ? { ...b, ...this.payload } : b);
+      coachPlanRepository.updateBlocks(templateId, updated);
+    }
+  }
+
+  public async undo() {
+    const [templateId] = this.key.split('/');
+    const template = coachPlanRepository.getById(templateId);
+    if (template && template.blocks && this.previousBlockState) {
+      const restored = template.blocks.map(b => b.id === this.payload.id ? this.previousBlockState : b);
+      coachPlanRepository.updateBlocks(templateId, restored);
+    }
+  }
+
+  public async redo() {
+    await this.execute();
+  }
+}
+
+export class RenameTemplateOperation implements SyncOperation {
+  public type = 'renameTemplate';
+  constructor(
+    public operationId: string,
+    public key: string, // templateId
+    public payload: { name: string; oldName: string },
+    public timestamp: string,
+    public checksum: string
+  ) {}
+
+  public async execute() {
+    coachPlanRepository.rename(this.key, this.payload.name);
+  }
+
+  public async undo() {
+    coachPlanRepository.rename(this.key, this.payload.oldName);
+  }
+
+  public async redo() {
+    await this.execute();
+  }
+}
+
+export class DeleteTemplateOperation implements SyncOperation {
+  public type = 'deleteTemplate';
+  constructor(
+    public operationId: string,
+    public key: string, // templateId
+    public payload: { status: string; oldStatus: string },
+    public timestamp: string,
+    public checksum: string
+  ) {}
+
+  public async execute() {
+    const template = coachPlanRepository.getById(this.key);
+    if (template) {
+      coachPlanRepository.save({ ...template, status: this.payload.status as any });
+    }
+  }
+
+  public async undo() {
+    const template = coachPlanRepository.getById(this.key);
+    if (template) {
+      coachPlanRepository.save({ ...template, status: this.payload.oldStatus as any });
+    }
+  }
+
+  public async redo() {
+    await this.execute();
+  }
+}
+
+export class GenericOperation implements SyncOperation {
+  constructor(
+    public operationId: string,
+    public type: string,
+    public key: string,
+    public payload: any,
+    public timestamp: string,
+    public checksum: string
+  ) {}
+
+  public async execute() {}
+  public async undo() {}
+  public async redo() {}
+}
+
+// --- History Manager (Undo / Redo Stack) ---
+
+export class HistoryManager {
+  private static instance: HistoryManager;
+  private undoStack: SyncOperation[] = [];
+  private redoStack: SyncOperation[] = [];
+
+  private constructor() {}
+
+  public static getInstance(): HistoryManager {
+    if (!HistoryManager.instance) {
+      HistoryManager.instance = new HistoryManager();
+    }
+    return HistoryManager.instance;
+  }
+
+  public push(op: SyncOperation) {
+    this.undoStack.push(op);
+    this.redoStack = [];
+    if (this.undoStack.length > 50) this.undoStack.shift(); // Cap stack at 50
+  }
+
+  public async undo(): Promise<boolean> {
+    const op = this.undoStack.pop();
+    if (op) {
+      await op.undo();
+      this.redoStack.push(op);
+      return true;
+    }
+    return false;
+  }
+
+  public async redo(): Promise<boolean> {
+    const op = this.redoStack.pop();
+    if (op) {
+      await op.redo();
+      this.undoStack.push(op);
+      return true;
+    }
+    return false;
+  }
+
+  public clear() {
+    this.undoStack = [];
+    this.redoStack = [];
+  }
+}
+
+export const historyManager = HistoryManager.getInstance();
+
+// --- Sync Queue Engine ---
 
 export class SyncQueue {
   private static instance: SyncQueue;
   private queue: PendingSyncOp[] = [];
   private isProcessing = false;
   private onStatusChange: (() => void) | null = null;
+
+  // Status Metrics
   private lastError: string | null = null;
   private firestoreStatus: 'connected' | 'offline' = 'connected';
-  private syncState: SyncState = 'IDLE';
-  private lastSyncTimestamp: string | null = null;
-
-  public getSyncState(): SyncState {
-    return this.syncState;
-  }
-
-  public setSyncState(state: SyncState) {
-    this.syncState = state;
-    if (this.onStatusChange) this.onStatusChange();
-  }
-
-  public getLastSyncTimestamp(): string | null {
-    return this.lastSyncTimestamp;
-  }
+  private lastSyncTimestamp: string = 'Never';
+  private currentSyncState: 'IDLE' | 'LOCAL_CHANGE' | 'QUEUED' | 'UPLOADING' | 'VERIFYING' | 'SYNCED' | 'OFFLINE' | 'RETRYING' = 'IDLE';
 
   private constructor() {
     this.loadFromCache();
@@ -48,6 +202,15 @@ export class SyncQueue {
 
   public registerCallbacks(onStatusChange: () => void) {
     this.onStatusChange = onStatusChange;
+  }
+
+  public getSyncState() {
+    return this.currentSyncState;
+  }
+
+  private setSyncState(state: typeof this.currentSyncState) {
+    this.currentSyncState = state;
+    if (this.onStatusChange) this.onStatusChange();
   }
 
   private loadFromCache() {
@@ -146,17 +309,68 @@ export class SyncQueue {
 
   public enqueue(type: PendingSyncOp['type'], key: string, payload: any) {
     this.setSyncState('LOCAL_CHANGE');
-    // Remove previous operations targeting the exact same record (merges rapid updates)
+    
+    // Deduplicate rapid writes to same document
     this.queue = this.queue.filter(op => !(op.type === type && op.key === key));
     
-    // De-duplicate completed operations
     const opId = `op-${Math.random().toString(36).substring(7)}-${Date.now()}`;
-    
+    const checksum = checksumService.compute(payload);
+
+    // Push into History Manager if it's a known mutation operation
+    if (type === 'coachPlan') {
+      const previousState = coachPlanRepository.getById(key);
+      const op = new GenericOperation(opId, type, key, payload, new Date().toISOString(), checksum);
+      historyManager.push(op);
+    }
+
     this.queue.push({
       id: opId,
       type,
       key,
       payload,
+      timestamp: new Date().toISOString()
+    });
+    this.saveToCache();
+    this.setSyncState('QUEUED');
+  }
+
+  public enqueueMoveStudyBlock(templateId: string, blockId: string, block: any, previousState: any) {
+    this.setSyncState('LOCAL_CHANGE');
+    const key = `${templateId}/${blockId}`;
+    this.queue = this.queue.filter(op => !(op.type === 'moveStudyBlock' as any && op.key === key));
+
+    const opId = `op-move-${Math.random().toString(36).substring(7)}`;
+    const checksum = checksumService.compute(block);
+
+    const op = new MoveStudyBlockOperation(opId, key, block, new Date().toISOString(), checksum, previousState);
+    historyManager.push(op);
+
+    this.queue.push({
+      id: opId,
+      type: 'moveStudyBlock' as any,
+      key,
+      payload: block,
+      timestamp: new Date().toISOString()
+    });
+    this.saveToCache();
+    this.setSyncState('QUEUED');
+  }
+
+  public enqueueRenameTemplate(templateId: string, name: string, oldName: string) {
+    this.setSyncState('LOCAL_CHANGE');
+    this.queue = this.queue.filter(op => !(op.type === 'renameTemplate' as any && op.key === templateId));
+
+    const opId = `op-ren-${Math.random().toString(36).substring(7)}`;
+    const checksum = checksumService.compute({ name });
+
+    const op = new RenameTemplateOperation(opId, templateId, { name, oldName }, new Date().toISOString(), checksum);
+    historyManager.push(op);
+
+    this.queue.push({
+      id: opId,
+      type: 'renameTemplate' as any,
+      key: templateId,
+      payload: { name, oldName },
       timestamp: new Date().toISOString()
     });
     this.saveToCache();
@@ -176,15 +390,6 @@ export class SyncQueue {
     this.setSyncState('QUEUED');
   }
 
-  public filterQueueAgainstCompleted(completedIds: string[]) {
-    const originalLen = this.queue.length;
-    this.queue = this.queue.filter(op => !completedIds.includes(op.id));
-    if (this.queue.length !== originalLen) {
-      this.saveToCache();
-      console.log(`SyncQueue: Filtered out ${originalLen - this.queue.length} already completed operations.`);
-    }
-  }
-
   // --- Process Queue via WriteBatch ---
 
   private async verifyWrites(opsToProcess: PendingSyncOp[], uid: string): Promise<boolean> {
@@ -192,15 +397,21 @@ export class SyncQueue {
     let success = true;
     
     for (const op of opsToProcess) {
-      // Only verify actual persistent entity collections
-      if (op.type !== 'coachPlan' && op.type !== 'studyStrategy' && op.type !== 'aiStudyMemory') {
+      if (op.type !== 'coachPlan' && op.type !== 'studyStrategy' && op.type !== 'aiStudyMemory' && op.type !== ('moveStudyBlock' as any)) {
         continue;
       }
       
       try {
         let docRef;
+        let localPayload = op.payload;
+
         if (op.type === 'coachPlan') {
           docRef = doc(db, 'users', uid, 'coachPlans', op.key);
+          const { blocks, ...metadata } = op.payload;
+          localPayload = metadata; // We only verify metadata level on main doc
+        } else if (op.type === ('moveStudyBlock' as any)) {
+          const [templateId, blockId] = op.key.split('/');
+          docRef = doc(db, 'users', uid, 'coachPlans', templateId, 'blocks', blockId);
         } else if (op.type === 'studyStrategy') {
           docRef = doc(db, 'users', uid, 'studyStrategy', 'main');
         } else {
@@ -211,19 +422,17 @@ export class SyncQueue {
         if (!snap.exists()) {
           console.error(`SyncQueue Verification: Document missing for ${op.type} key ${op.key}`);
           success = false;
-          // Re-enqueue for write retry
           this.enqueue(op.type, op.key, op.payload);
           continue;
         }
         
         const cloudData = snap.data();
         const cloudHash = checksumService.compute(cloudData);
-        const localHash = checksumService.compute(op.payload);
+        const localHash = checksumService.compute(localPayload);
         
         if (cloudHash !== localHash) {
           console.warn(`SyncQueue Verification: Checksum mismatch for ${op.type} key ${op.key}. Cloud: ${cloudHash}, Local: ${localHash}. Triggering automatic repair.`);
           success = false;
-          // Re-enqueue rewrite
           this.enqueue(op.type, op.key, op.payload);
         } else {
           console.log(`SyncQueue Verification: Checksum MATCH for ${op.type} key ${op.key} (hash: ${cloudHash})`);
@@ -250,21 +459,37 @@ export class SyncQueue {
     this.isProcessing = true;
     this.setSyncState('UPLOADING');
 
-    // 1. Take a safety backup of local storage
+    // 1. Take safety backup
     this.saveBackup();
 
     try {
-      // 2. Build a write batch
+      // 2. Build write batch
       const batch = writeBatch(db);
-      
-      // Limit to 200 ops to leave headroom for operationsLog logs (batch max is 500)
       const opsToProcess = this.queue.slice(0, 200);
       
       for (const op of opsToProcess) {
         // A. Add target document write
         if (op.type === 'coachPlan') {
           const docRef = doc(db, 'users', uid, 'coachPlans', op.key);
+          const { blocks, ...metadata } = op.payload;
+          
+          // Write template metadata only
+          batch.set(docRef, metadata, { merge: true });
+          
+          // Write individual blocks as separate documents under blocks subcollection (Sprint 10)
+          if (blocks && Array.isArray(blocks)) {
+            blocks.forEach((block: any) => {
+              const blockRef = doc(db, 'users', uid, 'coachPlans', op.key, 'blocks', block.id);
+              batch.set(blockRef, block);
+            });
+          }
+        } else if (op.type === ('moveStudyBlock' as any)) {
+          const [templateId, blockId] = op.key.split('/');
+          const docRef = doc(db, 'users', uid, 'coachPlans', templateId, 'blocks', blockId);
           batch.set(docRef, op.payload, { merge: true });
+        } else if (op.type === ('renameTemplate' as any)) {
+          const docRef = doc(db, 'users', uid, 'coachPlans', op.key);
+          batch.set(docRef, { name: op.payload.name }, { merge: true });
         } else if (op.type === 'deleteCoachPlan') {
           const docRef = doc(db, 'users', uid, 'coachPlans', op.key);
           batch.delete(docRef);
@@ -283,6 +508,9 @@ export class SyncQueue {
         } else if (op.type === 'aiStudyMemory' as any) {
           const docRef = doc(db, 'users', uid, 'aiStudyMemory', 'main');
           batch.set(docRef, op.payload, { merge: true });
+        } else if (op.type === ('event' as any)) {
+          const docRef = doc(db, 'users', uid, 'events', op.key);
+          batch.set(docRef, op.payload);
         }
 
         // B. Add Idempotent Operation receipt document to the SAME batch
@@ -307,10 +535,9 @@ export class SyncQueue {
       const processedIds = opsToProcess.map(o => o.id);
       this.queue = this.queue.filter(op => !processedIds.includes(op.id));
       
-      // Update local storage completed set
       try {
         const completed = JSON.parse(localStorage.getItem('cfa_sync_completed_ops') || '[]');
-        const updatedCompleted = Array.from(new Set([...completed, ...processedIds])).slice(-200); // keep last 200
+        const updatedCompleted = Array.from(new Set([...completed, ...processedIds])).slice(-200);
         localStorage.setItem('cfa_sync_completed_ops', JSON.stringify(updatedCompleted));
       } catch (_) {}
 
@@ -321,7 +548,6 @@ export class SyncQueue {
       this.lastError = null;
       this.lastSyncTimestamp = new Date().toISOString();
 
-      // Flush error reports if we were offline
       this.flushOfflineErrors(uid);
 
       if (!verificationSuccess) {
@@ -331,7 +557,6 @@ export class SyncQueue {
         return;
       }
 
-      // If there are still items in the queue, schedule the next batch
       if (this.queue.length > 0) {
         this.isProcessing = false;
         setTimeout(() => this.process(), 300);
@@ -345,13 +570,20 @@ export class SyncQueue {
       this.firestoreStatus = 'offline';
       this.lastError = error.message || String(error);
       this.setSyncState('OFFLINE');
-      
-      // Report sync failure
       this.reportError(uid, error);
     }
 
     this.isProcessing = false;
     if (this.onStatusChange) this.onStatusChange();
+  }
+
+  public filterQueueAgainstCompleted(completedIds: string[]) {
+    const originalLen = this.queue.length;
+    this.queue = this.queue.filter(op => !completedIds.includes(op.id));
+    if (this.queue.length !== originalLen) {
+      this.saveToCache();
+      console.log(`SyncQueue: Filtered out ${originalLen - this.queue.length} already completed operations.`);
+    }
   }
 
   // --- Cloud Error Reporting ---
@@ -370,7 +602,7 @@ export class SyncQueue {
     try {
       const logs = JSON.parse(localStorage.getItem('cfa_sync_pending_errors') || '[]');
       logs.push(report);
-      localStorage.setItem('cfa_sync_pending_errors', JSON.stringify(logs.slice(-20))); // keep last 20
+      localStorage.setItem('cfa_sync_pending_errors', JSON.stringify(logs.slice(-20)));
     } catch (_) {}
 
     this.flushOfflineErrors(uid);

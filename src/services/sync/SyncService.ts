@@ -524,6 +524,7 @@ export class SyncService {
   }
 
   private resetDebounce() {
+    this.triggerMutationActivity();
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
@@ -623,23 +624,53 @@ export class SyncService {
     };
   }
 
+  private currentReconcileIntervalMs = 1800000; // 30 min default (Idle)
+  private idleRevertTimeout: NodeJS.Timeout | null = null;
+
+  public setReconcileIntervalMode(mode: 'IDLE' | 'EDITING' | 'IMMEDIATE') {
+    const oldInterval = this.currentReconcileIntervalMs;
+    if (mode === 'IDLE') {
+      this.currentReconcileIntervalMs = 1800000; // 30 mins
+    } else if (mode === 'EDITING') {
+      this.currentReconcileIntervalMs = 120000; // 2 mins
+    } else if (mode === 'IMMEDIATE') {
+      this.currentReconcileIntervalMs = 5000; // 5s immediate retry
+    }
+
+    if (oldInterval !== this.currentReconcileIntervalMs) {
+      console.log(`SyncService: Adaptive reconciliation interval adjusted to ${this.currentReconcileIntervalMs / 1000}s`);
+      const uid = this.status.currentUid;
+      if (uid && this.appContextSetters) {
+        this.setupReconciliationTimer(uid, this.appContextSetters);
+      }
+    }
+  }
+
+  private triggerMutationActivity() {
+    this.setReconcileIntervalMode('EDITING');
+    if (this.idleRevertTimeout) clearTimeout(this.idleRevertTimeout);
+    this.idleRevertTimeout = setTimeout(() => {
+      this.setReconcileIntervalMode('IDLE');
+    }, 10 * 60 * 1000); // revert to idle after 10 mins
+  }
+
   private setupRealtimeListeners(uid: string, setters: any) {
     // Unsubscribe previous listeners first
     this.unsubs.forEach(unsub => unsub());
     this.unsubs = [];
 
     // 1. Listen to coachPlans subcollection
-    const plansUnsub = onSnapshot(collection(db, 'users', uid, 'coachPlans'), (snapshot) => {
+    const plansUnsub = onSnapshot(collection(db, 'users', uid, 'coachPlans'), async (snapshot) => {
       let changed = false;
       const currentTemplates = coachPlanRepository.getAll();
       const updatedTemplates = [...currentTemplates];
 
-      snapshot.docChanges().forEach((change) => {
-        const cloudPlan = change.doc.data() as TimelineTemplate;
+      for (const change of snapshot.docChanges()) {
         const id = change.doc.id;
-        
-        // Skip verification receipts
-        if (!cloudPlan.id) return;
+        const cloudPlanMetadata = change.doc.data() as any;
+
+        // Skip validation receipts
+        if (!cloudPlanMetadata.templateId && !cloudPlanMetadata.id) continue;
 
         const localPlan = currentTemplates.find(t => t.id === id);
 
@@ -649,7 +680,29 @@ export class SyncService {
             changed = true;
           }
         } else {
-          // Add or modify
+          // Read individual study blocks from blocks subcollection (sub-document reads)
+          let blocks: any[] = [];
+          try {
+            const blocksSnap = await getDocs(collection(db, 'users', uid, 'coachPlans', id, 'blocks'));
+            blocksSnap.forEach(d => blocks.push(d.data()));
+          } catch (e) {
+            console.error(`SyncService: Failed to read subcollection blocks for plan ${id}`, e);
+          }
+
+          const cloudPlan: TimelineTemplate = {
+            id: id,
+            name: cloudPlanMetadata.templateName || cloudPlanMetadata.name || '',
+            description: cloudPlanMetadata.description || '',
+            createdAt: cloudPlanMetadata.createdAt,
+            updatedAt: cloudPlanMetadata.updatedAt,
+            status: cloudPlanMetadata.status || 'ACTIVE',
+            version: cloudPlanMetadata.version || 1,
+            archived: cloudPlanMetadata.archived || false,
+            isEditable: cloudPlanMetadata.isEditable !== false,
+            semanticVersion: cloudPlanMetadata.semanticVersion,
+            blocks
+          };
+
           const resolved = ConflictResolver.resolveTemplate(localPlan, cloudPlan);
           if (resolved.winner === 'cloud') {
             const idx = updatedTemplates.findIndex(t => t.id === id);
@@ -661,7 +714,7 @@ export class SyncService {
             changed = true;
           }
         }
-      });
+      }
 
       if (changed) {
         coachPlanRepository.setTemplates(updatedTemplates);
@@ -728,7 +781,7 @@ export class SyncService {
 
     this.reconciliationInterval = setInterval(async () => {
       if (syncQueue.getSyncState() === 'IDLE' && navigator.onLine) {
-        console.log("SyncService: Running background 5-minute reconciliation...");
+        console.log(`SyncService: Running background reconciliation check (interval: ${this.currentReconcileIntervalMs / 1000}s)...`);
         try {
           const cloudPlans = await firestoreAdapter.getCoachPlans(uid);
           const rawCloudStrategy = await firestoreAdapter.getStudyStrategy(uid);

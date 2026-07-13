@@ -16,7 +16,7 @@ import {
   onAuthStateChanged
 } from '../firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { syncService } from '../services/sync/SyncService';
+import { syncService, SyncStatus } from '../services/sync/SyncService';
 import { coachPlanRepository } from '../repositories/CoachPlanRepository';
 import { studyStrategyRepository } from '../repositories/StudyStrategyRepository';
 import { ContextBuilderService } from '../services/ContextBuilderService';
@@ -267,7 +267,46 @@ interface AppContextType {
   updateResourceProgress: (id: string, progress: number) => void;
 }
 
-const AppContext = createContext<AppContextType | undefined>(undefined);
+export const AppContext = createContext<AppContextType | undefined>(undefined);
+
+export const AuthContext = createContext<any>(null);
+export const CurriculumContext = createContext<any>(null);
+export const CoachPlannerContext = createContext<any>(null);
+export const SyncContext = createContext<any>(null);
+export const AIContext = createContext<any>(null);
+export const MissionContext = createContext<any>(null);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth must be used within AppProvider');
+  return context;
+};
+export const useCurriculum = () => {
+  const context = useContext(CurriculumContext);
+  if (!context) throw new Error('useCurriculum must be used within AppProvider');
+  return context;
+};
+export const useCoachPlanner = () => {
+  const context = useContext(CoachPlannerContext);
+  if (!context) throw new Error('useCoachPlanner must be used within AppProvider');
+  return context;
+};
+export const useSync = () => {
+  const context = useContext(SyncContext);
+  if (!context) throw new Error('useSync must be used within AppProvider');
+  return context;
+};
+export const useAI = () => {
+  const context = useContext(AIContext);
+  if (!context) throw new Error('useAI must be used within AppProvider');
+  return context;
+};
+export const useMission = () => {
+  const context = useContext(MissionContext);
+  if (!context) throw new Error('useMission must be used within AppProvider');
+  return context;
+};
+
 
 import {
   INITIAL_2027_SUBJECTS,
@@ -981,6 +1020,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(() => syncService.getStatus());
+
+  useEffect(() => {
+    const unsub = syncService.subscribe(() => {
+      setSyncStatus(syncService.getStatus());
+    });
+    return unsub;
+  }, []);
+
   // Trigger Analytics Aggregator recalculation on state changes
   useEffect(() => {
     analyticsAggregator.recalculate(sessionHistory, losList);
@@ -1254,7 +1302,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // EventStoreService – subscribes to EventBus on construction, records all events
   const eventStoreServiceRef = React.useMemo(() => {
-    return new EventStoreService(eventBus);
+    return EventStoreService.getInstance();
   }, []);
 
   // CommandRouterService – parses command palette strings into intents via EventBus
@@ -2994,7 +3042,121 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateResourceProgress
       }}
     >
-      {children}
+      <AuthContext.Provider value={{
+        user,
+        authLoading,
+        login,
+        loginWithEmail,
+        signUpWithEmail,
+        loginWithGoogle,
+        logout,
+        updateProfile,
+        settings,
+        updateSettings,
+        activeLevel,
+        setActiveLevel
+      }}>
+        <CurriculumContext.Provider value={{
+          subjects,
+          readings,
+          losList,
+          updateLOS,
+          toggleLOSBookmark,
+          resources,
+          addResource,
+          toggleResourceFavorite,
+          deleteResource,
+          uploadAsset,
+          updateAssetProgress,
+          addAssetHighlight,
+          addAssetAnnotation,
+          clearIngestionQueue,
+          notes,
+          addNote,
+          updateNote,
+          deleteNote,
+          formulas,
+          updateFormula,
+          curriculumEngine,
+          knowledgeSnapshot,
+          knowledgeGraphService,
+          activeReadingAssetId,
+          startReadingSession,
+          logReadingPageFlip,
+          endReadingSession,
+          chapters,
+          curriculumService,
+          curriculumTreeService,
+          workspaceState,
+          updateWorkspaceState,
+          getResourcesByReading,
+          markResourceOpened,
+          markResourceCompleted,
+          updateResourceProgress
+        }}>
+          <CoachPlannerContext.Provider value={{
+            templates,
+            activeTemplateId,
+            setActiveTemplate,
+            generateCoachPlan,
+            copyCoachToSandbox,
+            updateTemplateBlocks,
+            activeTemplate,
+            renameTemplate,
+            deleteTemplate,
+            archiveTemplate,
+            duplicateTemplate,
+            studyStrategy,
+            setStudyStrategy,
+            recalculateFromStrategy,
+            plannerReadings,
+            plannerSubjects,
+            plannerProgress,
+            logVideoMinutes,
+            recordEOCQCompleted,
+            getReadingProgress,
+            addPlannerReading,
+            updatePlannerReading,
+            deletePlannerReading,
+            addPlannerSubject
+          }}>
+            <SyncContext.Provider value={{
+              syncStatus,
+              eventBus
+            }}>
+              <AIContext.Provider value={{
+                analyticsService,
+                eventStoreService: eventStoreServiceRef,
+                commandRouter,
+                intelligenceQueryService: queryServiceInstance,
+                snapshotEngineService,
+                isDegraded
+              }}>
+                <MissionContext.Provider value={{
+                  events,
+                  addEvent,
+                  updateEvent,
+                  deleteEvent,
+                  activityFeed,
+                  logActivity,
+                  clearActivityLog,
+                  readingSessionActiveReport,
+                  revisionQueue,
+                  dailySnapshotsList,
+                  graphAnalyzerHealthReport,
+                  examReadinessReport,
+                  burnoutDetected,
+                  dailyMission,
+                  activeTab,
+                  setActiveTab
+                }}>
+                  {children}
+                </MissionContext.Provider>
+              </AIContext.Provider>
+            </SyncContext.Provider>
+          </CoachPlannerContext.Provider>
+        </CurriculumContext.Provider>
+      </AuthContext.Provider>
     </AppContext.Provider>
   );
 };
