@@ -1235,14 +1235,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       readingSessionActiveReport,
       dailySnapshotsList,
       plannerProgress,
-      activeBlock: null
+      activeBlock: (() => {
+        if (!activeTemplate || activeTemplate.blocks.length === 0) return null;
+        const today = new Date().toISOString().split('T')[0];
+        return activeTemplate.blocks.find(b => today >= b.startDate && today <= b.endDate) || null;
+      })()
     });
   }, [
     losList, formulas, notes, resources, sessionHistory,
     settings.examDate, settings.targetDailyHours,
     activeSession, selectedLOSId, selectedReadingId, selectedChapterId, selectedSubjectId,
     activeReadingAssetId, readingSessionActiveReport, dailySnapshotsList,
-    plannerProgress
+    plannerProgress, activeTemplate
   ]);
 
   // Destructure orchestrated values for backward compatibility
