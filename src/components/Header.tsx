@@ -8,6 +8,7 @@ import { useApp } from '../context/AppContext';
 import { Search, Bell, Moon, Sun, User, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { SearchOverlay } from './SearchOverlay';
 import { rateLimitTracker } from '../services/RateLimitTracker';
+import { syncService, SyncStatus } from '../services/sync/SyncService';
 
 export const Header: React.FC = () => {
   const { 
@@ -26,6 +27,14 @@ export const Header: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [rateLimitSecs, setRateLimitSecs] = useState(0);
   const [isRateLimited, setIsRateLimited] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(syncService.getStatus());
+
+  useEffect(() => {
+    const unsub = syncService.subscribe(() => {
+      setSyncStatus(syncService.getStatus());
+    });
+    return unsub;
+  }, []);
 
   useEffect(() => {
     const updateRateLimit = () => {
@@ -106,6 +115,26 @@ className={`text-xs tracking-tight transition-colors duration-150 shrink-0 font-
         {/* Action Controls */}
         <div className="flex items-center space-x-6">
           
+          {/* Multi-Device Synchronization Indicator */}
+          {syncStatus.authStatus === 'authenticated' && (
+            <div className="flex items-center space-x-1.5 text-[10px] bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-full px-2.5 py-1">
+              <span className={`inline-block w-1.5 h-1.5 rounded-full ${
+                syncStatus.syncStatus === 'syncing' ? 'bg-amber-400 animate-ping' :
+                syncStatus.syncStatus === 'offline' ? 'bg-rose-400' :
+                'bg-emerald-400'
+              }`} />
+              <span className="text-slate-500 dark:text-slate-400 font-mono tracking-tight text-[9px]">
+                {syncStatus.syncStatus === 'syncing' ? (
+                  `Syncing... (${syncStatus.pendingWrites} pending)`
+                ) : syncStatus.syncStatus === 'offline' ? (
+                  "Sync Offline"
+                ) : (
+                  `Synced ${syncStatus.lastSync === 'Never' ? '' : `${Math.max(0, Math.round((Date.now() - new Date(syncStatus.lastSync).getTime()) / 1000))}s ago`} ✔ Cloud`
+                )}
+              </span>
+            </div>
+          )}
+
           {/* AI Status Badge */}
           {(() => {
             const provider = settings.aiProvider || 'google-gemini';

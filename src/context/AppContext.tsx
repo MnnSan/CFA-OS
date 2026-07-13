@@ -20,6 +20,7 @@ import { syncService } from '../services/sync/SyncService';
 import { coachPlanRepository } from '../repositories/CoachPlanRepository';
 import { studyStrategyRepository } from '../repositories/StudyStrategyRepository';
 import { ContextBuilderService } from '../services/ContextBuilderService';
+import { analyticsAggregator } from '../services/sync/AnalyticsAggregator';
 import {
   UserProfile,
   StudySettings,
@@ -979,6 +980,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubStrategy();
     };
   }, []);
+
+  // Trigger Analytics Aggregator recalculation on state changes
+  useEffect(() => {
+    analyticsAggregator.recalculate(sessionHistory, losList);
+  }, [sessionHistory, losList, templates]);
 
   // Auto-generate Coach AI Blueprint on first load
   const coachPlanGeneratedRef = useRef(false);
@@ -2420,7 +2426,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         timestamp: new Date().toISOString(),
         source: 'AppContext',
         entityId: 'coach-blueprint',
-        payload: { templateId: 'coach-blueprint' }
+        payload: { templateId: 'coach-blueprint', template: newTemplate }
       });
     } catch (e) {
       coachPlanRepository.rollback();
@@ -2463,7 +2469,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         timestamp: new Date().toISOString(),
         source: 'AppContext',
         entityId: 'sandbox-default',
-        payload: { templateId: 'sandbox-default' }
+        payload: { templateId: 'sandbox-default', template: sandbox }
       });
     } catch (e) {
       coachPlanRepository.rollback();
@@ -2483,7 +2489,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         timestamp: new Date().toISOString(),
         source: 'AppContext',
         entityId: templateId,
-        payload: { templateId, blockCount: blocks.length }
+        payload: { templateId, blockCount: blocks.length, template: coachPlanRepository.getById(templateId) }
       });
     } catch (e) {
       coachPlanRepository.rollback();
@@ -2530,7 +2536,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         timestamp: new Date().toISOString(),
         source: 'AppContext',
         entityId: strategy.id,
-        payload: { strategyId: strategy.id }
+        payload: { strategyId: strategy.id, strategy }
       });
     } catch (e) {
       coachPlanRepository.rollback();
@@ -2551,7 +2557,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         timestamp: new Date().toISOString(),
         source: 'AppContext',
         entityId: id,
-        payload: { id, renameTo: newName }
+        payload: { id, renameTo: newName, template: coachPlanRepository.getById(id) }
       });
     } catch (e) {
       coachPlanRepository.rollback();
@@ -2582,7 +2588,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         timestamp: new Date().toISOString(),
         source: 'AppContext',
         entityId: id,
-        payload: { id }
+        payload: { id, template: coachPlanRepository.getById(id) }
       });
     } catch (e) {
       coachPlanRepository.rollback();

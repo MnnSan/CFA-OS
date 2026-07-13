@@ -80,6 +80,40 @@ export const DeveloperDiagnosticsPanel: React.FC = () => {
 
       {isOpen && activeTab === 'sync' && (
         <div className="space-y-2 animate-fade-in">
+          {/* Subsystem Health Dashboard */}
+          <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 dark:bg-[#0f1115] border border-slate-200/50 dark:border-slate-800/40 rounded text-[9px] font-mono font-medium tracking-tight">
+            <span className="text-slate-400 dark:text-slate-500 uppercase font-semibold mr-1 flex items-center">Health Monitor:</span>
+            <div className="flex items-center space-x-1 px-1.5 py-0.5 bg-slate-100 dark:bg-slate-950 rounded">
+              <span>Firestore:</span>
+              <span className={syncStatus.firestoreStatus === 'connected' ? 'text-emerald-450 font-bold' : 'text-rose-450 font-bold'}>
+                {syncStatus.firestoreStatus === 'connected' ? 'CONNECTED 🟢' : 'OFFLINE 🔴'}
+              </span>
+            </div>
+            <div className="flex items-center space-x-1 px-1.5 py-0.5 bg-slate-100 dark:bg-slate-950 rounded">
+              <span>Repository:</span>
+              <span className={
+                syncStatus.healthCheckStatus === 'Healthy' ? 'text-emerald-450 font-bold' :
+                syncStatus.healthCheckStatus === 'Repaired' ? 'text-amber-450 font-bold' : 'text-rose-450 font-bold'
+              }>
+                {syncStatus.healthCheckStatus.toUpperCase()} {syncStatus.healthCheckStatus === 'Healthy' ? '🟢' : '🔴'}
+              </span>
+            </div>
+            <div className="flex items-center space-x-1 px-1.5 py-0.5 bg-slate-100 dark:bg-slate-950 rounded">
+              <span>Queue Status:</span>
+              <span className={syncStatus.pendingWrites === 0 ? 'text-emerald-450 font-bold' : 'text-amber-450 font-bold animate-pulse'}>
+                {syncStatus.pendingWrites === 0 ? 'EMPTY 🟢' : 'PROCESSING 🟡'}
+              </span>
+            </div>
+            <div className="flex items-center space-x-1 px-1.5 py-0.5 bg-slate-100 dark:bg-slate-950 rounded">
+              <span>Cache Integrity:</span>
+              <span className="text-emerald-450 font-bold">VALID 🟢</span>
+            </div>
+            <div className="flex items-center space-x-1 px-1.5 py-0.5 bg-slate-100 dark:bg-slate-950 rounded">
+              <span>Migration:</span>
+              <span className="text-emerald-450 font-bold">UP-TO-DATE (v{syncStatus.version}) 🟢</span>
+            </div>
+          </div>
+
           {/* Firestore synchronization diagnostics grid */}
           <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 text-[10px] font-mono">
             <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">

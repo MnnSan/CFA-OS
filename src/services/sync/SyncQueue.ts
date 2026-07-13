@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { writeBatch, doc } from 'firebase/firestore';
+import { db } from '../../firebase';
 import { PendingSyncOp } from './SyncService';
-import { firestoreAdapter } from './FirestoreAdapter';
 import { coachPlanRepository } from '../../repositories/CoachPlanRepository';
 import { studyStrategyRepository } from '../../repositories/StudyStrategyRepository';
 
@@ -123,14 +124,17 @@ export class SyncQueue {
     }
   }
 
-  // --- Queue Mutations ---
+  // --- Queue Mutations & Deduplication ---
 
   public enqueue(type: PendingSyncOp['type'], key: string, payload: any) {
     // Remove previous operations targeting the exact same record (merges rapid updates)
     this.queue = this.queue.filter(op => !(op.type === type && op.key === key));
     
+    // De-duplicate completed operations
+    const opId = `op-${Math.random().toString(36).substring(7)}-${Date.now()}`;
+    
     this.queue.push({
-      id: Math.random().toString(36).substring(7),
+      id: opId,
       type,
       key,
       payload,
@@ -141,16 +145,25 @@ export class SyncQueue {
 
   public enqueueAnalytics(event: any) {
     this.queue.push({
-      id: Math.random().toString(36).substring(7),
+      id: event.id || `op-an-${Math.random().toString(36).substring(7)}`,
       type: 'analyticsEvent' as any,
       key: event.id,
       payload: event,
-      timestamp: new Date().toISOString()
+      timestamp: event.timestamp || new Date().toISOString()
     });
     this.saveToCache();
   }
 
-  // --- Process Queue ---
+  public filterQueueAgainstCompleted(completedIds: string[]) {
+    const originalLen = this.queue.length;
+    this.queue = this.queue.filter(op => !completedIds.includes(op.id));
+    if (this.queue.length !== originalLen) {
+      this.saveToCache();
+      console.log(`SyncQueue: Filtered out ${originalLen - this.queue.length} already completed operations.`);
+    }
+  }
+
+  // --- Process Queue via WriteBatch ---
 
   public async process() {
     if (this.isProcessing) return;
@@ -162,44 +175,140 @@ export class SyncQueue {
     this.isProcessing = true;
     if (this.onStatusChange) this.onStatusChange();
 
-    while (this.queue.length > 0) {
-      const op = this.queue[0];
-      
-      // Before writing, save a recovery backup snapshot
-      this.saveBackup();
+    // 1. Take a safety backup of local storage
+    this.saveBackup();
 
-      try {
+    try {
+      // 2. Build a write batch
+      const batch = writeBatch(db);
+      
+      // Limit to 200 ops to leave headroom for operationsLog logs (batch max is 500)
+      const opsToProcess = this.queue.slice(0, 200);
+      
+      for (const op of opsToProcess) {
+        // A. Add target document write
         if (op.type === 'coachPlan') {
-          await firestoreAdapter.saveCoachPlan(uid, op.key, op.payload);
+          const docRef = doc(db, 'users', uid, 'coachPlans', op.key);
+          batch.set(docRef, op.payload, { merge: true });
         } else if (op.type === 'deleteCoachPlan') {
-          await firestoreAdapter.deleteCoachPlan(uid, op.key);
+          const docRef = doc(db, 'users', uid, 'coachPlans', op.key);
+          batch.delete(docRef);
         } else if (op.type === 'studyStrategy') {
-          await firestoreAdapter.saveStudyStrategy(uid, op.payload);
+          const docRef = doc(db, 'users', uid, 'studyStrategy', 'main');
+          batch.set(docRef, op.payload, { merge: true });
         } else if (op.type === 'metadata') {
-          await firestoreAdapter.saveMetadata(uid, op.payload);
+          const docRef = doc(db, 'users', uid, 'metadata', 'main');
+          batch.set(docRef, op.payload, { merge: true });
         } else if (op.type === 'analyticsEvent' as any) {
-          await firestoreAdapter.saveAnalyticsEvent(uid, op.payload);
+          const docRef = doc(db, 'users', uid, 'analyticsEvents', op.key);
+          batch.set(docRef, op.payload);
+        } else if (op.type === 'analyticsSummary' as any) {
+          const docRef = doc(db, 'users', uid, 'analytics', 'summary');
+          batch.set(docRef, op.payload, { merge: true });
+        } else if (op.type === 'aiStudyMemory' as any) {
+          const docRef = doc(db, 'users', uid, 'aiStudyMemory', 'main');
+          batch.set(docRef, op.payload, { merge: true });
         }
 
-        // Successfully synchronized! Dequeue and clear backup
-        this.queue.shift();
-        this.saveToCache();
-        this.clearBackup();
-        
-        this.firestoreStatus = 'connected';
-        this.lastError = null;
-
-      } catch (error: any) {
-        console.error("SyncQueue: Network write error. Will retry later.", error);
-        this.firestoreStatus = 'offline';
-        this.lastError = error.message || String(error);
-        if (this.onStatusChange) this.onStatusChange();
-        break; // Stop and retry later when online
+        // B. Add Idempotent Operation receipt document to the SAME batch
+        const logRef = doc(db, 'users', uid, 'operationsLog', op.id);
+        batch.set(logRef, {
+          operationId: op.id,
+          type: op.type,
+          key: op.key,
+          timestamp: op.timestamp,
+          status: 'SUCCESS',
+          executedAt: new Date().toISOString()
+        });
       }
+
+      // 3. Atomically commit all writes
+      await batch.commit();
+
+      // 4. Update memory queue
+      const processedIds = opsToProcess.map(o => o.id);
+      this.queue = this.queue.filter(op => !processedIds.includes(op.id));
+      
+      // Update local storage completed set
+      try {
+        const completed = JSON.parse(localStorage.getItem('cfa_sync_completed_ops') || '[]');
+        const updatedCompleted = Array.from(new Set([...completed, ...processedIds])).slice(-200); // keep last 200
+        localStorage.setItem('cfa_sync_completed_ops', JSON.stringify(updatedCompleted));
+      } catch (_) {}
+
+      this.saveToCache();
+      this.clearBackup();
+
+      this.firestoreStatus = 'connected';
+      this.lastError = null;
+
+      // Flush error reports if we were offline
+      this.flushOfflineErrors(uid);
+
+      // If there are still items in the queue, schedule the next batch
+      if (this.queue.length > 0) {
+        this.isProcessing = false;
+        setTimeout(() => this.process(), 300);
+        return;
+      }
+
+    } catch (error: any) {
+      console.error("SyncQueue: WriteBatch commit failed. Rolling back.", error);
+      this.firestoreStatus = 'offline';
+      this.lastError = error.message || String(error);
+      
+      // Report sync failure
+      this.reportError(uid, error);
+      
+      if (this.onStatusChange) this.onStatusChange();
     }
 
     this.isProcessing = false;
     if (this.onStatusChange) this.onStatusChange();
+  }
+
+  // --- Cloud Error Reporting ---
+
+  public reportError(uid: string, error: any) {
+    const report = {
+      id: `err-${Math.random().toString(36).substring(7)}-${Date.now()}`,
+      message: error.message || String(error),
+      stack: error.stack || null,
+      timestamp: new Date().toISOString(),
+      pendingQueueLength: this.queue.length,
+      onlineStatus: navigator.onLine,
+      userAgent: navigator.userAgent
+    };
+
+    try {
+      const logs = JSON.parse(localStorage.getItem('cfa_sync_pending_errors') || '[]');
+      logs.push(report);
+      localStorage.setItem('cfa_sync_pending_errors', JSON.stringify(logs.slice(-20))); // keep last 20
+    } catch (_) {}
+
+    this.flushOfflineErrors(uid);
+  }
+
+  private async flushOfflineErrors(uid: string) {
+    try {
+      const logsStr = localStorage.getItem('cfa_sync_pending_errors');
+      if (!logsStr) return;
+      const logs = JSON.parse(logsStr);
+      if (logs.length === 0) return;
+
+      if (navigator.onLine) {
+        const batch = writeBatch(db);
+        for (const log of logs) {
+          const docRef = doc(db, 'users', uid, 'errorReports', log.id);
+          batch.set(docRef, log);
+        }
+        await batch.commit();
+        localStorage.removeItem('cfa_sync_pending_errors');
+        console.log("SyncQueue: Uploaded error reports to Cloud.");
+      }
+    } catch (e) {
+      console.error("SyncQueue: Failed to flush error reports", e);
+    }
   }
 }
 

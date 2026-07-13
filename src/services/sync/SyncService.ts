@@ -11,6 +11,10 @@ import { ConflictResolver } from './ConflictResolver';
 import { MigrationService } from './MigrationService';
 import { coachPlanRepository } from '../../repositories/CoachPlanRepository';
 import { studyStrategyRepository } from '../../repositories/StudyStrategyRepository';
+import { collection, doc, getDoc, setDoc, getDocs } from 'firebase/firestore';
+import { db } from '../../firebase';
+import { aiStudyMemoryService } from '../AIStudyMemoryService';
+import { analyticsAggregator } from './AnalyticsAggregator';
 
 export interface SyncStatus {
   authStatus: 'authenticated' | 'unauthenticated' | 'loading';
@@ -154,10 +158,20 @@ export class SyncService {
     const localActiveId = coachPlanRepository.getActiveTemplateId();
 
     try {
-      // 1. Download plans and strategy
+      // 1. Download plans, strategy, and operationsLog (for idempotency checks)
       const cloudPlans = await firestoreAdapter.getCoachPlans(uid);
       const rawCloudStrategy = await firestoreAdapter.getStudyStrategy(uid);
       const rawCloudMetadata = await firestoreAdapter.getMetadata(uid);
+
+      // Download completed operation logs to filter syncQueue (Idempotency check)
+      try {
+        const logsSnap = await getDocs(collection(db, 'users', uid, 'operationsLog'));
+        const completedIds: string[] = [];
+        logsSnap.forEach(d => completedIds.push(d.id));
+        syncQueue.filterQueueAgainstCompleted(completedIds);
+      } catch (e) {
+        console.error("SyncService: Failed to retrieve operations log on boot", e);
+      }
 
       this.status.cloudCount = Object.keys(cloudPlans).length;
 
@@ -233,6 +247,42 @@ export class SyncService {
         localStorage.setItem('cfa_study_strategy', JSON.stringify(finalStrategy));
       } else {
         localStorage.removeItem('cfa_study_strategy');
+      }
+
+      // Load AI Study Memory & Analytics Summary from Cloud
+      try {
+        const memorySnap = await getDoc(doc(db, 'users', uid, 'aiStudyMemory', 'main'));
+        if (memorySnap.exists()) {
+          aiStudyMemoryService.setMemory(memorySnap.data() as any);
+        }
+        
+        const summarySnap = await getDoc(doc(db, 'users', uid, 'analytics', 'summary'));
+        if (summarySnap.exists()) {
+          analyticsAggregator.setSummary(summarySnap.data() as any);
+        }
+      } catch (e) {
+        console.error("SyncService: Failed to initialize auxiliary memory services", e);
+      }
+
+      // Automated Nightly Backup check
+      try {
+        const lastBackup = localStorage.getItem('cfa_last_nightly_backup');
+        const backupOverdue = !lastBackup || (Date.now() - new Date(lastBackup).getTime() > 24 * 60 * 60 * 1000);
+        if (backupOverdue) {
+          const dateStr = new Date().toISOString().split('T')[0];
+          const backupRef = doc(db, 'users', uid, 'backups', dateStr);
+          const backupSnapshot = {
+            templates: finalTemplates,
+            activeTemplateId: finalActiveId,
+            studyStrategy: finalStrategy,
+            timestamp: new Date().toISOString()
+          };
+          await setDoc(backupRef, backupSnapshot);
+          localStorage.setItem('cfa_last_nightly_backup', new Date().toISOString());
+          console.log(`SyncService: Nightly backup snapshot created for date ${dateStr}`);
+        }
+      } catch (e) {
+        console.error("SyncService: Failed to execute automated nightly backup", e);
       }
 
       // 5. Update React AppContext state setters

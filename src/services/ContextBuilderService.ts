@@ -1,6 +1,7 @@
 import { StudySettings } from '../types';
 import { LearningResource, StudyStackResult } from '../resources';
 import { learningResourceRepository } from '../resources/repository/LearningResourceRepository';
+import { aiStudyMemoryService } from './AIStudyMemoryService';
 
 export interface VersionedContext {
   contextName: string;
@@ -86,6 +87,7 @@ export class ContextBuilderService {
     if (ContextBuilderService.stateProvider) {
       try {
         const state = ContextBuilderService.stateProvider();
+        const memory = aiStudyMemoryService.getMemory();
         if (state) {
           planContext = {
             studyPlanAwareness: {
@@ -98,6 +100,18 @@ export class ContextBuilderService {
               upcomingReading: state.upcomingReading,
               averageConfidence: state.confidence,
               weakTopics: state.weakTopics
+            },
+            aiStudyMemory: {
+              currentSubjectId: memory.currentSubjectId,
+              currentReadingId: memory.currentReadingId,
+              currentLosId: memory.currentLosId,
+              recentMistakes: memory.recentMistakes,
+              weakTopics: memory.weakTopics,
+              lastAiRecommendation: memory.lastAiRecommendation,
+              studyStreak: memory.studyStreak,
+              confidenceTrend: memory.confidenceTrend,
+              recentQuizScores: memory.recentQuizScores,
+              updatedAt: memory.updatedAt
             }
           };
         }
