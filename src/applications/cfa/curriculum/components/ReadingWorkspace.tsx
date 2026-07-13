@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../../../context/AppContext';
+import { useLearningResources } from '../../../../context/LearningResourceRepositoryContext';
+import { resourceLauncherService } from '../../../../services/ResourceLauncherService';
+import { eventBus } from '../../../../services/EventBus';
+import { Play, RotateCcw, Edit, Copy, CheckSquare as CheckSquareIcon, Search, FolderOpen } from 'lucide-react';
 import { Subject, Chapter, Reading, LearningOutcomeStatement, Formula, Resource, StudyNote } from '../../../../types';
+import { LearningResource } from '../../../../resources/types';
 import {
   CheckCircle2,
   Circle,
@@ -30,8 +35,482 @@ import {
   Pencil,
   X,
   Save,
-  CheckSquare
+  CheckSquare,
+  HelpCircle
 } from 'lucide-react';
+
+const ResourceCard: React.FC<{
+  resource: LearningResource;
+  lrRepo: any;
+  onRefresh: () => void;
+}> = ({ resource, lrRepo, onRefresh }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ ...resource });
+  const [generatingType, setGeneratingType] = useState<string | null>(null);
+
+  useEffect(() => {
+    setEditForm({ ...resource });
+  }, [resource]);
+
+  const handleLaunch = () => {
+    if (resource.progress.minutesCompleted > 0) {
+      resourceLauncherService.resume(resource);
+    } else {
+      resourceLauncherService.launch(resource);
+    }
+    lrRepo.markOpened(resource.id);
+    onRefresh();
+  };
+
+  const handleToggleComplete = () => {
+    lrRepo.toggleComplete(resource.id);
+    onRefresh();
+    eventBus.publish({
+      type: 'ReadingProgressUpdated',
+      timestamp: new Date().toISOString(),
+      source: 'ReadingWorkspace',
+      entityId: resource.readingId,
+      payload: { readingId: resource.readingId }
+    });
+  };
+
+  const handleReset = () => {
+    lrRepo.resetProgress(resource.id);
+    onRefresh();
+    eventBus.publish({
+      type: 'ReadingProgressUpdated',
+      timestamp: new Date().toISOString(),
+      source: 'ReadingWorkspace',
+      entityId: resource.readingId,
+      payload: { readingId: resource.readingId }
+    });
+  };
+
+  const handleDuplicate = () => {
+    lrRepo.duplicate(resource.id);
+    onRefresh();
+  };
+
+  const handleArchive = () => {
+    if (confirm('Archive this learning resource?')) {
+      lrRepo.archive(resource.id);
+      onRefresh();
+    }
+  };
+
+  const handleSaveEdit = () => {
+    lrRepo.update(resource.id, editForm);
+    setIsEditing(false);
+    onRefresh();
+  };
+
+  const handleGenerate = (type: 'Summary' | 'Quiz') => {
+    setGeneratingType(type);
+    setTimeout(() => {
+      setGeneratingType(null);
+      alert(`AI Coach has successfully generated a ${type} for "${resource.title}"!`);
+    }, 1500);
+  };
+
+  const progressPercent = resource.duration > 0
+    ? Math.min(100, Math.round((resource.progress.minutesCompleted / resource.duration) * 100))
+    : 0;
+
+  return (
+    <div className="bg-[#101116] border border-[#1e2026] hover:border-slate-700/80 rounded-lg p-4 transition-all duration-200 space-y-3">
+      {/* Header section (always visible) */}
+      <div 
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex items-start justify-between cursor-pointer gap-4 select-none"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-mono font-bold text-amber-500/80">[{resource.provider}]</span>
+            <span className="text-xs font-bold text-slate-200 truncate">{resource.title}</span>
+            <span className="text-[10px] px-1.5 py-0.5 bg-slate-900 rounded text-slate-400 border border-[#2d313e]/30 font-semibold">{resource.resourceType}</span>
+          </div>
+          
+          <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-500 font-mono">
+            <span>Duration: {resource.duration} min</span>
+            <span>•</span>
+            <span className={resource.progress.completed ? 'text-emerald-500 font-semibold' : ''}>
+              {resource.progress.completed ? 'Completed' : progressPercent > 0 ? `In Progress (${resource.progress.minutesCompleted}m)` : 'Not Started'}
+            </span>
+          </div>
+
+          {/* Progress bar */}
+          <div className="w-full bg-slate-955 h-1.5 rounded-full overflow-hidden mt-2 border border-slate-900">
+            <div 
+              className={`h-full rounded-full transition-all duration-500 ${resource.progress.completed ? 'bg-emerald-500' : 'bg-amber-500'}`} 
+              style={{ width: `${progressPercent}%` }} 
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button 
+            type="button"
+            className="text-slate-505 hover:text-slate-300 p-1"
+          >
+            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </button>
+        </div>
+      </div>
+
+      {/* Expanded details section */}
+      {isExpanded && (
+        <div className="border-t border-[#1e2026] pt-4 mt-3 space-y-4 text-xs">
+          {isEditing ? (
+            /* Inline Edit Form */
+            <div className="bg-[#0d0e12] border border-blue-900/30 rounded-lg p-4 space-y-4">
+              <h5 className="text-[10px] font-bold font-mono text-blue-400 uppercase tracking-wider border-b border-slate-900 pb-1.5">
+                Edit Learning Resource
+              </h5>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-slate-505 font-mono text-[9px] uppercase font-bold">Title</label>
+                  <input
+                    type="text"
+                    className="w-full bg-slate-950 border border-slate-850 rounded px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-blue-500 font-medium"
+                    value={editForm.title}
+                    onChange={e => setEditForm({ ...editForm, title: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-505 font-mono text-[9px] uppercase font-bold">Provider</label>
+                  <input
+                    type="text"
+                    className="w-full bg-slate-950 border border-slate-850 rounded px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-blue-500 font-medium"
+                    value={editForm.provider}
+                    onChange={e => setEditForm({ ...editForm, provider: e.target.value as any })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-505 font-mono text-[9px] uppercase font-bold">Duration (min)</label>
+                  <input
+                    type="number"
+                    className="w-full bg-slate-955 border border-slate-850 rounded px-2.5 py-1.5 text-slate-202 focus:outline-none focus:border-blue-500 font-mono"
+                    value={editForm.duration}
+                    onChange={e => setEditForm({ ...editForm, duration: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-505 font-mono text-[9px] uppercase font-bold">Launch URL</label>
+                  <input
+                    type="text"
+                    className="w-full bg-slate-955 border border-slate-850 rounded px-2.5 py-1.5 text-slate-202 focus:outline-none focus:border-blue-500"
+                    value={editForm.launchUrl}
+                    onChange={e => setEditForm({ ...editForm, launchUrl: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <label className="text-slate-505 font-mono text-[9px] uppercase font-bold">Description</label>
+                  <textarea
+                    className="w-full bg-slate-955 border border-slate-855 rounded px-2.5 py-1.5 text-slate-202 focus:outline-none focus:border-blue-500"
+                    rows={2}
+                    value={editForm.description}
+                    onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <label className="text-slate-505 font-mono text-[9px] uppercase font-bold">Linked LOS Codes (comma-separated)</label>
+                  <input
+                    type="text"
+                    className="w-full bg-slate-955 border border-slate-850 rounded px-2.5 py-1.5 text-slate-202 focus:outline-none focus:border-blue-500 font-mono"
+                    value={editForm.losIds?.join(', ') || ''}
+                    onChange={e => setEditForm({ ...editForm, losIds: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                  />
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <label className="text-slate-505 font-mono text-[9px] uppercase font-bold">Linked Formula IDs (comma-separated)</label>
+                  <input
+                    type="text"
+                    className="w-full bg-slate-955 border border-slate-855 rounded px-2.5 py-1.5 text-slate-202 focus:outline-none focus:border-blue-500 font-mono"
+                    value={editForm.resourceLinks?.join(', ') || ''}
+                    onChange={e => setEditForm({ ...editForm, resourceLinks: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                  />
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <label className="text-slate-505 font-mono text-[9px] uppercase font-bold">Tags (comma-separated)</label>
+                  <input
+                    type="text"
+                    className="w-full bg-slate-955 border border-slate-850 rounded px-2.5 py-1.5 text-slate-202 focus:outline-none focus:border-blue-500"
+                    value={editForm.tags?.join(', ') || ''}
+                    onChange={e => setEditForm({ ...editForm, tags: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                  />
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-2 text-[10px] font-mono pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="px-3 py-1.5 border border-slate-800 text-slate-400 hover:text-slate-200 rounded cursor-pointer"
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEdit}
+                  className="px-3.5 py-1.5 bg-blue-650 hover:bg-blue-550 text-white font-bold rounded cursor-pointer"
+                >
+                  SAVE
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Card Details View */
+            <div className="space-y-4">
+              {resource.description && (
+                <div className="text-slate-350 leading-relaxed font-sans">
+                  <span className="text-slate-550 font-mono block mb-1">DESCRIPTION</span>
+                  {resource.description}
+                </div>
+              )}
+
+              {/* Metadata Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3 border-t border-[#1e2026] pt-3 text-[10px] font-mono text-slate-400">
+                <div>
+                  <span className="text-slate-550 block mb-0.5">LINKED READING</span>
+                  <span className="text-slate-202 font-bold block">{resource.readingId || 'N/A'}</span>
+                </div>
+                
+                <div>
+                  <span className="text-slate-550 block mb-0.5">LAST OPENED</span>
+                  <span className="text-slate-202 font-bold block">
+                    {resource.progress.lastOpenedAt 
+                      ? new Date(resource.progress.lastOpenedAt).toLocaleString() 
+                      : 'Never'
+                    }
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-slate-550 block mb-0.5">LAUNCH URL</span>
+                  <a 
+                    href={resource.launchUrl} 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    className="text-blue-400 hover:underline truncate block max-w-full font-sans text-xs mt-0.5"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    {resource.launchUrl || 'None'}
+                  </a>
+                </div>
+
+                {(resource.provider === 'Question Bank' || resource.provider === 'Personal') && (
+                  <>
+                    <div>
+                      <span className="text-slate-550 block mb-0.5">COMPLETED</span>
+                      <span className="text-slate-202 font-bold block">{resource.progress.completed ? 'Yes' : 'No'}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-550 block mb-0.5">DIFFICULTY</span>
+                      <span className="text-slate-202 font-bold block">{resource.difficulty || 'Medium'}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-555 block mb-0.5">QUESTIONS REMAINING</span>
+                      <span className="text-slate-202 font-bold block">{resource.progress.completed ? 0 : resource.duration}</span>
+                    </div>
+                  </>
+                )}
+                
+                {resource.losIds && resource.losIds.length > 0 && (
+                  <div className="col-span-2">
+                    <span className="text-slate-550 block mb-1">LINKED LOS CODES</span>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {resource.losIds.map(losId => (
+                        <span key={losId} className="px-1.5 py-0.5 bg-slate-900 border border-slate-800 rounded font-bold text-amber-500/80">
+                          {losId}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {resource.resourceLinks && resource.resourceLinks.length > 0 && (
+                  <div className="col-span-2">
+                    <span className="text-slate-550 block mb-1">LINKED FORMULAS</span>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {resource.resourceLinks.map(link => (
+                        <span key={link} className="px-1.5 py-0.5 bg-slate-900 border border-slate-800 rounded font-bold text-emerald-500">
+                          {link}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {resource.tags && resource.tags.length > 0 && (
+                  <div className="col-span-2">
+                    <span className="text-slate-550 block mb-1">TAGS</span>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {resource.tags.map(tag => (
+                        <span key={tag} className="px-1.5 py-0.5 bg-slate-900 border border-slate-800 rounded text-slate-300">
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons Row */}
+              <div className="flex items-center gap-2 flex-wrap border-t border-[#1e2026] pt-3 text-[10px] font-mono">
+                <button
+                  type="button"
+                  onClick={handleLaunch}
+                  className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded cursor-pointer transition-colors"
+                >
+                  {resource.progress.minutesCompleted > 0 ? 'Resume' : 'Launch'}
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={handleToggleComplete}
+                  className={`px-2.5 py-1.5 border rounded cursor-pointer transition-colors font-bold ${
+                    resource.progress.completed 
+                      ? 'border-emerald-500 text-emerald-500 bg-emerald-500/10' 
+                      : 'border-slate-700 text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  {resource.progress.completed ? 'Mark Incomplete' : 'Mark Complete'}
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="px-2.5 py-1.5 border border-slate-700 hover:bg-slate-800 text-slate-300 rounded cursor-pointer transition-colors"
+                  title="Reset progress to 0%"
+                >
+                  Reset Progress
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="px-2.5 py-1.5 border border-slate-700 hover:bg-slate-800 text-blue-400 rounded cursor-pointer transition-colors"
+                >
+                  Edit
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDuplicate}
+                  className="px-2.5 py-1.5 border border-slate-700 hover:bg-slate-800 text-amber-500 rounded cursor-pointer transition-colors"
+                >
+                  Duplicate
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleArchive}
+                  className="px-2.5 py-1.5 border border-slate-700 hover:bg-slate-800 text-rose-500 rounded cursor-pointer transition-colors"
+                >
+                  Archive
+                </button>
+
+                {/* NotebookLM Specific simulation actions */}
+                {resource.provider === 'NotebookLM' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleGenerate('Summary')}
+                      disabled={generatingType !== null}
+                      className="px-2.5 py-1.5 bg-indigo-650 hover:bg-indigo-550 text-white font-bold rounded cursor-pointer transition-colors disabled:opacity-40"
+                    >
+                      {generatingType === 'Summary' ? 'Generating Summary...' : 'Generate Summary'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleGenerate('Quiz')}
+                      disabled={generatingType !== null}
+                      className="px-2.5 py-1.5 bg-purple-650 hover:bg-purple-550 text-white font-bold rounded cursor-pointer transition-colors disabled:opacity-40"
+                    >
+                      {generatingType === 'Quiz' ? 'Generating Quiz...' : 'Generate Quiz'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const LinkedResourceCard: React.FC<{
+  resource: Resource;
+  onDelete: () => void;
+}> = ({ resource, onDelete }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div className="bg-[#101116] border border-[#1e2026] hover:border-slate-700/80 rounded-lg p-4 transition-all duration-200 space-y-3">
+      <div 
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex items-center justify-between cursor-pointer select-none gap-3"
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <FileText size={15} className="text-blue-400 shrink-0" />
+          <div className="min-w-0">
+            <span className="text-xs font-bold text-slate-200 block truncate">{resource.name}</span>
+            <span className="text-[9px] text-slate-500 font-mono uppercase tracking-wider">
+              {resource.category} ({resource.fileType})
+            </span>
+          </div>
+        </div>
+        <ChevronDown size={14} className={`text-slate-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+      </div>
+
+      {isExpanded && (
+        <div className="border-t border-[#1e2026] pt-3 text-[10px] font-mono text-slate-400 space-y-2">
+          <div>
+            <span className="text-slate-500 block">URL / FILE PATH</span>
+            <a 
+              href={resource.url} 
+              target="_blank" 
+              rel="noreferrer" 
+              className="text-blue-400 hover:underline truncate block max-w-full font-sans text-xs mt-0.5"
+              onClick={e => e.stopPropagation()}
+            >
+              {resource.url}
+            </a>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <span className="text-slate-500 block">DATE ADDED</span>
+              <span className="text-slate-202 font-bold mt-0.5 block">
+                {resource.dateAdded ? new Date(resource.dateAdded).toLocaleDateString() : 'N/A'}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-500 block">FILE SIZE</span>
+              <span className="text-slate-202 font-bold mt-0.5 block">{resource.fileSize || 'N/A'}</span>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2 border-t border-[#1e2026]/40">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              className="px-2.5 py-1 bg-red-950/40 hover:bg-red-900 border border-red-900/30 text-rose-450 hover:text-white rounded transition-colors text-[9px] font-bold uppercase tracking-wider"
+            >
+              Delete Link
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface ReadingWorkspaceProps {
   readingId: string;
@@ -67,6 +546,31 @@ export const ReadingWorkspace: React.FC<ReadingWorkspaceProps> = ({ readingId })
     updateResourceProgress
   } = useApp();
 
+  const lrRepo = useLearningResources();
+  const [updateTrigger, setUpdateTrigger] = useState(0);
+  const [selectedProviderTab, setSelectedProviderTab] = useState<'ssci' | 'cfai' | 'notebooklm' | 'qbank'>('ssci');
+
+  useEffect(() => {
+    const unsub = eventBus.subscribe('*', (event) => {
+      if (
+        event.type === 'StudySessionCompleted' ||
+        event.type === 'ReadingProgressUpdated' ||
+        event.type === 'LOSCompleted' ||
+        event.type === 'FormulaMemorized' ||
+        event.type === 'FormulaReviewed' ||
+        event.type === 'ResourceLaunched' ||
+        event.type === 'ResourceResumed' ||
+        event.type === 'ResourceProgressUpdated' ||
+        event.type === 'CurriculumBootstrapped' ||
+        event.type === 'PhaseCompleted' ||
+        event.type === 'PhaseUncompleted'
+      ) {
+        setUpdateTrigger(prev => prev + 1);
+      }
+    });
+    return unsub;
+  }, []);
+
   // Selected reading details
   const reading = useMemo(() => readings.find(r => r.id === readingId), [readings, readingId]);
   const parentChap = useMemo(() => chapters.find(c => c.id === reading?.chapterId), [chapters, reading]);
@@ -86,6 +590,8 @@ export const ReadingWorkspace: React.FC<ReadingWorkspaceProps> = ({ readingId })
   const [readingForm, setReadingForm] = useState<Partial<Reading>>({});
   const [newLOSCode, setNewLOSCode] = useState('');
   const [newLOSStatement, setNewLOSStatement] = useState('');
+  const [editingResourceId, setEditingResourceId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<any>(null);
   
   // Formula linking
   const [selectedFormulaId, setSelectedFormulaId] = useState('');
@@ -97,6 +603,42 @@ export const ReadingWorkspace: React.FC<ReadingWorkspaceProps> = ({ readingId })
   // Notes state
   const [noteContent, setNoteContent] = useState('');
   const [existingNote, setExistingNote] = useState<StudyNote | null>(null);
+
+  // Search filter query
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Expandable folders state
+  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('reading_workspace_expanded_folders');
+      return saved ? JSON.parse(saved) : {
+        cfai: true,
+        ssci: true,
+        notebooklm: true,
+        qbank: true,
+        reference: true
+      };
+    } catch {
+      return {
+        cfai: true,
+        ssci: true,
+        notebooklm: true,
+        qbank: true,
+        reference: true
+      };
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('reading_workspace_expanded_folders', JSON.stringify(expandedFolders));
+  }, [expandedFolders]);
+
+  const toggleFolder = (folderId: string) => {
+    setExpandedFolders(prev => ({
+      ...prev,
+      [folderId]: !prev[folderId]
+    }));
+  };
 
   // LOS inline expansion mapping
   const [expandedLOSIds, setExpandedLOSIds] = useState<Record<string, boolean>>({});
@@ -219,6 +761,12 @@ export const ReadingWorkspace: React.FC<ReadingWorkspaceProps> = ({ readingId })
     f && f.linkedLOSId && readingLOS.some(l => l && l.id === f.linkedLOSId)
   );
   const readingResources = resources.filter(r => r && r.linkedReadingId === readingId);
+  const linkedResources = useMemo(() => {
+    return readingResources.filter(r => r && (r.fileType === 'link' || r.category === 'Formula Sheets' || r.category === 'Mind Maps'));
+  }, [readingResources]);
+  const linkedReferenceDocs = useMemo(() => {
+    return readingResources.filter(r => r && r.fileType !== 'link' && r.category !== 'Formula Sheets' && r.category !== 'Mind Maps');
+  }, [readingResources]);
   const progress = getReadingProgress(readingId);
 
   // Stats calculation
@@ -842,160 +1390,328 @@ export const ReadingWorkspace: React.FC<ReadingWorkspaceProps> = ({ readingId })
             {/* RESOURCES SUB-TAB */}
             {activeTab === 'resources' && (
               <div className="space-y-6">
-                {/* Sprint M8 — Learning Resources by Provider */}
-                <div className="bg-[#101116] border border-[#1e2026] rounded-xl p-5 space-y-4">
-                  <h3 className="text-sm font-bold text-slate-200 border-b border-slate-900 pb-2 flex items-center justify-between">
-                    <span>Learning Resources</span>
-                    <span className="text-[9px] font-mono text-slate-500 font-normal">
-                      {getResourcesByReading(readingId).length} total
-                    </span>
-                  </h3>
-                  {(() => {
-                    const lrResources = getResourcesByReading(readingId);
-                    if (lrResources.length === 0 && readingResources.length === 0) {
-                      return <p className="text-sm text-slate-505 font-medium">No resources linked to this reading yet.</p>;
-                    }
-                    const grouped = new Map<string, typeof lrResources>();
-                    lrResources.forEach(r => {
-                      const key = r.provider;
-                      if (!grouped.has(key)) grouped.set(key, []);
-                      grouped.get(key)!.push(r);
-                    });
-                    const providerOrder = ['CFA Institute', 'SSCI', 'NotebookLM', 'Personal', 'Question Bank'];
-                    const sortedProviders = Array.from(grouped.keys()).sort((a, b) => {
-                      const ai = providerOrder.indexOf(a);
-                      const bi = providerOrder.indexOf(b);
-                      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-                    });
-                    return (
-                      <div className="space-y-4">
-                        {sortedProviders.map(provider => {
-                          const items = grouped.get(provider)!;
-                          return (
-                            <div key={provider}>
-                              <h4 className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                {provider}
-                                <span className="text-[8px] text-slate-600 font-normal">({items.length})</span>
-                              </h4>
-                              <div className="space-y-1.5">
-                                {items.map(r => (
-                                  <div key={r.id} className="flex items-center justify-between p-2.5 bg-slate-950 border border-slate-850 rounded-lg">
-                                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                      <FileText size={14} className="text-blue-400 shrink-0" />
-                                      <div className="min-w-0">
-                                        <span className="text-xs font-bold text-slate-200 block truncate">{r.title}</span>
-                                        <span className="text-[9px] text-slate-500 font-mono">
-                                          {r.resourceType} · {r.duration} min{r.progress?.completed ? ' · ✓ Completed' : (r.progress?.minutesCompleted || 0) > 0 ? ` · ${r.progress.minutesCompleted} min done` : ''}
-                                        </span>
-                                        {(r.progress?.minutesCompleted || 0) > 0 && !r.progress?.completed && (
-                                          <div className="w-20 h-1 bg-slate-700 rounded-full mt-1 overflow-hidden">
-                                            <div className="h-full bg-amber-500 rounded-full" style={{ width: `${Math.min(100, Math.round(((r.progress?.minutesCompleted || 0) / (r.duration || 1)) * 100))}%` }} />
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-1 shrink-0">
-                                      {!r.progress?.completed && (
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            markResourceOpened(r.id);
-                                          }}
-                                          className="px-2 py-1 text-[8px] font-mono font-bold uppercase border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 rounded cursor-pointer transition-colors"
-                                        >
-                                          {(r.progress?.minutesCompleted || 0) > 0 ? 'Resume' : 'Launch'}
-                                        </button>
-                                      )}
-                                      {!r.progress?.completed && (
-                                        <button
-                                          type="button"
-                                          onClick={() => markResourceCompleted(r.id)}
-                                          className="px-2 py-1 text-[8px] font-mono font-bold uppercase border border-slate-600 text-slate-400 hover:bg-slate-800 rounded cursor-pointer transition-colors"
-                                          title="Mark Complete"
-                                        >
-                                          <CheckSquare size={11} />
-                                        </button>
-                                      )}
-                                      {r.progress?.completed && (
-                                        <span className="text-[9px] font-mono text-emerald-500 font-bold">✓</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                <div className="bg-[#101116] border border-[#1e2026] rounded-xl p-5 space-y-4">
-                  <h3 className="text-sm font-bold text-slate-200 border-b border-slate-900 pb-2">Linked Reference Resources</h3>
-                  {readingResources.length === 0 ? (
-                    <p className="text-sm text-slate-505 font-medium">No additional resources linked yet.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {readingResources.map(res => (
-                        <div key={res.id} className="flex justify-between items-center p-3.5 bg-slate-950 border border-slate-850 rounded-lg">
-                          <div className="flex items-center gap-2.5">
-                            <FileText size={16} className="text-blue-400" />
-                            <div>
-                              <span className="text-sm font-bold text-slate-200 block">{res.name}</span>
-                              <span className="text-xs text-slate-500 uppercase font-semibold">{res.category} ({res.fileType})</span>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => deleteResource(res.id)}
-                            className="p-1.5 hover:bg-slate-900 text-slate-500 hover:text-red-400 rounded transition"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                
+                {/* Search / Filter Box */}
+                <div className="relative flex items-center bg-[#101116] border border-[#1e2026] rounded-xl px-3 py-2.5">
+                  <Search size={16} className="text-slate-550 mr-2" />
+                  <input
+                    type="text"
+                    placeholder="Search learning resources, PDF guides, formulas, reference documents..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full bg-transparent text-sm text-slate-200 focus:outline-none placeholder-slate-650 font-medium"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="text-xs font-bold text-slate-500 hover:text-slate-350"
+                    >
+                      Clear
+                    </button>
                   )}
                 </div>
 
-                <div className="bg-[#101116] border border-[#1e2026] rounded-xl p-5 space-y-4">
-                  <h3 className="text-sm font-bold text-slate-200 border-b border-slate-900 pb-2">Link Reference Document</h3>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="col-span-2">
-                      <label className="text-xs text-slate-500 font-bold block mb-1">Resource Title / URL</label>
-                      <input
-                        type="text"
-                        placeholder="Volume 4 Fixed Income Readings.pdf"
-                        value={newResourceName}
-                        onChange={e => setNewResourceName(e.target.value)}
-                        className="w-full bg-slate-955 border border-slate-850 rounded-lg px-3 py-2 text-sm text-slate-202 focus:outline-none"
-                      />
+                {(() => {
+                  console.log(`[ReadingWorkspace] Opening Resources tab. activeReading.id: "${readingId}"`);
+                  const allReadingResources = lrRepo.getByReadingId(readingId);
+                  console.log(`[ReadingWorkspace] repository.getByReadingId("${readingId}") returned ${allReadingResources.length} lectures.`);
+
+                  // Provider Verification & Normalization
+                  allReadingResources.forEach(resource => {
+                    console.log(`[ReadingWorkspace] Before filtering - Lecture ID: "${resource.id}", Provider: "${resource.provider}"`);
+                    if (resource.provider !== 'SSCI' && (
+                      resource.provider.toLowerCase().startsWith('ssci') ||
+                      resource.provider.toLowerCase().startsWith('schweser') ||
+                      resource.provider.toLowerCase().startsWith('video') ||
+                      resource.provider.toLowerCase().startsWith('lecture')
+                    )) {
+                      console.log(`[ReadingWorkspace] Auto-repairing provider string for lecture "${resource.id}": "${resource.provider}" -> "SSCI"`);
+                      resource.provider = 'SSCI';
+                    }
+                  });
+                  
+                  // Filter by Search Query
+                  const filtered = allReadingResources.filter(r => {
+                    if (!searchQuery.trim()) return true;
+                    const q = searchQuery.toLowerCase();
+                    return (
+                      r.title.toLowerCase().includes(q) ||
+                      (r.description || '').toLowerCase().includes(q) ||
+                      r.provider.toLowerCase().includes(q) ||
+                      r.resourceType.toLowerCase().includes(q)
+                    );
+                  });
+
+                  const cfaiResources = filtered.filter(r => r.provider === 'CFA Institute');
+                  const ssciResources = filtered.filter(r => r.provider === 'SSCI').sort((a, b) => (a.order || 0) - (b.order || 0));
+                  
+                  console.log(`[ReadingWorkspace] visibleSSCILectures.length: ${ssciResources.length}`);
+                  
+                  const notebooklmResources = filtered.filter(r => r.provider === 'NotebookLM');
+                  const qbankResources = filtered.filter(r => r.provider === 'Personal' || r.provider === 'Question Bank');
+
+                  // Reference material filtered list
+                  const filteredLinkedResources = searchQuery.trim()
+                    ? linkedResources.filter(res => res.name.toLowerCase().includes(searchQuery.toLowerCase()) || res.category.toLowerCase().includes(searchQuery.toLowerCase()))
+                    : linkedResources;
+
+                  const filteredLinkedReferenceDocs = searchQuery.trim()
+                    ? linkedReferenceDocs.filter(res => res.name.toLowerCase().includes(searchQuery.toLowerCase()) || res.category.toLowerCase().includes(searchQuery.toLowerCase()))
+                    : linkedReferenceDocs;
+
+                  return (
+                    <div className="space-y-4">
+                      
+                      {/* 1. CFA Institute Folder */}
+                      <div className="border border-[#1e2026] rounded-xl overflow-hidden bg-[#101116]">
+                        <div 
+                          onClick={() => toggleFolder('cfai')}
+                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-900/40 select-none border-b border-[#1e2026]/40"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <FolderOpen size={16} className="text-amber-500/80" />
+                            <span className="text-xs font-bold text-slate-200 font-mono uppercase tracking-wider">📘 CFA Institute ({cfaiResources.length})</span>
+                          </div>
+                          {expandedFolders.cfai ? <ChevronDown size={16} className="text-slate-500" /> : <ChevronRight size={16} className="text-slate-500" />}
+                        </div>
+                        {expandedFolders.cfai && (
+                          <div className="p-4 space-y-3 bg-[#0a0b0e]/30">
+                            {cfaiResources.length === 0 ? (
+                              <p className="text-xs text-slate-500 italic py-2">No CFA Institute resources match.</p>
+                            ) : (
+                              cfaiResources.map(r => (
+                                <ResourceCard 
+                                  key={r.id} 
+                                  resource={r} 
+                                  lrRepo={lrRepo} 
+                                  onRefresh={() => setUpdateTrigger(p => p + 1)} 
+                                />
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 2. SSCI Lectures Folder */}
+                      <div className="border border-[#1e2026] rounded-xl overflow-hidden bg-[#101116]">
+                        <div 
+                          onClick={() => toggleFolder('ssci')}
+                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-900/40 select-none border-b border-[#1e2026]/40"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <FolderOpen size={16} className="text-indigo-400" />
+                            <span className="text-xs font-bold text-slate-200 font-mono uppercase tracking-wider">🎥 SSCI Lectures ({ssciResources.length})</span>
+                          </div>
+                          {expandedFolders.ssci ? <ChevronDown size={16} className="text-slate-500" /> : <ChevronRight size={16} className="text-slate-500" />}
+                        </div>
+                        {expandedFolders.ssci && (
+                          <div className="p-4 space-y-3 bg-[#0a0b0e]/30">
+                            {ssciResources.length === 0 ? (
+                              <p className="text-xs text-slate-500 italic py-2">No SSCI video lectures match.</p>
+                            ) : (
+                              ssciResources.map(r => (
+                                <ResourceCard 
+                                  key={r.id} 
+                                  resource={r} 
+                                  lrRepo={lrRepo} 
+                                  onRefresh={() => setUpdateTrigger(p => p + 1)} 
+                                />
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 3. NotebookLM Folder */}
+                      <div className="border border-[#1e2026] rounded-xl overflow-hidden bg-[#101116]">
+                        <div 
+                          onClick={() => toggleFolder('notebooklm')}
+                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-900/40 select-none border-b border-[#1e2026]/40"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <FolderOpen size={16} className="text-emerald-455" />
+                            <span className="text-xs font-bold text-slate-200 font-mono uppercase tracking-wider">🧠 NotebookLM AI Guides ({notebooklmResources.length})</span>
+                          </div>
+                          {expandedFolders.notebooklm ? <ChevronDown size={16} className="text-slate-500" /> : <ChevronRight size={16} className="text-slate-500" />}
+                        </div>
+                        {expandedFolders.notebooklm && (
+                          <div className="p-4 space-y-3 bg-[#0a0b0e]/30">
+                            {notebooklmResources.length === 0 ? (
+                              <p className="text-xs text-slate-500 italic py-2">No NotebookLM guides match.</p>
+                            ) : (
+                              notebooklmResources.map(r => (
+                                <ResourceCard 
+                                  key={r.id} 
+                                  resource={r} 
+                                  lrRepo={lrRepo} 
+                                  onRefresh={() => setUpdateTrigger(p => p + 1)} 
+                                />
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 4. Question Bank Folder */}
+                      <div className="border border-[#1e2026] rounded-xl overflow-hidden bg-[#101116]">
+                        <div 
+                          onClick={() => toggleFolder('qbank')}
+                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-900/40 select-none border-b border-[#1e2026]/40"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <FolderOpen size={16} className="text-purple-400" />
+                            <span className="text-xs font-bold text-slate-200 font-mono uppercase tracking-wider">❓ Question Bank Drills ({qbankResources.length})</span>
+                          </div>
+                          {expandedFolders.qbank ? <ChevronDown size={16} className="text-slate-500" /> : <ChevronRight size={16} className="text-slate-500" />}
+                        </div>
+                        {expandedFolders.qbank && (
+                          <div className="p-4 space-y-3 bg-[#0a0b0e]/30">
+                            {qbankResources.length === 0 ? (
+                              <p className="text-xs text-slate-505 italic py-2">No Question Bank resources match.</p>
+                            ) : (
+                              qbankResources.map(r => (
+                                <ResourceCard 
+                                  key={r.id} 
+                                  resource={r} 
+                                  lrRepo={lrRepo} 
+                                  onRefresh={() => setUpdateTrigger(p => p + 1)} 
+                                />
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 5. Reference Material Folder */}
+                      <div className="border border-[#1e2026] rounded-xl overflow-hidden bg-[#101116]">
+                        <div 
+                          onClick={() => toggleFolder('reference')}
+                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-900/40 select-none border-b border-[#1e2026]/40"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <FolderOpen size={16} className="text-rose-455" />
+                            <span className="text-xs font-bold text-slate-200 font-mono uppercase tracking-wider">📂 Reference Material ({filteredLinkedResources.length + filteredLinkedReferenceDocs.length})</span>
+                          </div>
+                          {expandedFolders.reference ? <ChevronDown size={16} className="text-slate-500" /> : <ChevronRight size={16} className="text-slate-500" />}
+                        </div>
+                        {expandedFolders.reference && (
+                          <div className="p-5 space-y-6 bg-[#0a0b0e]/30">
+                            
+                            {/* Linked Resources Grid */}
+                            <div className="space-y-3">
+                              <h5 className="text-[10px] font-bold font-mono tracking-widest text-slate-500 uppercase">Linked Formula Sheets & Mindmaps</h5>
+                              {filteredLinkedResources.length === 0 ? (
+                                <p className="text-xs text-slate-505 italic">No linked resources match.</p>
+                              ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {filteredLinkedResources.map(res => (
+                                    <LinkedResourceCard
+                                      key={res.id}
+                                      resource={res}
+                                      onDelete={() => deleteResource(res.id)}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Linked Reference Documents Grid */}
+                            <div className="space-y-3">
+                              <h5 className="text-[10px] font-bold font-mono tracking-widest text-slate-500 uppercase">Linked Reference PDFs</h5>
+                              {filteredLinkedReferenceDocs.length === 0 ? (
+                                <p className="text-xs text-slate-505 italic">No linked reference documents match.</p>
+                              ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {filteredLinkedReferenceDocs.map(res => (
+                                    <LinkedResourceCard
+                                      key={res.id}
+                                      resource={res}
+                                      onDelete={() => deleteResource(res.id)}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Form to Link Document */}
+                            <div className="border-t border-[#1e2026]/80 pt-4 space-y-4">
+                              <h5 className="text-xs font-bold text-slate-350">Link Reference Document</h5>
+                              <div className="grid grid-cols-3 gap-4">
+                                <div className="col-span-2">
+                                  <label className="text-[10px] text-slate-500 block mb-1 font-semibold uppercase">Resource Title / URL</label>
+                                  <input
+                                    type="text"
+                                    placeholder="Volume 4 Fixed Income Readings.pdf"
+                                    value={newResourceName}
+                                    onChange={e => setNewResourceName(e.target.value)}
+                                    className="w-full bg-slate-955 border border-slate-850 rounded-lg px-3 py-2 text-xs text-slate-202 focus:outline-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-slate-500 block mb-1 font-semibold uppercase">Category</label>
+                                  <select
+                                    value={newResourceCategory}
+                                    onChange={e => setNewResourceCategory(e.target.value)}
+                                    className="w-full bg-slate-955 border border-slate-850 rounded-lg px-3 py-2 text-xs text-slate-202 focus:outline-none font-semibold"
+                                  >
+                                    <option value="Curriculum PDFs">Curriculum PDFs</option>
+                                    <option value="Schweser">Schweser</option>
+                                    <option value="Formula Sheets">Formula Sheets</option>
+                                    <option value="Mind Maps">Mind Maps</option>
+                                  </select>
+                                </div>
+                              </div>
+                              <div className="flex justify-between items-center pt-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingResourceId('new');
+                                    setEditForm({
+                                      title: '',
+                                      provider: 'Personal',
+                                      resourceType: 'Interactive',
+                                      duration: 30,
+                                      launchUrl: '',
+                                      readingId: readingId,
+                                      losIds: [],
+                                      resourceLinks: [],
+                                      notes: '',
+                                      tags: [],
+                                      difficulty: 'Medium',
+                                      priority: 'Medium',
+                                      estimatedTime: 30,
+                                      description: '',
+                                      progress: {
+                                        minutesCompleted: 0,
+                                        completed: false,
+                                        lastOpenedAt: null,
+                                        resumeState: null
+                                      }
+                                    });
+                                  }}
+                                  className="px-3 py-1.5 border border-indigo-500/30 text-indigo-400 font-bold text-xs rounded hover:bg-indigo-500/10 cursor-pointer"
+                                >
+                                  + Create Custom Learning Resource
+                                </button>
+                                <button
+                                  onClick={handleAddResource}
+                                  disabled={!newResourceName}
+                                  className="px-4 py-1.5 bg-emerald-650 disabled:opacity-40 hover:bg-emerald-500 rounded-lg text-xs font-bold text-white transition shrink-0"
+                                >
+                                  Link Document
+                                </button>
+                              </div>
+                            </div>
+
+                          </div>
+                        )}
+                      </div>
+
                     </div>
-                    <div>
-                      <label className="text-xs text-slate-500 font-bold block mb-1">Category</label>
-                      <select
-                        value={newResourceCategory}
-                        onChange={e => setNewResourceCategory(e.target.value)}
-                        className="w-full bg-slate-955 border border-slate-850 rounded-lg px-3 py-2 text-sm text-slate-202 focus:outline-none"
-                      >
-                        <option value="Curriculum PDFs">Curriculum PDFs</option>
-                        <option value="Schweser">Schweser</option>
-                        <option value="Formula Sheets">Formula Sheets</option>
-                        <option value="Mind Maps">Mind Maps</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex justify-end pt-2">
-                    <button
-                      onClick={handleAddResource}
-                      disabled={!newResourceName}
-                      className="px-4 py-2 bg-emerald-600 disabled:opacity-40 hover:bg-emerald-500 rounded-lg text-sm font-bold text-white transition"
-                    >
-                      Link Document
-                    </button>
-                  </div>
-                </div>
+                  );
+                })()}
+
               </div>
             )}
 

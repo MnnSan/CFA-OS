@@ -7,7 +7,6 @@ export * from './SubjectRepository';
 export * from './ReadingRepository';
 export * from './LOSRepository';
 export * from './FormulaRepository';
-export * from './ResourceRepository';
 export * from './NoteRepository';
 export * from './StudySessionRepository';
 export * from './AssetRepository';

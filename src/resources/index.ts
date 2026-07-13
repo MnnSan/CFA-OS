@@ -1,6 +1,6 @@
 export type { ResourceProvider, LearningResourceType, ResourceCompletionStats } from './types';
 export type { LearningResource } from './types';
-export { LearningResourceRepository } from './repository/LearningResourceRepository';
+export { LearningResourceRepository, learningResourceRepository } from './repository/LearningResourceRepository';
 export type { ImportResult, ResourceImporter } from './importer/types';
 export { SSCIImporter } from './importer/SSCIImporter';
 export { AssignmentEngine } from './engine/AssignmentEngine';

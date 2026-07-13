@@ -601,7 +601,7 @@ export interface EnrichedLOS extends LearningOutcomeStatement {
 // =========================================================
 
 // =========================================================
-// SPRINT 6.5 — MARK MELDRUM STUDY PLANNER
+// SPRINT 6.5 â MARK MELDRUM STUDY PLANNER
 // =========================================================
 
 export interface ReadingStudyTargets {
@@ -807,7 +807,7 @@ export interface RevisionQueueSummary {
   oldestDueItem: string | null;
 }
 
-// ── Multi-Template Timeline Engine (Sprint 10) ──
+// ââ Multi-Template Timeline Engine (Sprint 10) ââ
 
 export interface TimelineBlock {
   id: string;
@@ -827,11 +827,11 @@ export interface TimelineTemplate {
   updatedAt: string;
 }
 
-// -- Sprint M10 � Mission Control & Study Stack --
+// -- Sprint M10  Mission Control & Study Stack --
 
 export type StudyStepType = 'Lecture' | 'Reading' | 'Formula' | 'Notebook' | 'Questions' | 'Reflection';
 
-export type PhaseStatus = 'READY' | 'ACTIVE' | 'BLOCKED' | 'COMPLETED' | 'SKIPPED';
+export type PhaseStatus = 'PENDING' | 'READY' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'REOPENED' | 'BLOCKED' | 'SKIPPED' | 'ACTIVE';
 
 export type CognitiveLoad = 'LOW' | 'MEDIUM' | 'HIGH';
 
@@ -889,6 +889,26 @@ export interface StudyPhase {
   completed: boolean;
   completionEvidence: CompletionEvidence;
   coachInsightId?: string;
+  
+  // Expanded Cognitive Operating System Metadata
+  whyThisNow: string;
+  expectedOutcome: string;
+  estimatedCognitiveEffort: 'Low' | 'Medium' | 'High';
+  prerequisites: string[];
+  links: string[];
+  learningObjective: string;
+  estimatedSuccessPercent: number;
+  memoryStage: 'Encoding' | 'Consolidation' | 'Retrieval';
+  bloomLevel: 'Remember' | 'Understand' | 'Apply' | 'Analyze';
+  confidenceRequirement: 'Low' | 'Medium' | 'High';
+
+  // Lifecycle & execution properties
+  startedAt?: string | null;
+  completedAt?: string | null;
+  elapsedMinutes?: number;
+  manualOverride?: 'COMPLETED' | 'INCOMPLETE' | null;
+  progress?: number;
+  completionReason?: string;
 }
 
 export interface StudyStack {
@@ -920,4 +940,5 @@ export interface CoachInsight {
   provider: string;
   response: string;
   generatedAt: string;
+  curriculumVersion?: string;
 }

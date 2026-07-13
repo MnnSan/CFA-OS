@@ -16,7 +16,8 @@ import {
   User,
   Clock,
   Terminal,
-  BarChart3
+  BarChart3,
+  HelpCircle
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -39,6 +40,7 @@ export const Sidebar: React.FC = () => {
     { id: 'calendar', label: 'Calendar', icon: Calendar },
     { id: 'notes', label: 'Study Notes', icon: FileText },
     { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'help', label: 'Getting Started', icon: HelpCircle },
   ];
 
   if ((import.meta as any).env.DEV) {

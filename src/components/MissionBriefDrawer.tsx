@@ -73,9 +73,10 @@ const MissionBriefDrawer: React.FC<MissionBriefDrawerProps> = ({
 
       {/* Drawer */}
       <div
-        className={`fixed top-0 right-0 z-50 h-full w-[420px] max-w-[95vw] bg-[#0c0d10] border-l border-[#1e2026] shadow-2xl transition-transform duration-300 ease-in-out ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
+        className={`fixed top-0 right-0 z-50 h-full w-[420px] max-w-[95vw] bg-[#0c0d10] border-l border-[#1e2026] shadow-2xl transition-[transform,visibility] duration-300 ease-in-out ${
+          isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         }`}
+        style={{ visibility: isOpen ? 'visible' : 'hidden' }}
       >
         <div className="flex flex-col h-full">
           {/* Header */}

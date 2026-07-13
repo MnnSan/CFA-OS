@@ -6,6 +6,7 @@ export interface ImportResult {
   totalRows: number;
   successCount: number;
   errorCount: number;
+  diagnostics?: any[];
 }
 
 export interface ResourceImporter {

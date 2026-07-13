@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { useApp } from '../context/AppContext';
+import { useLearningResources } from '../context/LearningResourceRepositoryContext';
 import { FormulaCard } from '../components/FormulaCard';
 import MissionControlCard from '../components/MissionControlCard';
 import MissionBriefDrawer from '../components/MissionBriefDrawer';
@@ -14,6 +15,7 @@ import { Formula, PlannerReadingProgress, WeakTopicsSummary } from '../types';
 import { useWeakTopics } from '../services/useIntelligenceStream';
 import { aiJobQueue } from '../services/AiJobQueueService';
 import { ContextBuilderService } from '../services/ContextBuilderService';
+import { eventBus } from '../services/EventBus';
 import { 
   Calendar, 
   FileText, 
@@ -100,12 +102,17 @@ export const Dashboard: React.FC = () => {
     resources
   } = useApp();
 
+  const lrRepo = useLearningResources();
+
   const [showFinishRating, setShowFinishRating] = React.useState(false);
   const [focusRating, setFocusRating] = React.useState(7);
   const [confidenceRatingAfter, setConfidenceRatingAfter] = React.useState(4);
+  const [questionsSolved, setQuestionsSolved] = React.useState(0);
   const [selectedDashboardFormula, setSelectedDashboardFormula] = React.useState<Formula | null>(null);
   const [showSessionSaved, setShowSessionSaved] = React.useState(false);
   const [sessionSavedProgress, setSessionSavedProgress] = React.useState(0);
+  const [showDailyReview, setShowDailyReview] = React.useState(false);
+  const [dailyReviewData, setDailyReviewData] = React.useState<any>(null);
   const [coachInsight, setCoachInsight] = React.useState<string | null>(null);
   const [coachInsightLoading, setCoachInsightLoading] = React.useState(false);
   const [showMissionBrief, setShowMissionBrief] = React.useState(false);
@@ -114,6 +121,31 @@ export const Dashboard: React.FC = () => {
   const [missionBriefFailed, setMissionBriefFailed] = React.useState(false);
 
   const weakTopics = useWeakTopics();
+
+  const [updateTrigger, setUpdateTrigger] = React.useState(0);
+
+  React.useEffect(() => {
+    const eventTypes = [
+      'StudySessionCompleted',
+      'ReadingProgressUpdated',
+      'LOSCompleted',
+      'FormulaMemorized',
+      'FormulaReviewed',
+      'ResourceLaunched',
+      'ResourceResumed',
+      'ResourceProgressUpdated',
+      'PhaseCompleted',
+      'PhaseUncompleted'
+    ];
+    const unsubscribes = eventTypes.map(type =>
+      eventBus.subscribe(type, () => {
+        setUpdateTrigger(prev => prev + 1);
+      })
+    );
+    return () => {
+      unsubscribes.forEach(unsub => unsub());
+    };
+  }, []);
 
   const triggerMissionBrief = () => {
     if (!settings || !dailyMission) return;
@@ -208,7 +240,11 @@ export const Dashboard: React.FC = () => {
   const activeLOSReading = activeLOS ? readings.find(r => r.id === activeLOS.readingId) : null;
 
   const totalHoursPlanned = losList.reduce((acc, l) => acc + (l.estimatedHours || 0), 0);
-  const totalHoursStudied = sessionHistory.reduce((acc, s) => acc + (s.durationMinutes / 60), 0).toFixed(1);
+  const totalResourceMinutes = lrRepo.getAll().reduce((sum, r) => sum + (r.progress?.minutesCompleted || 0), 0);
+  const totalHoursStudied = (
+    sessionHistory.reduce((acc, s) => acc + (s.durationMinutes / 60), 0) + 
+    (totalResourceMinutes / 60)
+  ).toFixed(1);
 
   const handleQuickAddEvent = () => {
     addEvent({
@@ -239,9 +275,10 @@ export const Dashboard: React.FC = () => {
   const yesterdayMinutes = yesterdaySessions.reduce((acc, s) => acc + s.durationMinutes, 0);
   const yesterdayHours = (yesterdayMinutes / 60).toFixed(1);
 
-  // ── Mark Meldrum 60/40 Knowledge Coverage ──
-  const totalVideoTarget = plannerReadings.reduce((sum, r) => sum + (r.targets?.videoDurationMinutes || 0), 0);
-  const totalVideoLogged = plannerProgress.reduce((sum, p) => sum + p.loggedVideoMinutes, 0);
+  // ── SSCI Lectures 60/40 Knowledge Coverage ──
+  const ssciResources = lrRepo.getAll().filter(r => r.provider === 'SSCI');
+  const totalVideoTarget = ssciResources.reduce((sum, r) => sum + r.duration, 0);
+  const totalVideoLogged = ssciResources.reduce((sum, r) => sum + r.progress.minutesCompleted, 0);
   const videoPct = totalVideoTarget > 0 ? Math.min(100, Math.round((totalVideoLogged / totalVideoTarget) * 100)) : 0;
   const videoComponent = totalVideoTarget > 0 ? Math.min(60, Math.round((totalVideoLogged / totalVideoTarget) * 60)) : 0;
 
@@ -271,10 +308,17 @@ export const Dashboard: React.FC = () => {
       <div className="bg-white dark:bg-[#0B0F19] text-slate-900 dark:text-white p-6 border border-slate-200 dark:border-slate-800 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-[400px] h-[400px] rounded-full bg-emerald-500/10 blur-[100px] -mr-32 -mt-32"></div>
         <div className="relative space-y-3">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono tracking-widest bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 font-bold uppercase">
               CFA EXECUTIVE COCKPIT
             </span>
+            <button
+              onClick={() => setActiveTab('help')}
+              className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-400 font-mono font-bold uppercase transition bg-slate-900 border border-slate-800 px-2.5 py-1 hover:bg-slate-800 cursor-pointer"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              Getting Started
+            </button>
           </div>
           <h1 className="text-xl font-bold tracking-tight md:text-2xl font-sans">
             Good Morning, {user?.name || 'Candidate'}
@@ -363,7 +407,7 @@ export const Dashboard: React.FC = () => {
             <div className="mt-4 space-y-2">
               <div className="space-y-0.5">
                 <div className="flex justify-between text-[9px] font-mono text-slate-500 dark:text-slate-500">
-                  <span>Instructional (60%) — {videoPct}%</span>
+                  <span>SSCI Lectures (60%) — {videoPct}%</span>
                   <span>{Math.round(totalVideoLogged)} / {Math.round(totalVideoTarget)} min</span>
                 </div>
                 <div className="w-full bg-slate-100 dark:bg-slate-800 h-1 overflow-hidden">
@@ -665,7 +709,7 @@ export const Dashboard: React.FC = () => {
                       </button>
                     ) : (
                       <button
-                        onClick={pauseStudySession}
+                        onClick={() => pauseStudySession()}
                         className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 text-xs font-bold flex items-center space-x-1.5 cursor-pointer font-sans dark:bg-slate-800 dark:hover:bg-slate-700"
                       >
                         <Pause className="h-3.5 w-3.5 fill-current" />
@@ -731,13 +775,51 @@ export const Dashboard: React.FC = () => {
                         </div>
                       </div>
 
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-800 dark:text-slate-200">Questions Solved:</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={questionsSolved}
+                          onChange={e => setQuestionsSolved(Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-full py-1.5 px-3 text-xs font-mono border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0B0F19] text-slate-800 dark:text-slate-200 rounded"
+                          placeholder="Enter number of questions attempted..."
+                        />
+                      </div>
+
                       <button
                         onClick={() => {
                           finishStudySession(focusRating, confidenceRatingAfter);
+                          const todayStr = new Date().toISOString().split('T')[0];
+                          const todaySessions = sessionHistory.filter(s => s.startTime.startsWith(todayStr) && s.status === 'Completed');
+                          const todayMinutes = todaySessions.reduce((acc, s) => acc + s.durationMinutes, 0);
+                          const todayHours = (todayMinutes / 60).toFixed(1);
+                          const losCompletedToday = losList.filter(l => l.status === 'Completed' && l.lastReviewed === todayStr).length;
+                          const formulasCovered = formulas.filter(f => f.isMemorized).length;
+                          const avgConfidence = losList.length > 0
+                            ? (losList.reduce((acc, l) => acc + (l.confidence || 2.5), 0) / losList.length).toFixed(1)
+                            : '2.5';
+                          const tomorrowMission = dailyMission?.readingTitle || 'Review weak areas';
+                          const reflections = [
+                            'Great focus session! Keep the momentum going.',
+                            'Consider revisiting formulas tomorrow for reinforcement.',
+                            activeSession?.linkedReadingId ? `You covered reading content - try practice questions next.` : 'Solid session - try linking to a specific LOS next time.',
+                            'Consistency is key - every session builds toward exam day.',
+                          ];
+                          setDailyReviewData({
+                            todayHours,
+                            losCompletedToday,
+                            questionsSolved: questionsSolved || 0,
+                            formulasCovered,
+                            avgConfidence,
+                            tomorrowMission,
+                            reflection: reflections[Math.floor(Math.random() * reflections.length)],
+                            focusRating,
+                            confidenceRatingAfter,
+                          });
                           setShowFinishRating(false);
-                          setShowSessionSaved(true);
-                          setSessionSavedProgress(Math.min(100, Math.round((sessionElapsedTime / 3600 / (dailyMission?.remainingReadingHours || 1)) * 100)));
-                          setTimeout(() => setShowSessionSaved(false), 3500);
+                          setShowDailyReview(true);
+                          setQuestionsSolved(0);
                         }}
                         className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold uppercase tracking-wider cursor-pointer font-sans"
                       >
@@ -762,11 +844,7 @@ export const Dashboard: React.FC = () => {
 
                 {!activeSession ? (
                   <button
-                    onClick={() => {
-                      setMissionBriefLoading(true);
-                      setShowMissionBrief(true);
-                      setTimeout(() => setMissionBriefLoading(false), 1000);
-                    }}
+                    onClick={triggerMissionBrief}
                     className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200 flex items-center space-x-1.5 cursor-pointer"
                   >
                     <Play className="h-3.5 w-3.5 fill-current" />
@@ -1251,6 +1329,57 @@ export const Dashboard: React.FC = () => {
           failed={missionBriefFailed}
           brief={missionBrief}
         />
+      )}
+
+      {/* Daily Session Review Modal */}
+      {showDailyReview && dailyReviewData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 animate-fade-in">
+          <div className="bg-white dark:bg-[#0B0F19] border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden animate-scale-up">
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-5">
+              <h2 className="text-lg font-bold text-white">Today's Summary</h2>
+              <p className="text-indigo-200 text-xs font-mono mt-0.5">SESSION COMPLETED · {new Date().toLocaleDateString()}</p>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                  <span className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider">Time Studied</span>
+                  <p className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">{dailyReviewData.todayHours}h</p>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                  <span className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider">Questions Solved</span>
+                  <p className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">{dailyReviewData.questionsSolved}</p>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                  <span className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider">LOS Completed</span>
+                  <p className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">{dailyReviewData.losCompletedToday}</p>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                  <span className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider">Avg Confidence</span>
+                  <p className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">{dailyReviewData.avgConfidence}/5.0</p>
+                </div>
+              </div>
+
+              <div className="bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 rounded-lg p-3 space-y-1">
+                <span className="text-[9px] font-mono font-bold text-indigo-500 uppercase tracking-wider flex items-center gap-1">
+                  <Sparkles size={11} /> AI Reflection
+                </span>
+                <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{dailyReviewData.reflection}</p>
+              </div>
+
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-4 flex items-center justify-between">
+                <div className="text-xs text-slate-500 font-mono">
+                  Tomorrow's Mission: <span className="font-bold text-slate-800 dark:text-slate-200">{dailyReviewData.tomorrowMission}</span>
+                </div>
+                <button
+                  onClick={() => setShowDailyReview(false)}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-all cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Formula Active Recall Modal */}

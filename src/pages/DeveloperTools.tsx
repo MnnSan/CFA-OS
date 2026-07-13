@@ -8,6 +8,8 @@ import { useApp } from '../context/AppContext';
 import { eventBus } from '../services/EventBus';
 import { knowledgeIndexService } from '../services/KnowledgeIndexService';
 import { DomainEvent } from '../types';
+import { CurriculumBootstrapService } from '../services/CurriculumBootstrapService';
+import { INITIAL_2027_READINGS } from '../applications/cfa/curriculum/data/initialCurriculum';
 import { 
   Terminal, 
   Cpu, 
@@ -28,12 +30,73 @@ export const DeveloperTools: React.FC = () => {
     knowledgeGraphService,
     logActivity,
     eventStoreService,
-    isDegraded
+    isDegraded,
+    selectedReadingId,
+    resources
   } = useApp();
 
   const [capturedEvents, setCapturedEvents] = useState<DomainEvent[]>([]);
   const [memoryUsage, setMemoryUsage] = useState<string>('N/A');
-  const [activeSubTab, setActiveSubTab] = useState<'diagnostics' | 'history' | 'events'>('diagnostics');
+  const [activeSubTab, setActiveSubTab] = useState<'diagnostics' | 'history' | 'events' | 'import_diagnostics'>('diagnostics');
+  const [importDiagnostics, setImportDiagnostics] = useState<any[]>([]);
+  const [readingDiagResults, setReadingDiagResults] = useState<{ readingId: string; title: string; status: 'ok' | 'missing' | 'duplicate' | 'unmapped'; details?: string }[]>([]);
+  const [lrList, setLrList] = useState<any[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('cfa_import_diagnostics');
+      if (raw) {
+        setImportDiagnostics(JSON.parse(raw));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  useEffect(() => {
+    const diag: typeof readingDiagResults = [];
+    const lrRepoRaw = localStorage.getItem('cfa_learning_resources');
+    let currentLrList: any[] = [];
+    try { if (lrRepoRaw) currentLrList = JSON.parse(lrRepoRaw); } catch {}
+    setLrList(currentLrList);
+
+    const getReadingIssueReason = (readingId: string, list: any[]) => {
+      const repoCount = list.length;
+      if (repoCount === 0) return 'Repository empty';
+      if (!localStorage.getItem('cfa_bootstrap_metadata')) return 'Bootstrap skipped';
+      
+      const readingLectures = list.filter(r => r.readingId === readingId);
+      if (readingLectures.length === 0) {
+        const hasUnmapped = importDiagnostics.some(d => d.excelReading === readingId || (d.type === 'UNMAPPED_ROW' && String(d.excelReading || '').toLowerCase().includes(readingId)));
+        if (hasUnmapped) return 'Missing readingId';
+        return 'No lectures defined in Excel';
+      }
+      
+      const ssciLectures = readingLectures.filter(r => r.provider === 'SSCI');
+      if (ssciLectures.length === 0) return 'Provider mismatch';
+      
+      return 'Filter mismatch';
+    };
+
+    for (const reading of INITIAL_2027_READINGS) {
+      const lectures = currentLrList.filter((r: any) => r.readingId === reading.id);
+      const ssciLectures = lectures.filter((r: any) => r.provider === 'SSCI');
+      const duplicates = importDiagnostics.filter(d => d.type === 'DUPLICATE_CODE' && d.excelReading === reading.id);
+      const unmapped = importDiagnostics.filter(d => d.type === 'UNMAPPED_ROW' && d.excelReading === reading.id);
+
+      if (ssciLectures.length === 0) {
+        const reason = getReadingIssueReason(reading.id, currentLrList);
+        diag.push({ readingId: reading.id, title: reading.title, status: 'missing', details: reason });
+      } else if (duplicates.length > 0) {
+        diag.push({ readingId: reading.id, title: reading.title, status: 'duplicate', details: `Duplicate lecture code: ${duplicates[0]?.lectureCode || 'unknown'}` });
+      } else if (unmapped.length > 0) {
+        diag.push({ readingId: reading.id, title: reading.title, status: 'unmapped', details: 'Unknown LOS mapping' });
+      } else {
+        diag.push({ readingId: reading.id, title: reading.title, status: 'ok' });
+      }
+    }
+    setReadingDiagResults(diag);
+  }, [importDiagnostics]);
 
   // Subscribe to all wildcard events to log them in real-time
   useEffect(() => {
@@ -248,6 +311,35 @@ export const DeveloperTools: React.FC = () => {
             </div>
           </div>
 
+          {/* Excel Curriculum Bootstrapper */}
+          <div className="bg-white p-5 rounded border border-slate-200 dark:border-[#1e2026] dark:bg-[#101116] shadow-xs">
+            <h2 className="text-xs font-mono font-bold text-slate-900 dark:text-[#F8FAFC] border-b border-slate-100 dark:border-slate-800/60 pb-2.5 mb-4 uppercase tracking-widest flex items-center justify-between">
+              <span>Excel Import Operations</span>
+            </h2>
+            <div className="space-y-3">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-sans leading-relaxed">
+                Re-reads `/data/datasets/CFA Level 3 Coding Sheet_2026.xlsx`, checks all lecture mappings, builds diagnostic warnings, and recalculates learning resource lists.
+              </p>
+              <button
+                onClick={async () => {
+                  if (confirm('Force re-importing curriculum Excel dataset? This will reset all current lecture progresses.')) {
+                    try {
+                      const res = await CurriculumBootstrapService.getInstance().bootstrap(true);
+                      alert(`Bootstrap finished! Bootstrapped: ${res.bootstrapped}. Reason: ${res.reason}`);
+                      window.location.reload();
+                    } catch (err: any) {
+                      alert(`Bootstrap failed: ${err?.message || err}`);
+                    }
+                  }
+                }}
+                className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold text-xs rounded transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                <RefreshCw size={13} />
+                Force Excel Re-import
+              </button>
+            </div>
+          </div>
+
           {/* Validation Metrics */}
           <div className="bg-white p-5 rounded border border-slate-200 dark:border-[#1e2026] dark:bg-[#101116] shadow-xs">
             <h2 className="text-xs font-mono font-bold text-slate-900 dark:text-[#F8FAFC] border-b border-slate-100 dark:border-slate-800/60 pb-2.5 mb-4 uppercase tracking-widest">
@@ -319,6 +411,16 @@ export const DeveloperTools: React.FC = () => {
               }`}
             >
               Event Store ({eventStoreService.getBufferSize()})
+            </button>
+            <button
+              onClick={() => setActiveSubTab('import_diagnostics')}
+              className={`text-xs font-mono font-bold pb-2 border-b-2 tracking-wider uppercase transition-all cursor-pointer ${
+                activeSubTab === 'import_diagnostics' 
+                  ? 'border-indigo-500 text-slate-800 dark:text-[#F8FAFC]' 
+                  : 'border-transparent text-slate-400 hover:text-slate-700'
+              }`}
+            >
+              Import Diagnostics ({importDiagnostics.length})
             </button>
           </div>
 
@@ -436,6 +538,222 @@ export const DeveloperTools: React.FC = () => {
                     )}
                   </div>
                 ))
+              )}
+            </div>
+          )}
+
+          {activeSubTab === 'import_diagnostics' && (
+            <div className="flex-1 overflow-y-auto space-y-4 max-h-[350px] text-xs font-mono">
+              {/* Summary Metrics Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4 text-left">
+                <div className="bg-[#101116] border border-[#1e2026] p-3 rounded-lg text-center">
+                  <span className="text-[9px] font-mono text-slate-500 uppercase block tracking-wider">Total Imported</span>
+                  <span className="text-xl font-bold text-slate-100 font-mono mt-1 block">
+                    {lrList.filter((r: any) => r.provider === 'SSCI').length}
+                  </span>
+                </div>
+                <div className="bg-[#101116] border border-[#1e2026] p-3 rounded-lg text-center">
+                  <span className="text-[9px] font-mono text-slate-500 uppercase block tracking-wider">Coverage %</span>
+                  <span className="text-xl font-bold text-emerald-400 font-mono mt-1 block">
+                    {Math.round((INITIAL_2027_READINGS.filter(reading => lrList.some((r: any) => r.readingId === reading.id && r.provider === 'SSCI')).length / 36) * 100)}%
+                  </span>
+                </div>
+                <div className="bg-[#101116] border border-[#1e2026] p-3 rounded-lg text-center">
+                  <span className="text-[9px] font-mono text-slate-500 uppercase block tracking-wider">Avg Lectures / Reading</span>
+                  <span className="text-xl font-bold text-indigo-400 font-mono mt-1 block">
+                    {(lrList.filter((r: any) => r.provider === 'SSCI').length / 36).toFixed(1)}
+                  </span>
+                </div>
+                <div className="bg-[#101116] border border-[#1e2026] p-3 rounded-lg text-center">
+                  <span className="text-[9px] font-mono text-slate-500 uppercase block tracking-wider">Unmapped Rows</span>
+                  <span className={`text-xl font-bold font-mono mt-1 block ${importDiagnostics.filter(d => d.type === 'UNMAPPED_ROW').length > 0 ? 'text-rose-500' : 'text-slate-400'}`}>
+                    {importDiagnostics.filter(d => d.type === 'UNMAPPED_ROW').length}
+                  </span>
+                </div>
+                <div className="bg-[#101116] border border-[#1e2026] p-3 rounded-lg text-center">
+                  <span className="text-[9px] font-mono text-slate-500 uppercase block tracking-wider">Duplicate Codes</span>
+                  <span className={`text-xl font-bold font-mono mt-1 block ${importDiagnostics.filter(d => d.type === 'DUPLICATE_CODE').length > 0 ? 'text-amber-500' : 'text-slate-400'}`}>
+                    {importDiagnostics.filter(d => d.type === 'DUPLICATE_CODE').length}
+                  </span>
+                </div>
+                <div className="bg-[#101116] border border-[#1e2026] p-3 rounded-lg text-center">
+                  <span className="text-[9px] font-mono text-slate-500 uppercase block tracking-wider">Unknown Readings</span>
+                  <span className={`text-xl font-bold font-mono mt-1 block ${importDiagnostics.filter(d => d.type === 'MISSING_LECTURES').length > 0 ? 'text-rose-500' : 'text-slate-400'}`}>
+                    {importDiagnostics.filter(d => d.type === 'MISSING_LECTURES').length}
+                  </span>
+                </div>
+                <div className="bg-[#101116] border border-[#1e2026] p-3 rounded-lg text-center">
+                  <span className="text-[9px] font-mono text-slate-500 uppercase block tracking-wider">Unknown LOS</span>
+                  <span className={`text-xl font-bold font-mono mt-1 block ${importDiagnostics.filter(d => d.type === 'UNKNOWN_LOS').length > 0 ? 'text-amber-500' : 'text-slate-400'}`}>
+                    {importDiagnostics.filter(d => d.type === 'UNKNOWN_LOS').length}
+                  </span>
+                </div>
+                <div className="bg-[#101116] border border-[#1e2026] p-3 rounded-lg text-center">
+                  <span className="text-[9px] font-mono text-slate-500 uppercase block tracking-wider">Invalid Durations</span>
+                  <span className={`text-xl font-bold font-mono mt-1 block ${importDiagnostics.filter(d => d.type === 'INVALID_DURATION').length > 0 ? 'text-amber-500' : 'text-slate-400'}`}>
+                    {importDiagnostics.filter(d => d.type === 'INVALID_DURATION').length}
+                  </span>
+                </div>
+                <div className="bg-[#101116] border border-[#1e2026] p-3 rounded-lg text-center">
+                  <span className="text-[9px] font-mono text-slate-500 uppercase block tracking-wider">Broken URLs</span>
+                  <span className={`text-xl font-bold font-mono mt-1 block ${importDiagnostics.filter(d => d.type === 'BROKEN_URL').length > 0 ? 'text-rose-500' : 'text-slate-400'}`}>
+                    {importDiagnostics.filter(d => d.type === 'BROKEN_URL').length}
+                  </span>
+                </div>
+                <div className="bg-[#101116] border border-[#1e2026] p-3 rounded-lg text-center">
+                  <span className="text-[9px] font-mono text-slate-500 uppercase block tracking-wider">Mapped Lectures</span>
+                  <span className="text-xl font-bold text-emerald-400 font-mono mt-1 block">
+                    {lrList.filter((r: any) => r.provider === 'SSCI' && r.readingId).length}
+                  </span>
+                </div>
+              </div>
+
+              {/* Developer Diagnostics Telemetry Card */}
+              <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden bg-slate-50/10 dark:bg-slate-950/20 p-3">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
+                  <span className="text-[10px] text-slate-400 uppercase">Developer Diagnostics Telemetry</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-[10px] text-slate-350 text-left">
+                  <div>Repository Lecture Count: <strong className="text-slate-100 font-mono">{lrList.filter(r => r.resourceType === 'Lecture').length}</strong></div>
+                  <div>Visible Lecture Count: <strong className="text-slate-100 font-mono">{lrList.filter(r => r.provider === 'SSCI' && !r.archived).length}</strong></div>
+                  <div>Imported Lecture Count: <strong className="text-slate-100 font-mono">{lrList.filter(r => r.importMetadata?.source?.includes('xlsx') || r.provider === 'SSCI').length}</strong></div>
+                  <div>Mapped Lecture Count: <strong className="text-slate-100 font-mono">{lrList.filter(r => r.readingId && r.provider === 'SSCI').length}</strong></div>
+                  <div>Current Selected Reading ID: <strong className="text-slate-100 font-mono">{selectedReadingId || 'None'}</strong></div>
+                  <div>Current Active Reading ID: <strong className="text-slate-100 font-mono">{selectedReadingId || 'None'}</strong></div>
+                  <div>Current Reading Lecture Count: <strong className="text-slate-100 font-mono">{selectedReadingId ? lrList.filter(r => r.readingId === selectedReadingId).length : 0}</strong></div>
+                  <div>Repository Reading Count: <strong className="text-slate-100 font-mono">{INITIAL_2027_READINGS.length}</strong></div>
+                  <div>Coverage %: <strong className="text-emerald-400 font-mono">{Math.round((INITIAL_2027_READINGS.filter(reading => lrList.some((r: any) => r.readingId === reading.id && r.provider === 'SSCI')).length / INITIAL_2027_READINGS.length) * 100)}%</strong></div>
+                  <div>Current Filter: <strong className="text-slate-100 font-mono">None</strong></div>
+                  <div>Provider Filter: <strong className="text-slate-100 font-mono">SSCI</strong></div>
+                  <div>Reading Filter: <strong className="text-slate-100 font-mono">{selectedReadingId || 'All'}</strong></div>
+                </div>
+              </div>
+
+              {/* Reading Diagnostics Table */}
+              <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden bg-slate-50/10 dark:bg-slate-950/20 p-3">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
+                  <span className="text-[10px] text-slate-400 uppercase">Syllabus Reading Diagnostics</span>
+                  <span className="text-[10px] px-2 py-0.5 bg-slate-900 rounded font-semibold text-slate-350">
+                    {INITIAL_2027_READINGS.length} Readings Verified
+                  </span>
+                </div>
+                <div className="overflow-x-auto max-h-[250px] overflow-y-auto">
+                  <table className="w-full text-left border-collapse text-[10px]">
+                    <thead>
+                      <tr className="bg-slate-100 dark:bg-slate-950/80 text-[9px] font-bold text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                        <th className="p-1.5 text-left">Reading</th>
+                        <th className="p-1.5 text-center">Expected (Excel)</th>
+                        <th className="p-1.5 text-center">Imported</th>
+                        <th className="p-1.5 text-center">Repository</th>
+                        <th className="p-1.5 text-center">Visible</th>
+                        <th className="p-1.5 text-center">Mission Control</th>
+                        <th className="p-1.5 text-center">Dashboard</th>
+                        <th className="p-1.5 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
+                      {(() => {
+                        const EXPECTED_EXCEL_COUNTS: Record<string, number> = {
+                          'read-cme-1': 17, 'read-cme-2': 1,
+                          'read-aa-overview': 16, 'read-aa-principles': 16, 'read-aa-constraints': 16,
+                          'read-pc-equity': 5, 'read-pc-fixed-income': 9, 'read-pc-alternatives': 6,
+                          'read-pc-pwm': 8, 'read-pc-institutional': 14, 'read-pc-trading-costs': 7,
+                          'read-pc-inst-swf': 9, 'read-perf-evaluation': 8, 'read-perf-selection': 5,
+                          'read-perf-gips': 10, 'read-deriv-options': 20, 'read-deriv-swaps': 7,
+                          'read-deriv-currency': 10, 'read-eth-code': 30, 'read-eth-std-1': 30,
+                          'read-eth-std-2': 30, 'read-eth-std-3': 30, 'read-eth-std-4': 30,
+                          'read-eth-std-5': 30, 'read-eth-std-6': 30, 'read-eth-std-7': 30,
+                          'read-eth-apply': 11, 'read-eth-asset-code': 1, 'read-path-index-eq': 5,
+                          'read-path-active-eq': 4, 'read-path-active-eq-const': 5, 'read-path-ldi': 11,
+                          'read-path-yc': 5, 'read-path-fi-credit': 27, 'read-path-trade-exec': 9,
+                          'read-path-inst-endowment': 3
+                        };
+
+                        return INITIAL_2027_READINGS.map(reading => {
+                          const expected = EXPECTED_EXCEL_COUNTS[reading.id] || 0;
+                          const imported = lrList.filter(r => r.readingId === reading.id && r.provider === 'SSCI').length;
+                          const repoCount = lrList.filter(r => r.readingId === reading.id && r.provider === 'SSCI').length;
+                          const visible = lrList.filter(r => r.readingId === reading.id && r.provider === 'SSCI' && !r.archived).length;
+                          const mission = lrList.filter(r => r.readingId === reading.id && r.provider === 'SSCI' && !r.archived).length;
+                          const matches = repoCount === expected;
+                          const status = matches ? 'PASS' : 'FAIL';
+                          const statusColor = matches ? 'text-emerald-500 font-bold' : 'text-rose-500 font-bold';
+
+                          return (
+                            <tr key={reading.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/35 transition-colors">
+                              <td className="p-1.5 font-sans font-medium text-slate-300 truncate max-w-[130px]" title={reading.title}>
+                                Reading {reading.number}: {reading.title}
+                              </td>
+                              <td className="p-1.5 text-center text-slate-400">{expected}</td>
+                              <td className="p-1.5 text-center text-slate-350">{imported}</td>
+                              <td className="p-1.5 text-center text-slate-350">{repoCount}</td>
+                              <td className="p-1.5 text-center text-slate-350">{visible}</td>
+                              <td className="p-1.5 text-center text-slate-350">{mission}</td>
+                              <td className={`p-1.5 text-center ${matches ? 'text-emerald-500' : 'text-rose-500'}`}>{matches ? '✓' : '✗'}</td>
+                              <td className={`p-1.5 text-center ${statusColor}`}>{status}</td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                <span className="text-[10px] text-slate-400 uppercase">Import Diagnostics Log</span>
+                <span className="text-[10px] px-2 py-0.5 bg-slate-900 rounded font-semibold text-slate-350">
+                  {importDiagnostics.length} warnings/notices
+                </span>
+              </div>
+              
+              {importDiagnostics.length === 0 ? (
+                <p className="text-slate-400 italic py-6 text-center">No diagnostics logged. Import was 100% clean!</p>
+              ) : (
+                <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden bg-slate-50/10 dark:bg-slate-950/20">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 dark:bg-slate-950/80 text-[10px] font-bold text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                        <th className="p-2">Type</th>
+                        <th className="p-2">Row/Sheet</th>
+                        <th className="p-2">Reading/Lecture</th>
+                        <th className="p-2">Details</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {importDiagnostics.map((diag, index) => {
+                        let typeColor = 'text-amber-500 bg-amber-500/10 border-amber-500/20';
+                        if (diag.type === 'UNMAPPED_ROW') typeColor = 'text-rose-500 bg-rose-500/10 border-rose-500/20';
+                        if (diag.type === 'MISSING_LECTURES') typeColor = 'text-sky-500 bg-sky-500/10 border-sky-500/20';
+
+                        return (
+                          <tr key={index} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/35 transition-colors">
+                            <td className="p-2 align-top">
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${typeColor}`}>
+                                {diag.type}
+                              </span>
+                            </td>
+                            <td className="p-2 align-top text-slate-600 dark:text-slate-400 font-semibold">
+                              {diag.rowNumber ? `Row ${diag.rowNumber}` : 'N/A'}
+                              {diag.sheetName && <span className="block text-[9px] text-slate-500 font-normal">{diag.sheetName}</span>}
+                            </td>
+                            <td className="p-2 align-top text-slate-800 dark:text-slate-300">
+                              <span className="block truncate max-w-[150px]" title={diag.excelReading}>{diag.excelReading || 'N/A'}</span>
+                              {(diag.lectureName || diag.lectureCode) && (
+                                <span className="block text-[9px] text-slate-550 font-normal truncate max-w-[150px]">
+                                  {diag.lectureCode ? `[${diag.lectureCode}] ` : ''}{diag.lectureName}
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-2 align-top text-slate-600 dark:text-slate-400 leading-normal font-sans text-[11px]">
+                              {diag.details}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           )}

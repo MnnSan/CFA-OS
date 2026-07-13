@@ -8,7 +8,6 @@ import {
   ReadingRepository,
   LOSRepository,
   NoteRepository,
-  ResourceRepository,
   FormulaRepository,
   StudySessionRepository
 } from '../repositories';
@@ -23,7 +22,6 @@ export class AnalyticsService {
     private subjectRepo: SubjectRepository,
     private readingRepo: ReadingRepository,
     private losRepo: LOSRepository,
-    private resourceRepo: ResourceRepository,
     private noteRepo: NoteRepository,
     private sessionRepo: StudySessionRepository,
     private formulaRepo: FormulaRepository

@@ -21,7 +21,7 @@ import { aiJobQueue } from '../services/AiJobQueueService';
 import { DeveloperDiagnosticsPanel } from '../components/DeveloperDiagnosticsPanel';
 
 export const SettingsPage: React.FC = () => {
-  const { user, settings, updateSettings, updateProfile, subjects, readings, losList, generateCoachPlan, eventBus } = useApp();
+  const { user, settings, updateSettings, updateProfile, subjects, readings, losList, generateCoachPlan, eventBus, setActiveTab } = useApp();
   const { theme, setTheme } = useTheme();
   
   // Profile Form State
@@ -211,6 +211,24 @@ export const SettingsPage: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
+
+      {/* Onboarding Guide Quick Access */}
+      <div className="rounded border border-indigo-500/20 bg-indigo-500/[0.02] p-5 dark:border-indigo-500/30 flex items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h3 className="text-xs font-bold tracking-wider text-indigo-500 uppercase font-mono">
+            Interactive System Manual
+          </h3>
+          <p className="text-[11px] text-slate-400 leading-normal">
+            Need a refresher on workflows, keyboard shortcuts, or how AI interacts with your curriculum? Review the premium interactive guide.
+          </p>
+        </div>
+        <button
+          onClick={() => setActiveTab('help')}
+          className="shrink-0 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded uppercase tracking-wider transition cursor-pointer"
+        >
+          Open Guide
+        </button>
+      </div>
 
       
       {/* 1. Profile Info settings */}

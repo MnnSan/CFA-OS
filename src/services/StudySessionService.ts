@@ -67,7 +67,7 @@ export class StudySessionService {
   /**
    * Pauses the current active session.
    */
-  public static pauseSession(): void {
+  public static pauseSession(reason?: string): void {
     const active = this.getActiveSession();
     if (!active) return;
 
@@ -75,6 +75,20 @@ export class StudySessionService {
     if (alreadyPaused) return; // Already paused
 
     localStorage.setItem(this.STORAGE_KEY_PAUSED_AT, new Date().toISOString());
+    if (reason) {
+      localStorage.setItem('cfa_session_pause_reason', reason);
+    }
+  }
+
+  /**
+   * Pauses the current active session retroactively at a specific timestamp.
+   */
+  public static pauseSessionRetroactively(pausedAtIso: string, reason: string): void {
+    const active = this.getActiveSession();
+    if (!active) return;
+
+    localStorage.setItem(this.STORAGE_KEY_PAUSED_AT, pausedAtIso);
+    localStorage.setItem('cfa_session_pause_reason', reason);
   }
 
   /**
@@ -97,6 +111,7 @@ export class StudySessionService {
 
     localStorage.setItem(this.STORAGE_KEY_ACTIVE, JSON.stringify(active));
     localStorage.removeItem(this.STORAGE_KEY_PAUSED_AT);
+    localStorage.removeItem('cfa_session_pause_reason');
   }
 
   /**
@@ -166,6 +181,7 @@ export class StudySessionService {
     localStorage.removeItem(this.STORAGE_KEY_ACTIVE);
     localStorage.removeItem(this.STORAGE_KEY_ELAPSED);
     localStorage.removeItem(this.STORAGE_KEY_PAUSED_AT);
+    localStorage.removeItem('cfa_session_pause_reason');
 
     return finishedSession;
   }
@@ -177,6 +193,7 @@ export class StudySessionService {
     localStorage.removeItem(this.STORAGE_KEY_ACTIVE);
     localStorage.removeItem(this.STORAGE_KEY_ELAPSED);
     localStorage.removeItem(this.STORAGE_KEY_PAUSED_AT);
+    localStorage.removeItem('cfa_session_pause_reason');
   }
 
   /**

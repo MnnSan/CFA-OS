@@ -1,4 +1,5 @@
 import { LearningResource, ResourceProvider, LearningResourceType, ResourceCompletionStats } from '../types';
+import { eventBus } from '../../services/EventBus';
 
 const STORAGE_KEY = 'cfa_learning_resources';
 
@@ -35,49 +36,134 @@ function generateId(): string {
   return `lrs-${Date.now()}-${++idCounter}-${Math.random().toString(36).substring(2, 7)}`;
 }
 
+function calculateFNV1a(str: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+  return (hash >>> 0).toString(16);
+}
+
 export class LearningResourceRepository {
   private resources: LearningResource[];
+  private backup: LearningResource[] | null = null;
+  private inTransaction = false;
 
   constructor() {
     console.log('[DevLog] LearningResourceRepository initialized');
     this.resources = loadFromStorage();
   }
 
-  getAll(): LearningResource[] {
-    return [...this.resources];
+  // --- Transactions ---
+  public beginTransaction(): void {
+    if (this.inTransaction) {
+      console.warn('[LearningResourceRepository] Transaction already active, nested transaction ignored.');
+      return;
+    }
+    this.backup = JSON.parse(JSON.stringify(this.resources));
+    this.inTransaction = true;
+    console.log('[LearningResourceRepository] Transaction started.');
   }
+
+  public commitTransaction(): void {
+    if (!this.inTransaction) {
+      console.warn('[LearningResourceRepository] No active transaction to commit.');
+      return;
+    }
+    this.backup = null;
+    this.inTransaction = false;
+    saveToStorage(this.resources);
+    console.log('[LearningResourceRepository] Transaction committed successfully.');
+  }
+
+  public rollbackTransaction(): void {
+    if (!this.inTransaction || !this.backup) {
+      console.warn('[LearningResourceRepository] No active transaction to rollback.');
+      return;
+    }
+    this.resources = this.backup;
+    this.backup = null;
+    this.inTransaction = false;
+    saveToStorage(this.resources);
+    console.log('[LearningResourceRepository] Transaction rolled back to previous state.');
+  }
+
+  // --- Validation ---
+  public validate(resource: LearningResource): string[] {
+    const errors: string[] = [];
+    if (!resource.id || resource.id.trim() === '') errors.push('Resource ID is required');
+    if (!resource.title || resource.title.trim() === '') errors.push('Title is required');
+    if (!resource.provider || resource.provider.trim() === '') errors.push('Provider is required');
+    if (!resource.resourceType || resource.resourceType.trim() === '') errors.push('ResourceType is required');
+    if (resource.duration < 0) errors.push('Duration cannot be negative');
+    if (!resource.readingId || resource.readingId.trim() === '') errors.push('Reading ID link is required');
+    return errors;
+  }
+
+  // --- Checksum Support ---
+  public getChecksum(): string {
+    const str = JSON.stringify(this.resources);
+    return calculateFNV1a(str);
+  }
+
+  // --- CRUD Operations ---
+  getAll(includeArchived = false): LearningResource[] {
+    return this.resources.filter(r => includeArchived || !r.archived);
+  }
+
 
   getById(id: string): LearningResource | undefined {
     return this.resources.find(r => r.id === id);
   }
 
-  getByReadingId(readingId: string): LearningResource[] {
-    return this.resources.filter(r => r.readingId === readingId);
+  getByReadingId(readingId: string, includeArchived = false): LearningResource[] {
+    return this.resources.filter(r => r.readingId === readingId && (includeArchived || !r.archived));
   }
 
-  getBySubject(subjectId: string, readingsBySubject: Map<string, string[]>): LearningResource[] {
+  getByLOSId(losId: string, includeArchived = false): LearningResource[] {
+    return this.resources.filter(r => r.losIds && r.losIds.includes(losId) && (includeArchived || !r.archived));
+  }
+
+  getBySubject(subjectId: string, readingsBySubject: Map<string, string[]>, includeArchived = false): LearningResource[] {
     const readingIds = readingsBySubject.get(subjectId) || [];
-    return this.resources.filter(r => readingIds.includes(r.readingId));
+    return this.resources.filter(r => readingIds.includes(r.readingId) && (includeArchived || !r.archived));
   }
 
-  getByProvider(provider: ResourceProvider): LearningResource[] {
-    return this.resources.filter(r => r.provider === provider);
+  getByProvider(provider: ResourceProvider, includeArchived = false): LearningResource[] {
+    return this.resources.filter(r => r.provider === provider && (includeArchived || !r.archived));
   }
 
-  getByType(resourceType: LearningResourceType): LearningResource[] {
-    return this.resources.filter(r => r.resourceType === resourceType);
+  getByReadingIdAndProvider(readingId: string, provider: ResourceProvider, includeArchived = false): LearningResource[] {
+    return this.resources.filter(r => r.readingId === readingId && r.provider === provider && (includeArchived || !r.archived));
   }
 
-  getIncomplete(): LearningResource[] {
-    return this.resources.filter(r => !r.progress.completed);
+  getByType(resourceType: LearningResourceType, includeArchived = false): LearningResource[] {
+    return this.resources.filter(r => r.resourceType === resourceType && (includeArchived || !r.archived));
   }
 
-  getCompleted(): LearningResource[] {
-    return this.resources.filter(r => r.progress.completed);
+  getIncomplete(includeArchived = false): LearningResource[] {
+    return this.resources.filter(r => !r.progress.completed && (includeArchived || !r.archived));
   }
 
-  getIncompleteByReadingId(readingId: string): LearningResource[] {
-    return this.resources.filter(r => r.readingId === readingId && !r.progress.completed);
+  getCompleted(includeArchived = false): LearningResource[] {
+    return this.resources.filter(r => r.progress.completed && (includeArchived || !r.archived));
+  }
+
+  getIncompleteByReadingId(readingId: string, includeArchived = false): LearningResource[] {
+    return this.resources.filter(r => r.readingId === readingId && !r.progress.completed && (includeArchived || !r.archived));
+  }
+
+  private logUpdateHistory(resource: LearningResource, action: string, details?: string): void {
+    if (!resource.updateHistory) {
+      resource.updateHistory = [];
+    }
+    resource.updateHistory.push({
+      timestamp: new Date().toISOString(),
+      action,
+      details
+    });
+    resource.version = (resource.version || 0) + 1;
   }
 
   add(resource: Omit<LearningResource, 'id' | 'importMetadata'> & { importMetadata?: Partial<LearningResource['importMetadata']> }): LearningResource {
@@ -95,49 +181,257 @@ export class LearningResourceRepository {
         lastOpenedAt: null,
         resumeState: null,
       },
+      updateHistory: [],
+      version: 1
     };
+
+    const errors = this.validate(newResource);
+    if (errors.length > 0) {
+      throw new Error(`[LearningResourceRepository] Validation failed for new resource: ${errors.join(', ')}`);
+    }
+
     this.resources.push(newResource);
-    saveToStorage(this.resources);
+    if (!this.inTransaction) saveToStorage(this.resources);
+
+    eventBus.publish({
+      type: 'ResourceCreated',
+      timestamp: new Date().toISOString(),
+      source: 'LearningResourceRepository',
+      entityId: newResource.id,
+      payload: { title: newResource.title }
+    });
+
     return newResource;
   }
 
+  create(resource: Omit<LearningResource, 'id' | 'importMetadata'> & { importMetadata?: Partial<LearningResource['importMetadata']> }): LearningResource {
+    return this.add(resource);
+  }
+
   addMany(resources: Array<Omit<LearningResource, 'id' | 'importMetadata'> & { importMetadata?: Partial<LearningResource['importMetadata']> } & { id?: string }>): LearningResource[] {
-    const created: LearningResource[] = resources.map(r => ({
-      ...r,
-      id: r.id || generateId(),
-      importMetadata: {
-        importedAt: new Date().toISOString(),
-        source: 'manual',
-        ...r.importMetadata,
-      },
+    const created: LearningResource[] = resources.map(r => {
+      const res: LearningResource = {
+        ...r,
+        id: r.id || generateId(),
+        importMetadata: {
+          importedAt: new Date().toISOString(),
+          source: 'manual',
+          ...r.importMetadata,
+        },
+        progress: {
+          minutesCompleted: 0,
+          completed: false,
+          lastOpenedAt: null,
+          resumeState: null,
+        },
+        updateHistory: [],
+        version: 1
+      };
+
+      const errors = this.validate(res);
+      if (errors.length > 0) {
+        throw new Error(`[LearningResourceRepository] Validation failed during bulk add: ${errors.join(', ')}`);
+      }
+      return res;
+    });
+
+    this.resources.push(...created);
+    if (!this.inTransaction) saveToStorage(this.resources);
+
+    eventBus.publish({
+      type: 'BulkResourcesCreated',
+      timestamp: new Date().toISOString(),
+      source: 'LearningResourceRepository',
+      entityId: 'bulk',
+      payload: { count: created.length }
+    });
+
+    return created;
+  }
+
+  update(id: string, updates: Partial<LearningResource>): LearningResource | undefined {
+    const idx = this.resources.findIndex(r => r.id === id);
+    if (idx === -1) return undefined;
+    const current = this.resources[idx];
+    
+    const updated: LearningResource = {
+      ...current,
+      ...updates,
+      progress: updates.progress ? {
+        ...current.progress,
+        ...updates.progress
+      } : current.progress
+    };
+
+    const errors = this.validate(updated);
+    if (errors.length > 0) {
+      throw new Error(`[LearningResourceRepository] Validation failed for update: ${errors.join(', ')}`);
+    }
+
+    this.logUpdateHistory(updated, 'Update', JSON.stringify(updates));
+    this.resources[idx] = updated;
+    
+    if (!this.inTransaction) saveToStorage(this.resources);
+
+    eventBus.publish({
+      type: 'ResourceUpdated',
+      timestamp: new Date().toISOString(),
+      source: 'LearningResourceRepository',
+      entityId: id,
+      payload: { updates }
+    });
+
+    return updated;
+  }
+
+  duplicate(id: string): LearningResource | undefined {
+    const original = this.getById(id);
+    if (!original) return undefined;
+    
+    const clone: LearningResource = {
+      ...original,
+      title: `${original.title} (Copy)`,
+      id: generateId(),
       progress: {
         minutesCompleted: 0,
         completed: false,
         lastOpenedAt: null,
         resumeState: null,
       },
-    }));
-    this.resources.push(...created);
-    saveToStorage(this.resources);
-    return created;
+      updateHistory: [{ timestamp: new Date().toISOString(), action: 'Duplicated', details: `Cloned from ${original.id}` }],
+      version: 1
+    };
+
+    this.resources.push(clone);
+    if (!this.inTransaction) saveToStorage(this.resources);
+
+    eventBus.publish({
+      type: 'ResourceCreated',
+      timestamp: new Date().toISOString(),
+      source: 'LearningResourceRepository',
+      entityId: clone.id,
+      payload: { title: clone.title, duplicatedFrom: id }
+    });
+
+    return clone;
+  }
+
+  archive(id: string): boolean {
+    const resource = this.getById(id);
+    if (!resource) return false;
+    resource.archived = true;
+    this.logUpdateHistory(resource, 'Archive');
+    
+    if (!this.inTransaction) saveToStorage(this.resources);
+
+    eventBus.publish({
+      type: 'ResourceArchived',
+      timestamp: new Date().toISOString(),
+      source: 'LearningResourceRepository',
+      entityId: id,
+      payload: { title: resource.title }
+    });
+
+    return true;
+  }
+
+  restore(id: string): boolean {
+    const resource = this.getById(id);
+    if (!resource) return false;
+    resource.archived = false;
+    this.logUpdateHistory(resource, 'Restore');
+    
+    if (!this.inTransaction) saveToStorage(this.resources);
+
+    eventBus.publish({
+      type: 'ResourceRestored',
+      timestamp: new Date().toISOString(),
+      source: 'LearningResourceRepository',
+      entityId: id,
+      payload: { title: resource.title }
+    });
+
+    return true;
   }
 
   updateProgress(id: string, updates: Partial<LearningResource['progress']>): LearningResource | undefined {
     const idx = this.resources.findIndex(r => r.id === id);
     if (idx === -1) return undefined;
-    this.resources[idx] = {
-      ...this.resources[idx],
-      progress: {
-        ...this.resources[idx].progress,
-        ...updates,
-      },
+    const current = this.resources[idx];
+    
+    const updatedProgress = {
+      ...current.progress,
+      ...updates
     };
-    saveToStorage(this.resources);
+
+    this.resources[idx] = {
+      ...current,
+      progress: updatedProgress
+    };
+    
+    this.logUpdateHistory(this.resources[idx], 'ProgressUpdate', JSON.stringify(updates));
+    
+    if (!this.inTransaction) saveToStorage(this.resources);
+
+    eventBus.publish({
+      type: 'ResourceProgressUpdated',
+      timestamp: new Date().toISOString(),
+      source: 'LearningResourceRepository',
+      entityId: id,
+      payload: { progress: updatedProgress }
+    });
+
     return this.resources[idx];
   }
 
   markCompleted(id: string): LearningResource | undefined {
     return this.updateProgress(id, { completed: true });
+  }
+
+  markIncomplete(id: string): LearningResource | undefined {
+    return this.updateProgress(id, { completed: false });
+  }
+
+  toggleComplete(id: string): LearningResource | undefined {
+    const resource = this.getById(id);
+    if (!resource) return undefined;
+    const completed = !resource.progress.completed;
+    return this.updateProgress(id, {
+      completed,
+      minutesCompleted: completed ? resource.duration : 0
+    });
+  }
+
+  resetProgress(id: string): LearningResource | undefined {
+    const res = this.updateProgress(id, {
+      completed: false,
+      minutesCompleted: 0,
+      resumeState: null
+    });
+    
+    if (res) {
+      eventBus.publish({
+        type: 'ResourceProgressReset',
+        timestamp: new Date().toISOString(),
+        source: 'LearningResourceRepository',
+        entityId: id,
+        payload: { title: res.title }
+      });
+    }
+    
+    return res;
+  }
+
+  linkToReading(id: string, readingId: string): LearningResource | undefined {
+    return this.update(id, { readingId, reading: readingId });
+  }
+
+  linkToLOS(id: string, losIds: string[]): LearningResource | undefined {
+    return this.update(id, { losIds });
+  }
+
+  linkToFormula(id: string, formulaIds: string[]): LearningResource | undefined {
+    return this.update(id, { resourceLinks: formulaIds });
   }
 
   markOpened(id: string): LearningResource | undefined {
@@ -161,15 +455,26 @@ export class LearningResourceRepository {
   delete(id: string): boolean {
     const idx = this.resources.findIndex(r => r.id === id);
     if (idx === -1) return false;
+    const title = this.resources[idx].title;
     this.resources.splice(idx, 1);
-    saveToStorage(this.resources);
+    
+    if (!this.inTransaction) saveToStorage(this.resources);
+
+    eventBus.publish({
+      type: 'ResourceDeleted',
+      timestamp: new Date().toISOString(),
+      source: 'LearningResourceRepository',
+      entityId: id,
+      payload: { title }
+    });
+
     return true;
   }
 
   getCompletionStats(readingId?: string): ResourceCompletionStats {
     const filtered = readingId
-      ? this.resources.filter(r => r.readingId === readingId)
-      : this.resources;
+      ? this.getByReadingId(readingId)
+      : this.getAll();
 
     const totalResources = filtered.length;
     const completedResources = filtered.filter(r => r.progress.completed).length;
@@ -191,18 +496,18 @@ export class LearningResourceRepository {
     return this.getCompletionStats();
   }
 
-  count(): number {
-    return this.resources.length;
+  count(includeArchived = false): number {
+    return this.resources.filter(r => includeArchived || !r.archived).length;
   }
 
   clear(): void {
     this.resources = [];
-    saveToStorage(this.resources);
+    if (!this.inTransaction) saveToStorage(this.resources);
   }
 
   getAllGroupedByReading(): Map<string, LearningResource[]> {
     const map = new Map<string, LearningResource[]>();
-    for (const r of this.resources) {
+    for (const r of this.getAll()) {
       const existing = map.get(r.readingId) || [];
       existing.push(r);
       map.set(r.readingId, existing);
@@ -210,3 +515,5 @@ export class LearningResourceRepository {
     return map;
   }
 }
+
+export const learningResourceRepository = new LearningResourceRepository();

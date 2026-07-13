@@ -31,6 +31,7 @@ export class StudyStackBuilder {
     const activeResources = input.learningResources.filter(r => !r.progress.completed && r.progress.minutesCompleted > 0);
 
     let previousPhaseId: string | null = null;
+    let phaseNumber = 1;
 
     for (const phaseDef of template.phases) {
       const resourcesForPhase = this.getResourcesForStepType(phaseDef.stepType, input, dailyMission);
@@ -38,91 +39,132 @@ export class StudyStackBuilder {
       const isAlwaysPresent = phaseDef.stepType === 'Reflection';
 
       if (!hasResources && !isAlwaysPresent) {
-        previousPhaseId = null;
         continue;
       }
 
-      const phaseResources = isAlwaysPresent && !hasResources
-        ? this.createDefaultReflectionResource(dailyMission)
-        : resourcesForPhase;
+      if (phaseDef.stepType === 'Lecture') {
+        // Create a phase for EACH individual lecture!
+        for (let idx = 0; idx < resourcesForPhase.length; idx++) {
+          const lec = resourcesForPhase[idx];
+          const phaseId = `phase-${dailyMission.readingId}-lecture-${idx + 1}`;
+          const isLocked = previousPhaseId !== null && !this.isPreviousPhasesCompleted(phases, previousPhaseId);
 
-      // Dynamically calculate progress of resources based on database state
-      phaseResources.forEach(r => {
-        if (phaseDef.stepType === 'Reading') {
-          const readingLOS = input.losList.filter(l => l.readingId === dailyMission.readingId);
-          const completedLOS = readingLOS.filter(l => l.status === 'Completed').length;
-          const totalLOS = readingLOS.length;
-          const pct = totalLOS > 0 ? completedLOS / totalLOS : 0;
-          r.progress = {
-            completed: pct >= 1.0,
-            minutesCompleted: Math.round(pct * r.duration),
-            lastOpenedAt: r.progress?.lastOpenedAt || null,
-            resumeState: r.progress?.resumeState || null,
+          const allCompleted = lec.progress?.completed ?? false;
+          let status: PhaseStatus = 'READY';
+          if (allCompleted) status = 'COMPLETED';
+          else if (isLocked) status = 'BLOCKED';
+          else if ((lec.progress?.minutesCompleted ?? 0) > 0) status = 'ACTIVE';
+
+          const meta = this.getCognitiveMetadata('Lecture', dailyMission);
+          const phase: StudyPhase = {
+            id: phaseId,
+            phaseNumber: phaseNumber++,
+            phaseLabel: `Lecture ${idx + 1}`,
+            title: lec.title,
+            description: lec.description || `Watch SSCI lecture ${lec.lectureCode || ''} for ${dailyMission.readingTitle}`,
+            estimatedMinutes: lec.duration || 30,
+            status,
+            locked: isLocked,
+            lockedReason: isLocked ? 'Complete previous phase first' : undefined,
+            stepType: 'Lecture',
+            resources: this.toResourceReferences([lec]),
+            dependsOn: previousPhaseId ? [previousPhaseId] : [],
+            completed: allCompleted,
+            completionEvidence: {
+              lectureCompleted: allCompleted,
+              videoPosition: lec.progress?.resumeState || undefined
+            },
+            ...meta
           };
-        } else if (phaseDef.stepType === 'Formula') {
-          const f = input.formulas.find(form => form.id === r.id);
-          r.progress = {
-            completed: f ? f.isMemorized : false,
-            minutesCompleted: f && f.isMemorized ? r.duration : 0,
-            lastOpenedAt: r.progress?.lastOpenedAt || null,
-            resumeState: r.progress?.resumeState || null,
-          };
-        } else if (phaseDef.stepType === 'Questions') {
-          const prog = input.plannerProgress.find(p => p.readingId === dailyMission.readingId);
-          const completedEOCQ = prog?.completedEOCQ || 0;
-          const targetEOCQ = input.targetEOCQ || 20;
-          const pct = Math.min(1.0, completedEOCQ / targetEOCQ);
-          r.progress = {
-            completed: completedEOCQ >= targetEOCQ,
-            minutesCompleted: Math.round(pct * r.duration),
-            lastOpenedAt: r.progress?.lastOpenedAt || null,
-            resumeState: r.progress?.resumeState || null,
-          };
-        } else if (phaseDef.stepType === 'Notebook') {
-          const notesCount = input.notes.filter(n => n.linkedReadingId === dailyMission.readingId).length;
-          r.progress = {
-            completed: notesCount > 0,
-            minutesCompleted: notesCount > 0 ? r.duration : 0,
-            lastOpenedAt: r.progress?.lastOpenedAt || null,
-            resumeState: r.progress?.resumeState || null,
-          };
+          phases.push(phase);
+          previousPhaseId = phase.id;
         }
-      });
+      } else {
+        const phaseResources = isAlwaysPresent && !hasResources
+          ? this.createDefaultReflectionResource(dailyMission)
+          : resourcesForPhase;
 
-      const allCompleted = phaseResources.every(r => r.progress?.completed ?? false);
-      const anyActive = phaseResources.some(r => !r.progress?.completed && (r.progress?.minutesCompleted ?? 0) > 0);
-      const anyStarted = phaseResources.some(r => (r.progress?.minutesCompleted ?? 0) > 0);
+        phaseResources.forEach(r => {
+          if (phaseDef.stepType === 'Reading') {
+            const readingLOS = input.losList.filter(l => l.readingId === dailyMission.readingId);
+            const completedLOS = readingLOS.filter(l => l.status === 'Completed').length;
+            const totalLOS = readingLOS.length;
+            const pct = totalLOS > 0 ? completedLOS / totalLOS : 0;
+            r.progress = {
+              completed: pct >= 1.0,
+              minutesCompleted: Math.round(pct * r.duration),
+              lastOpenedAt: r.progress?.lastOpenedAt || null,
+              resumeState: r.progress?.resumeState || null,
+            };
+          } else if (phaseDef.stepType === 'Formula') {
+            const f = input.formulas.find(form => form.id === r.id);
+            r.progress = {
+              completed: f ? f.isMemorized : false,
+              minutesCompleted: f && f.isMemorized ? r.duration : 0,
+              lastOpenedAt: r.progress?.lastOpenedAt || null,
+              resumeState: r.progress?.resumeState || null,
+            };
+          } else if (phaseDef.stepType === 'Questions') {
+            const prog = input.plannerProgress.find(p => p.readingId === dailyMission.readingId);
+            const completedEOCQ = prog?.completedEOCQ || 0;
+            const targetEOCQ = input.targetEOCQ || 20;
+            const pct = Math.min(1.0, completedEOCQ / targetEOCQ);
+            r.progress = {
+              completed: completedEOCQ >= targetEOCQ,
+              minutesCompleted: Math.round(pct * r.duration),
+              lastOpenedAt: r.progress?.lastOpenedAt || null,
+              resumeState: r.progress?.resumeState || null,
+            };
+          } else if (phaseDef.stepType === 'Notebook') {
+            const notesCount = input.notes.filter(n => n.linkedReadingId === dailyMission.readingId).length;
+            r.progress = {
+              completed: notesCount > 0,
+              minutesCompleted: notesCount > 0 ? r.duration : 0,
+              lastOpenedAt: r.progress?.lastOpenedAt || null,
+              resumeState: r.progress?.resumeState || null,
+            };
+          }
+        });
 
-      const isLocked = previousPhaseId !== null && !this.isPreviousPhasesCompleted(phases, previousPhaseId);
-      let totalMinutes = phaseResources.reduce((sum, r) => sum + (r.duration || 0), 0);
-      if (totalMinutes === 0) {
-        totalMinutes = this.adapter.getDefaultDuration(phaseDef.stepType);
+        const allCompleted = phaseResources.every(r => r.progress?.completed ?? false);
+        const anyActive = phaseResources.some(r => 
+          (r.progress?.completed ?? false) || 
+          ((r.progress?.minutesCompleted ?? 0) > 0 && !r.progress?.completed)
+        ) && !allCompleted;
+
+        const isLocked = previousPhaseId !== null && !this.isPreviousPhasesCompleted(phases, previousPhaseId);
+        let totalMinutes = phaseResources.reduce((sum, r) => sum + (r.duration || 0), 0);
+        if (totalMinutes === 0) {
+          totalMinutes = this.adapter.getDefaultDuration(phaseDef.stepType);
+        }
+
+        let status: PhaseStatus = 'READY';
+        if (allCompleted) status = 'COMPLETED';
+        else if (isLocked) status = 'BLOCKED';
+        else if (anyActive) status = 'ACTIVE';
+
+        const meta = this.getCognitiveMetadata(phaseDef.stepType, dailyMission);
+        const phase: StudyPhase = {
+          id: `phase-${dailyMission.readingId}-${phaseDef.stepType.toLowerCase()}`,
+          phaseNumber: phaseNumber++,
+          phaseLabel: phaseDef.phaseLabel,
+          title: this.buildPhaseTitle(phaseDef.stepType, phaseResources, dailyMission),
+          description: phaseDef.description,
+          estimatedMinutes: totalMinutes,
+          status,
+          locked: isLocked,
+          lockedReason: isLocked ? 'Complete previous phase first' : undefined,
+          stepType: phaseDef.stepType,
+          resources: this.toResourceReferences(phaseResources),
+          dependsOn: previousPhaseId ? [previousPhaseId] : [],
+          completed: allCompleted,
+          completionEvidence: this.buildCompletionEvidence(phaseDef.stepType, phaseResources, input),
+          ...meta
+        };
+
+        phases.push(phase);
+        previousPhaseId = phase.id;
       }
-
-      let status: PhaseStatus = 'READY';
-      if (allCompleted) status = 'COMPLETED';
-      else if (isLocked) status = 'BLOCKED';
-      else if (anyActive) status = 'ACTIVE';
-
-      const phase: StudyPhase = {
-        id: generatePhaseId(),
-        phaseNumber: phaseDef.phaseNumber,
-        phaseLabel: phaseDef.phaseLabel,
-        title: this.buildPhaseTitle(phaseDef.stepType, phaseResources, dailyMission),
-        description: phaseDef.description,
-        estimatedMinutes: totalMinutes,
-        status,
-        locked: isLocked,
-        lockedReason: isLocked ? 'Complete previous phase first' : undefined,
-        stepType: phaseDef.stepType,
-        resources: this.toResourceReferences(phaseResources),
-        dependsOn: previousPhaseId ? [previousPhaseId] : [],
-        completed: allCompleted,
-        completionEvidence: this.buildCompletionEvidence(phaseDef.stepType, phaseResources, input),
-      };
-
-      phases.push(phase);
-      previousPhaseId = phase.id;
     }
 
     const completedPhases = phases.filter(p => p.status === 'COMPLETED').length;
@@ -159,6 +201,118 @@ export class StudyStackBuilder {
       generatedAt: new Date().toISOString(),
       version: '1.0.0',
     };
+  }
+
+  private getCognitiveMetadata(
+    stepType: StudyStepType,
+    mission: DailyMission
+  ): {
+    whyThisNow: string;
+    expectedOutcome: string;
+    estimatedCognitiveEffort: 'Low' | 'Medium' | 'High';
+    prerequisites: string[];
+    links: string[];
+    learningObjective: string;
+    estimatedSuccessPercent: number;
+    memoryStage: 'Encoding' | 'Consolidation' | 'Retrieval';
+    bloomLevel: 'Remember' | 'Understand' | 'Apply' | 'Analyze';
+    confidenceRequirement: 'Low' | 'Medium' | 'High';
+  } {
+    const defaultMeta = {
+      whyThisNow: "Introductory content delivery maps core concepts and visualizes analytical frameworks.",
+      expectedOutcome: "Familiarity with syllabus models.",
+      estimatedCognitiveEffort: "Medium" as const,
+      prerequisites: [] as string[],
+      links: [] as string[],
+      learningObjective: `Introduce topic sector for ${mission.subjectCode}`,
+      estimatedSuccessPercent: 85,
+      memoryStage: "Encoding" as const,
+      bloomLevel: "Understand" as const,
+      confidenceRequirement: "Low" as const,
+    };
+
+    switch (stepType) {
+      case 'Lecture':
+        return {
+          whyThisNow: "Introductory content delivery maps core concepts and visualizes analytical frameworks before reading.",
+          expectedOutcome: "Conceptual familiarity with the syllabus structure and major definitions.",
+          estimatedCognitiveEffort: "Medium",
+          prerequisites: ["Prior standard overview of chapter summary"],
+          links: ["SSCI Online Dashboard", "Class Excel Workbook"],
+          learningObjective: `Introduce and decode concepts related to ${mission.losCode}`,
+          estimatedSuccessPercent: 85,
+          memoryStage: "Encoding",
+          bloomLevel: "Remember",
+          confidenceRequirement: "Low",
+        };
+      case 'Reading':
+        return {
+          whyThisNow: "Deep-dive textbook engagement structures academic definitions and details specific requirements.",
+          expectedOutcome: "Internalization of detailed textual facts and vocabulary.",
+          estimatedCognitiveEffort: "High",
+          prerequisites: ["Complete Lecture watching phase"],
+          links: ["Official CFA Curriculum PDF"],
+          learningObjective: `Read and parse standard details for LOS ${mission.losCode}`,
+          estimatedSuccessPercent: 75,
+          memoryStage: "Encoding",
+          bloomLevel: "Understand",
+          confidenceRequirement: "Medium",
+        };
+      case 'Formula':
+        return {
+          whyThisNow: "Formula rehearsal moves algebraic equations and quantitative relations into working memory before problem solving.",
+          expectedOutcome: "Fast derivation and correct identification of formula variables under pressure.",
+          estimatedCognitiveEffort: "Medium",
+          prerequisites: ["Review parent concept notes"],
+          links: ["Formula Cheat Sheet", "Formula Rehearsal Modal"],
+          learningObjective: `Memorize and recall mathematical expressions for ${mission.subjectCode}`,
+          estimatedSuccessPercent: 90,
+          memoryStage: "Consolidation",
+          bloomLevel: "Remember",
+          confidenceRequirement: "Medium",
+        };
+      case 'Notebook':
+        return {
+          whyThisNow: "AI commentary synthesis links disparate concepts and highlights common examiner pitfalls.",
+          expectedOutcome: "Clarity on complex nuances and cross-linkages across readings.",
+          estimatedCognitiveEffort: "Medium",
+          prerequisites: ["Completed syllabus reading"],
+          links: ["NotebookLM Workspace"],
+          learningObjective: `Reconcile concepts and analyze syllabus links`,
+          estimatedSuccessPercent: 80,
+          memoryStage: "Consolidation",
+          bloomLevel: "Analyze",
+          confidenceRequirement: "High",
+        };
+      case 'Questions':
+        return {
+          whyThisNow: "Active recall test-drills train memory retrieval paths and teach practical exam timing.",
+          expectedOutcome: "Ability to successfully solve similar exam-style item sets.",
+          estimatedCognitiveEffort: "High",
+          prerequisites: ["Formula rehearsal and reading completed"],
+          links: ["Practice Questions Bank"],
+          learningObjective: `Apply formulas and logic to clear standard questions`,
+          estimatedSuccessPercent: 70,
+          memoryStage: "Retrieval",
+          bloomLevel: "Apply",
+          confidenceRequirement: "High",
+        };
+      case 'Reflection':
+        return {
+          whyThisNow: "Self-explanation consolidates long-term memory structures and diagnoses lingering weaknesses.",
+          expectedOutcome: "Identified review tasks and target focus areas for next study cycle.",
+          estimatedCognitiveEffort: "Low",
+          prerequisites: ["Practice drills completed"],
+          links: ["Mental focus reflection log"],
+          learningObjective: `Evaluate personal progress and capture review priorities`,
+          estimatedSuccessPercent: 95,
+          memoryStage: "Retrieval",
+          bloomLevel: "Analyze",
+          confidenceRequirement: "Medium",
+        };
+      default:
+        return defaultMeta;
+    }
   }
 
   private getResourcesForStepType(stepType: StudyStepType, input: StackBuilderInput, mission: DailyMission): LearningResource[] {
@@ -336,6 +490,9 @@ export class StudyStackBuilder {
     const evidence: CompletionEvidence = {};
     if (stepType === 'Lecture') {
       evidence.lectureCompleted = resources.every(r => r.progress?.completed);
+      const totalDuration = resources.reduce((s, r) => s + r.duration, 0);
+      const totalCompleted = resources.reduce((s, r) => s + (r.progress?.completed ? r.duration : r.progress?.minutesCompleted || 0), 0);
+      evidence.readingProgress = totalDuration > 0 ? Math.min(100, Math.round((totalCompleted / totalDuration) * 100)) : 0;
     }
     if (stepType === 'Reading') {
       const totalDuration = resources.reduce((s, r) => s + r.duration, 0);

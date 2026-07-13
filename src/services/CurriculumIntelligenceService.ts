@@ -8,7 +8,6 @@ import {
   ReadingRepository,
   LOSRepository,
   FormulaRepository,
-  ResourceRepository,
   NoteRepository,
   StudySessionRepository
 } from '../repositories';
@@ -25,6 +24,7 @@ import {
   EnrichedReading,
   EnrichedLOS
 } from '../types';
+import { learningResourceRepository } from '../resources';
 
 /**
  * Service to query relationships and enrich syllabus nodes in the CFA Level III curriculum.
@@ -35,7 +35,6 @@ export class CurriculumIntelligenceService {
     private subjectRepo: SubjectRepository,
     private readingRepo: ReadingRepository,
     private losRepo: LOSRepository,
-    private resourceRepo: ResourceRepository,
     private noteRepo: NoteRepository,
     private sessionRepo: StudySessionRepository,
     private formulaRepo: FormulaRepository,
@@ -89,7 +88,19 @@ export class CurriculumIntelligenceService {
   }
 
   public getResourcesForLOS(losId: string): Resource[] {
-    return this.resourceRepo.getByLOSId(losId);
+    const lrs = learningResourceRepository.getByLOSId(losId);
+    return lrs.map(lr => ({
+      id: lr.id,
+      name: lr.title,
+      category: 'Videos' as const,
+      url: lr.launchUrl || '#',
+      fileType: lr.resourceType === 'Lecture' || lr.resourceType === 'Video' ? 'mp4' : 'pdf',
+      dateAdded: lr.importMetadata?.importedAt ? lr.importMetadata.importedAt.split('T')[0] : new Date().toISOString().split('T')[0],
+      isFavorite: false,
+      description: lr.description,
+      linkedReadingId: lr.readingId,
+      linkedLOSId: lr.losIds?.[0],
+    }));
   }
 
   public getNotesForFormula(formulaId: string): StudyNote[] {
@@ -216,7 +227,7 @@ export class CurriculumIntelligenceService {
     const los = this.losRepo.getByReadingId(rd.id);
     const formulas = this.formulaRepo.getByReadingId(rd.id);
     const notes = this.noteRepo.getByReadingId(rd.id);
-    const resources = this.resourceRepo.getByReadingId(rd.id);
+    const resources = learningResourceRepository.getByReadingId(rd.id);
     const rdSessions = this.sessionRepo.getByReadingId(rd.id).filter(s => s.status === 'Completed');
 
     const totalMinutes = rdSessions.reduce((sum, s) => sum + s.durationMinutes, 0);
@@ -266,7 +277,7 @@ export class CurriculumIntelligenceService {
 
     const formulas = this.formulaRepo.getByReadingId(los.readingId).filter(f => f.linkedLOSId === los.id).map(f => f.id);
     const notes = this.noteRepo.getByLOSId(los.id).map(n => n.id);
-    const resources = this.resourceRepo.getByLOSId(los.id).map(r => r.id);
+    const resources = learningResourceRepository.getByLOSId(los.id).map(r => r.id);
 
     const examImportance: Record<string, 'High' | 'Medium' | 'Low'> = {
       'los-1a': 'High',

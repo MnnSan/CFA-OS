@@ -1,4 +1,4 @@
-﻿import { CoachInsight } from '../types';
+import { CoachInsight } from '../types';
 
 const STORAGE_KEY = 'cfa_coach_insights_cache';
 
@@ -14,8 +14,14 @@ function saveCache(cache: Record<string, CoachInsight>): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
 }
 
-function cacheKey(phaseId: string, readingId: string): string {
-  return `${readingId}::${phaseId}`;
+function cacheKey(
+  phaseId: string,
+  readingId: string,
+  provider: string,
+  promptVersion: string,
+  curriculumVersion: string
+): string {
+  return `${readingId}::${phaseId}::${provider}::${promptVersion}::${curriculumVersion}`;
 }
 
 export class CoachInsightRepository {
@@ -25,28 +31,60 @@ export class CoachInsightRepository {
     this.cache = loadCache();
   }
 
-  get(phaseId: string, readingId: string): CoachInsight | null {
-    return this.cache[cacheKey(phaseId, readingId)] || null;
+  get(
+    phaseId: string,
+    readingId: string,
+    provider: string,
+    promptVersion: string,
+    curriculumVersion: string
+  ): CoachInsight | null {
+    const key = cacheKey(phaseId, readingId, provider, promptVersion, curriculumVersion);
+    return this.cache[key] || null;
   }
 
-  save(phaseId: string, readingId: string, insight: Omit<CoachInsight, 'phaseId' | 'readingId'>): CoachInsight {
+  save(
+    phaseId: string,
+    readingId: string,
+    provider: string,
+    promptVersion: string,
+    curriculumVersion: string,
+    insight: Omit<CoachInsight, 'phaseId' | 'readingId' | 'provider' | 'promptVersion' | 'curriculumVersion'>
+  ): CoachInsight {
     const entry: CoachInsight = {
       ...insight,
       phaseId,
       readingId,
+      provider,
+      promptVersion,
+      curriculumVersion,
     };
-    this.cache[cacheKey(phaseId, readingId)] = entry;
+    const key = cacheKey(phaseId, readingId, provider, promptVersion, curriculumVersion);
+    this.cache[key] = entry;
     saveCache(this.cache);
     return entry;
   }
 
-  has(phaseId: string, readingId: string): boolean {
-    return cacheKey(phaseId, readingId) in this.cache;
+  has(
+    phaseId: string,
+    readingId: string,
+    provider: string,
+    promptVersion: string,
+    curriculumVersion: string
+  ): boolean {
+    const key = cacheKey(phaseId, readingId, provider, promptVersion, curriculumVersion);
+    return key in this.cache;
   }
 
-  clear(phaseId?: string, readingId?: string): void {
-    if (phaseId && readingId) {
-      delete this.cache[cacheKey(phaseId, readingId)];
+  clear(
+    phaseId?: string,
+    readingId?: string,
+    provider?: string,
+    promptVersion?: string,
+    curriculumVersion?: string
+  ): void {
+    if (phaseId && readingId && provider && promptVersion && curriculumVersion) {
+      const key = cacheKey(phaseId, readingId, provider, promptVersion, curriculumVersion);
+      delete this.cache[key];
     } else {
       this.cache = {};
     }

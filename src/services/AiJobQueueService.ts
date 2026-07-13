@@ -9,7 +9,7 @@ export interface AiJob {
   id: string;
   taskId: string;
   resourceKey: string; // e.g. reading-15 or global-planner
-  status: 'QUEUED' | 'ASSEMBLING' | 'SYNTHESIZING' | 'READY' | 'FAILED';
+  status: 'QUEUED' | 'ASSEMBLING' | 'SYNTHESIZING' | 'READY' | 'FAILED' | 'OFFLINE_QUEUE';
   progressLabel: string;
   error?: string;
   result?: {
@@ -73,8 +73,28 @@ export class AiJobQueueService {
 
   private runningCount = 0;
   private lastRequestTime = 0;
+  private offlineQueue: AiJob[] = [];
+  private onlineHandlerBound: (() => void) | null = null;
 
-  private constructor() {}
+  private constructor() {
+    this.offlineQueue = this.loadOfflineQueue();
+    this.onlineHandlerBound = () => this.retryOfflineJobs();
+    window.addEventListener('online', this.onlineHandlerBound);
+  }
+
+  private loadOfflineQueue(): AiJob[] {
+    try {
+      const raw = localStorage.getItem('cfa_ai_offline_queue');
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return [];
+  }
+
+  private saveOfflineQueue(): void {
+    try {
+      localStorage.setItem('cfa_ai_offline_queue', JSON.stringify(this.offlineQueue));
+    } catch {}
+  }
 
   private async acquireRequestSlot(): Promise<void> {
     while (AiJobQueueService.GLOBAL_REQUEST_LOCK) {
@@ -575,7 +595,7 @@ export class AiJobQueueService {
       } catch {
         // Lazy-load: provider might not be registered yet in edge cases
         try {
-          const mod = await import(`./providers/${providerId === 'google-gemini' ? 'GoogleGeminiProvider' : providerId === 'anthropic-claude' ? 'AnthropicClaudeProvider' : 'LocalOllamaProvider'}`);
+          const mod = await import(`./providers/${providerId === 'google-gemini' ? 'GoogleGeminiProvider' : providerId === 'anthropic-claude' ? 'AnthropicClaudeProvider' : 'LocalOllamaProvider'}.ts`);
           // Registration side-effect runs on import
           provider = AIProviderRegistry.getProvider(providerId);
         } catch {
@@ -626,51 +646,6 @@ export class AiJobQueueService {
         job.status = 'FAILED';
         job.error = 'ABORTED';
         job.progressLabel = 'Cancelled';
-      } else if (e.message && e.message.startsWith('RATE_LIMIT_EXCEEDED')) {
-        aiDiagnostics.recordError(diagId, e.message, 429);
-
-        // Parse retry seconds from error message: "Please retry in X seconds" or default 30
-        const retryMatch = e.message.match(/(\d+)\s*seconds/i);
-        const baseDelay = retryMatch ? parseInt(retryMatch[1], 10) : 30;
-        const attempts = this.retryAttempts.get(jobKey) || 0;
-        const backoffDelay = Math.min(baseDelay * Math.pow(2, attempts), 120);
-        this.retryAttempts.set(jobKey, attempts + 1);
-
-        console.error(`[Queue] Rate limited for ${job.id}, retrying in ${backoffDelay}s (attempt ${attempts + 1})`);
-
-        rateLimitTracker.setRateLimited(backoffDelay);
-        this.rateLimitedKeys.add(jobKey);
-
-        job.progressLabel = `Rate Limited - Retrying in ${backoffDelay}s`;
-        job.error = e.message;
-
-        const retryTimer = setTimeout(() => {
-          this.retryTimers.delete(jobKey);
-          this.rateLimitedKeys.delete(jobKey);
-          if (this.retryAttempts.get(jobKey) && this.retryAttempts.get(jobKey)! >= 3) {
-            // Max retries exceeded — reject with PROV_RATE_LIMIT_EXHAUSTED token
-            const exhaustedMsg = `PROV_RATE_LIMIT_EXHAUSTED: Rate limit retries exhausted after ${this.retryAttempts.get(jobKey)} attempts`;
-            aiDiagnostics.recordFallback(diagId, 'rate_limit_retries_exhausted', exhaustedMsg);
-            job.status = 'FAILED';
-            job.error = exhaustedMsg;
-            job.progressLabel = 'Rate Limited';
-            this.retryAttempts.delete(jobKey);
-            this.notify();
-            return;
-          }
-          job.status = 'QUEUED';
-          job.progressLabel = 'Retrying...';
-          this.notify();
-          this.processNext();
-        }, backoffDelay * 1000);
-        this.retryTimers.set(jobKey, retryTimer);
-      } else if (e.message && e.message.startsWith('QUOTA_EXCEEDED')) {
-        aiDiagnostics.recordError(diagId, e.message, 403);
-        aiDiagnostics.recordFallback(diagId, 'quota_exceeded', e.message);
-        console.error(`[Queue] Quota exceeded for ${job.id}:`, e);
-        job.status = 'FAILED';
-        job.error = e.message;
-        job.progressLabel = 'Quota Exceeded';
       } else if (e.message && e.message.startsWith('INVALID_API_KEY')) {
         aiDiagnostics.recordError(diagId, e.message, 400);
         aiDiagnostics.recordFallback(diagId, 'invalid_api_key', e.message);
@@ -678,28 +653,42 @@ export class AiJobQueueService {
         job.status = 'FAILED';
         job.error = e.message;
         job.progressLabel = 'Auth Failed';
-      } else if (e.message && e.message.startsWith('PROVIDER_ERROR')) {
-        const statusMatch = e.message.match(/HTTP (\d+)/);
-        const httpStatus = statusMatch ? parseInt(statusMatch[1], 10) : undefined;
-        aiDiagnostics.recordError(diagId, e.message, httpStatus);
-        aiDiagnostics.recordFallback(diagId, 'provider_error', e.message);
-        console.error(`[Queue] Provider error for ${job.id}:`, e);
-        job.status = 'FAILED';
-        job.error = e.message;
-        job.progressLabel = 'Provider Error';
       } else {
         console.error(`[Queue] Job execution error for ${job.id}:`, e);
         aiDiagnostics.recordError(diagId, e.message || 'Unknown provider error');
-        aiDiagnostics.recordFallback(diagId, 'unknown_error', e.message || 'Unknown provider error');
-        job.status = 'FAILED';
-        job.error = e.message || 'Unknown provider error';
-        job.progressLabel = 'Execution Failed';
+
+        const attempts = this.retryAttempts.get(jobKey) || 0;
+        if (attempts < 2) {
+          this.retryAttempts.set(jobKey, attempts + 1);
+          const backoffDelay = Math.min(Math.pow(2, attempts) * 2, 30);
+          job.progressLabel = `Retry ${attempts + 1}/2 in ${backoffDelay}s`;
+          job.error = e.message;
+
+          console.error(`[Queue] Scheduling retry ${attempts + 1}/2 for ${job.id} in ${backoffDelay}s`);
+
+          const retryTimer = setTimeout(() => {
+            this.retryTimers.delete(jobKey);
+            job.status = 'QUEUED';
+            job.progressLabel = 'Retrying...';
+            this.notify();
+            this.processNext();
+          }, backoffDelay * 1000);
+          this.retryTimers.set(jobKey, retryTimer);
+        } else {
+          const offlineMsg = `Max retries exhausted after 2 attempts. Queued for offline retry.`;
+          aiDiagnostics.recordFallback(diagId, 'retries_exhausted', offlineMsg);
+          job.status = 'OFFLINE_QUEUE';
+          job.error = offlineMsg;
+          job.progressLabel = 'Offline Queue';
+
+          const offlineJob = { ...job };
+          this.queueOfflineJob(offlineJob);
+        }
       }
     } finally {
       this.runningCount--;
       this.releaseRequestSlot();
-      if (this.rateLimitedKeys.has(jobKey)) {
-        // Keep retry context intact; timer will re-queue
+      if (this.retryTimers.has(jobKey)) {
         this.activeControllers.delete(jobKey);
       } else {
         this.activeControllers.delete(jobKey);
@@ -709,7 +698,7 @@ export class AiJobQueueService {
         this.retryAttempts.delete(jobKey);
       }
       this.notify();
-      if (!this.rateLimitedKeys.has(jobKey)) {
+      if (!this.retryTimers.has(jobKey)) {
         this.processNext();
       }
     }
@@ -746,6 +735,42 @@ export class AiJobQueueService {
     this.rateLimitedKeys.clear();
     this.queue = [];
     this.notify();
+  }
+
+  public retryOfflineJobs(): void {
+    const jobs = [...this.offlineQueue];
+    this.offlineQueue = [];
+    this.saveOfflineQueue();
+
+    for (const job of jobs) {
+      const jobKey = `${job.taskId}_${job.resourceKey}`;
+      const existingJob = this.queue.find(j => j.taskId === job.taskId && j.resourceKey === job.resourceKey);
+      if (existingJob) {
+        existingJob.status = 'QUEUED';
+        existingJob.progressLabel = 'Re-queued (Online)';
+        existingJob.error = undefined;
+      } else {
+        const reQueued: AiJob = {
+          ...job,
+          status: 'QUEUED',
+          progressLabel: 'Re-queued (Online)',
+          error: undefined,
+          timestamp: new Date().toISOString()
+        };
+        this.queue.push(reQueued);
+      }
+    }
+    this.notify();
+    this.processNext();
+  }
+
+  public queueOfflineJob(job: AiJob): void {
+    this.offlineQueue.push(job);
+    this.saveOfflineQueue();
+  }
+
+  public getOfflineQueueLength(): number {
+    return this.offlineQueue.length;
   }
 }
 

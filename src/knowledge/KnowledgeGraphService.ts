@@ -8,7 +8,6 @@ import {
   ReadingRepository, 
   LOSRepository, 
   FormulaRepository, 
-  ResourceRepository, 
   NoteRepository, 
   StudySessionRepository 
 } from '../repositories';
@@ -28,6 +27,7 @@ import {
 import { KnowledgeGraphBuilder } from './KnowledgeGraphBuilder';
 import { GraphQueries } from './GraphQueries';
 import { ValidationReport } from './GraphValidator';
+import { learningResourceRepository } from '../resources';
 
 /**
  * Service managing the active Knowledge Graph snapshot and coordinating EventBus triggers.
@@ -48,7 +48,6 @@ export class KnowledgeGraphService {
     private readingRepo: ReadingRepository,
     private losRepo: LOSRepository,
     private formulaRepo: FormulaRepository,
-    private resourceRepo: ResourceRepository,
     private noteRepo: NoteRepository,
     private sessionRepo: StudySessionRepository,
     private eventBus: EventBus
@@ -144,7 +143,18 @@ export class KnowledgeGraphService {
       readings: this.readingRepo.getAll(),
       losList: this.losRepo.getAll(),
       notes: this.noteRepo.getAll(),
-      resources: this.resourceRepo.getAll(),
+      resources: learningResourceRepository.getAll().map(lr => ({
+        id: lr.id,
+        name: lr.title,
+        category: 'Videos' as const,
+        url: lr.launchUrl || '#',
+        fileType: lr.resourceType === 'Lecture' || lr.resourceType === 'Video' ? 'mp4' : 'pdf',
+        dateAdded: lr.importMetadata?.importedAt || new Date().toISOString().split('T')[0],
+        isFavorite: false,
+        description: lr.description,
+        linkedReadingId: lr.readingId,
+        linkedLOSId: lr.losIds?.[0],
+      })),
       sessionHistory: this.sessionRepo.getAll(),
       formulas: this.formulaRepo.getAll()
     };
