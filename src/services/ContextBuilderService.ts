@@ -64,13 +64,53 @@ export class ContextBuilderService {
     }
   }
 
+  private static stateProvider: (() => {
+    studyStrategy: any;
+    templates: any[];
+    activeTemplateId: string | null;
+    weakTopics: string[];
+    remainingDays: number;
+    completionPercentage: number;
+    todayStudyBlocks: any[];
+    upcomingReading: any;
+    confidence: number | null;
+  } | null) | null = null;
+
+  public static registerStateProvider(provider: typeof ContextBuilderService.stateProvider) {
+    ContextBuilderService.stateProvider = provider;
+  }
+
   private static wrap(context: VersionedContext, readingId?: string): VersionedContext {
     const status = ContextBuilderService.getSsciLectureContextPayload(readingId);
+    let planContext = {};
+    if (ContextBuilderService.stateProvider) {
+      try {
+        const state = ContextBuilderService.stateProvider();
+        if (state) {
+          planContext = {
+            studyPlanAwareness: {
+              currentStrategy: state.studyStrategy ? { id: state.studyStrategy.id, name: state.studyStrategy.name, firstSubjectId: state.studyStrategy.firstSubjectId } : null,
+              currentTemplateId: state.activeTemplateId,
+              templatesCount: state.templates.length,
+              remainingDays: state.remainingDays,
+              completionPercentage: state.completionPercentage,
+              todayStudyBlocks: state.todayStudyBlocks,
+              upcomingReading: state.upcomingReading,
+              averageConfidence: state.confidence,
+              weakTopics: state.weakTopics
+            }
+          };
+        }
+      } catch (e) {
+        console.error("ContextBuilderService: State provider execution failed", e);
+      }
+    }
     return {
       ...context,
       payload: {
         ...context.payload,
-        ...status
+        ...status,
+        ...planContext
       }
     };
   }

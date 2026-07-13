@@ -16,7 +16,10 @@ import {
   onAuthStateChanged
 } from '../firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { syncService } from '../services/SyncService';
+import { syncService } from '../services/sync/SyncService';
+import { coachPlanRepository } from '../repositories/CoachPlanRepository';
+import { studyStrategyRepository } from '../repositories/StudyStrategyRepository';
+import { ContextBuilderService } from '../services/ContextBuilderService';
 import {
   UserProfile,
   StudySettings,
@@ -908,61 +911,74 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return templates.find(t => t.id === activeTemplateId) || null;
   }, [templates, activeTemplateId]);
 
-  // Synchronization hooks for templates, studyStrategy, and activeTemplateId
-  const prevTemplatesRef = useRef<TimelineTemplate[]>([]);
+  // Register state provider for AI ContextBuilder
   useEffect(() => {
-    const prev = prevTemplatesRef.current;
-    if (prev.length > 0 && user) {
-      // Sync added or changed templates
-      templates.forEach(t => {
-        const old = prev.find(o => o.id === t.id);
-        if (!old || JSON.stringify(old) !== JSON.stringify(t)) {
-          syncService.triggerSyncCoachPlan(t);
-        }
-      });
-      // Sync deleted templates
-      prev.forEach(o => {
-        if (!templates.some(t => t.id === o.id)) {
-          syncService.triggerDeleteCoachPlan(o.id);
-        }
-      });
-    } else {
-      localStorage.setItem('cfa_timeline_templates', JSON.stringify(templates));
-    }
-    prevTemplatesRef.current = templates;
-  }, [templates, user]);
+    ContextBuilderService.registerStateProvider(() => {
+      const daysRemaining = settings.examDate 
+        ? Math.max(0, Math.round((new Date(settings.examDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+        : 0;
 
-  const prevStrategyRef = useRef<StudyStrategy | null>(null);
-  useEffect(() => {
-    const prev = prevStrategyRef.current;
-    if (prev !== studyStrategy && user) {
-      if (studyStrategy) {
-        syncService.triggerSyncStudyStrategy(studyStrategy);
-      }
-    } else {
-      if (studyStrategy) {
-        localStorage.setItem('cfa_study_strategy', JSON.stringify(studyStrategy));
-      } else {
-        localStorage.removeItem('cfa_study_strategy');
-      }
-    }
-    prevStrategyRef.current = studyStrategy;
-  }, [studyStrategy, user]);
+      const totalReadings = readings.length;
+      const completedReadings = readings.filter(r => getReadingProgress(r.id) >= 100).length;
+      const completionPercentage = totalReadings > 0 ? Math.round((completedReadings / totalReadings) * 100) : 0;
 
-  const prevActiveTemplateIdRef = useRef<string | null>(null);
+      const activeTemplate = templates.find(t => t.id === activeTemplateId);
+      const todayStr = new Date().toISOString().split('T')[0];
+      const todayBlocks = activeTemplate 
+        ? activeTemplate.blocks.filter(b => todayStr >= b.startDate && todayStr <= b.endDate)
+        : [];
+
+      const upcoming = readings.find(r => getReadingProgress(r.id) < 100);
+
+      const activeLOS = losList.filter(l => l.confidence !== undefined);
+      const confidence = activeLOS.length > 0
+        ? Math.round(activeLOS.reduce((sum, l) => sum + (l.confidence || 0), 0) / activeLOS.length * 10) / 10
+        : null;
+
+      const weakTopics: string[] = [];
+      try {
+        subjects.forEach(s => {
+          const subLOS = losList.filter(l => {
+            const rd = readings.find(r => r.id === l.readingId);
+            return rd && rd.subjectId === s.id && l.confidence !== undefined;
+          });
+          if (subLOS.length > 0) {
+            const avg = subLOS.reduce((sum, l) => sum + (l.confidence || 0), 0) / subLOS.length;
+            if (avg < 3.0) {
+              weakTopics.push(s.name);
+            }
+          }
+        });
+      } catch (_) {}
+
+      return {
+        studyStrategy,
+        templates,
+        activeTemplateId,
+        weakTopics,
+        remainingDays: daysRemaining,
+        completionPercentage,
+        todayStudyBlocks: todayBlocks,
+        upcomingReading: upcoming ? { id: upcoming.id, title: upcoming.title, number: upcoming.number } : null,
+        confidence
+      };
+    });
+  }, [settings, readings, templates, activeTemplateId, losList, subjects, studyStrategy]);
+
+  // Subscribe to Repository changes via EventBus for React state updates
   useEffect(() => {
-    const prev = prevActiveTemplateIdRef.current;
-    if (prev !== activeTemplateId && user) {
-      syncService.triggerSyncMetadata(activeTemplateId);
-    } else {
-      if (activeTemplateId) {
-        localStorage.setItem('cfa_active_template_id', activeTemplateId);
-      } else {
-        localStorage.removeItem('cfa_active_template_id');
-      }
-    }
-    prevActiveTemplateIdRef.current = activeTemplateId;
-  }, [activeTemplateId, user]);
+    const unsubTemplates = eventBus.subscribe('TimelineTemplateUpdated', () => {
+      setTemplates(coachPlanRepository.getAllActive());
+      setActiveTemplateId(coachPlanRepository.getActiveTemplateId());
+    });
+    const unsubStrategy = eventBus.subscribe('StudyStrategyUpdated', () => {
+      setStudyStrategyState(studyStrategyRepository.get());
+    });
+    return () => {
+      unsubTemplates();
+      unsubStrategy();
+    };
+  }, []);
 
   // Auto-generate Coach AI Blueprint on first load
   const coachPlanGeneratedRef = useRef(false);
@@ -2353,7 +2369,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Sprint 10 — Timeline Templates
   const setActiveTemplate = useCallback((id: string | null) => {
-    setActiveTemplateId(id);
+    try {
+      coachPlanRepository.beginTransaction();
+      coachPlanRepository.setActiveTemplateId(id);
+      coachPlanRepository.commit();
+    } catch (e) {
+      coachPlanRepository.rollback();
+      console.error("AppContext: Failed to set active template transactional", e);
+    }
   }, []);
 
   const generateCoachPlan = useCallback(() => {
@@ -2374,17 +2397,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       blocks,
       createdAt: now,
       updatedAt: now,
+      status: 'ACTIVE',
+      version: 1,
+      semanticVersion: {
+        coachPlanVersion: 1,
+        studyStrategyVersion: 1,
+        schemaVersion: 3,
+        resourceVersion: 1
+      }
     };
-    setTemplates(prev => {
-      const filtered = prev.filter(t => t.id !== 'coach-blueprint');
-      return [...filtered, newTemplate];
-    });
-    setActiveTemplateId('coach-blueprint');
-    logActivity('planner', 'Generated Coach AI Blueprint schedule');
+    try {
+      coachPlanRepository.beginTransaction();
+      coachPlanRepository.softDelete('coach-blueprint');
+      coachPlanRepository.save(newTemplate);
+      coachPlanRepository.setActiveTemplateId('coach-blueprint');
+      coachPlanRepository.commit();
+      logActivity('planner', 'Generated Coach AI Blueprint schedule');
+
+      // Publish Analytics
+      eventBus.publish({
+        type: 'PlanGenerated',
+        timestamp: new Date().toISOString(),
+        source: 'AppContext',
+        entityId: 'coach-blueprint',
+        payload: { templateId: 'coach-blueprint' }
+      });
+    } catch (e) {
+      coachPlanRepository.rollback();
+      console.error("AppContext: Failed to generate coach plan transactional", e);
+    }
   }, [settings, subjects, readings, losList, logActivity]);
 
   const copyCoachToSandbox = useCallback(() => {
-    const coach = templates.find(t => t.id === 'coach-blueprint');
+    const coach = coachPlanRepository.getById('coach-blueprint');
     if (!coach) return;
     const now = new Date().toISOString();
     const sandbox: TimelineTemplate = {
@@ -2395,19 +2440,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       blocks: JSON.parse(JSON.stringify(coach.blocks)),
       createdAt: now,
       updatedAt: now,
+      status: 'ACTIVE',
+      version: 1,
+      semanticVersion: {
+        coachPlanVersion: 1,
+        studyStrategyVersion: 1,
+        schemaVersion: 3,
+        resourceVersion: 1
+      }
     };
-    setTemplates(prev => {
-      const filtered = prev.filter(t => t.id !== 'sandbox-default');
-      return [...filtered, sandbox];
-    });
-    setActiveTemplateId('sandbox-default');
-    logActivity('planner', 'Copied Coach AI Blueprint to Personal Sandbox');
-  }, [templates, logActivity]);
+    try {
+      coachPlanRepository.beginTransaction();
+      coachPlanRepository.softDelete('sandbox-default');
+      coachPlanRepository.save(sandbox);
+      coachPlanRepository.setActiveTemplateId('sandbox-default');
+      coachPlanRepository.commit();
+      logActivity('planner', 'Copied Coach AI Blueprint to Personal Sandbox');
+
+      // Publish Analytics
+      eventBus.publish({
+        type: 'PlanAccepted',
+        timestamp: new Date().toISOString(),
+        source: 'AppContext',
+        entityId: 'sandbox-default',
+        payload: { templateId: 'sandbox-default' }
+      });
+    } catch (e) {
+      coachPlanRepository.rollback();
+      console.error("AppContext: Failed to copy coach to sandbox transactional", e);
+    }
+  }, [logActivity]);
 
   const updateTemplateBlocks = useCallback((templateId: string, blocks: TimelineBlock[]) => {
-    setTemplates(prev => prev.map(t =>
-      t.id === templateId ? { ...t, blocks, updatedAt: new Date().toISOString() } : t
-    ));
+    try {
+      coachPlanRepository.beginTransaction();
+      coachPlanRepository.updateBlocks(templateId, blocks);
+      coachPlanRepository.commit();
+
+      // Publish Analytics
+      eventBus.publish({
+        type: 'BlockMoved',
+        timestamp: new Date().toISOString(),
+        source: 'AppContext',
+        entityId: templateId,
+        payload: { templateId, blockCount: blocks.length }
+      });
+    } catch (e) {
+      coachPlanRepository.rollback();
+      console.error("AppContext: Failed to update blocks transactional", e);
+    }
   }, []);
 
   const recalculateFromStrategy = useCallback((strategy: StudyStrategy, blocks: TimelineBlock[]) => {
@@ -2420,65 +2501,105 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       blocks,
       createdAt: now,
       updatedAt: now,
+      status: 'ACTIVE',
+      version: 1,
+      semanticVersion: {
+        coachPlanVersion: 1,
+        studyStrategyVersion: 1,
+        schemaVersion: 3,
+        resourceVersion: 1
+      }
     };
-    setTemplates(prev => {
-      const filtered = prev.filter(t => t.id !== 'coach-blueprint');
-      return [...filtered, newTemplate];
-    });
-    setStudyStrategyState(strategy);
-    localStorage.setItem('cfa_study_strategy', JSON.stringify(strategy));
-    setActiveTemplateId('coach-blueprint');
-    logActivity('planner', `Applied study strategy: ${strategy.firstSubjectId} first with ${strategy.parallelSubjects.filter(p => p.enabled).length} parallel subjects`);
-    eventBus.publish({
-      type: 'CurriculumMutated',
-      timestamp: now,
-      source: 'StrategySession',
-      entityId: 'coach-blueprint',
-      payload: { strategy, blocks }
-    });
+    try {
+      coachPlanRepository.beginTransaction();
+      studyStrategyRepository.beginTransaction();
+
+      coachPlanRepository.softDelete('coach-blueprint');
+      coachPlanRepository.save(newTemplate);
+      coachPlanRepository.setActiveTemplateId('coach-blueprint');
+      studyStrategyRepository.set(strategy);
+
+      coachPlanRepository.commit();
+      studyStrategyRepository.commit();
+
+      logActivity('planner', `Applied study strategy: ${strategy.firstSubjectId} first`);
+
+      // Publish Analytics
+      eventBus.publish({
+        type: 'StrategyChanged',
+        timestamp: new Date().toISOString(),
+        source: 'AppContext',
+        entityId: strategy.id,
+        payload: { strategyId: strategy.id }
+      });
+    } catch (e) {
+      coachPlanRepository.rollback();
+      studyStrategyRepository.rollback();
+      console.error("AppContext: Failed to apply strategy transactional", e);
+    }
   }, [subjects, logActivity]);
 
   const renameTemplate = useCallback((id: string, newName: string) => {
-    setTemplates(prev => prev.map(t =>
-      t.id === id ? { ...t, name: newName, updatedAt: new Date().toISOString() } : t
-    ));
-    logActivity('planner', `Renamed template to "${newName}"`);
-  }, [logActivity]);
+    try {
+      coachPlanRepository.beginTransaction();
+      coachPlanRepository.rename(id, newName);
+      coachPlanRepository.commit();
+
+      // Publish Analytics
+      eventBus.publish({
+        type: 'PlanEdited',
+        timestamp: new Date().toISOString(),
+        source: 'AppContext',
+        entityId: id,
+        payload: { id, renameTo: newName }
+      });
+    } catch (e) {
+      coachPlanRepository.rollback();
+      console.error("AppContext: Failed to rename template transactional", e);
+    }
+  }, []);
 
   const deleteTemplate = useCallback((id: string) => {
-    setTemplates(prev => {
-      const target = prev.find(t => t.id === id);
-      if (target) logActivity('planner', `Deleted template: ${target.name}`);
-      return prev.filter(t => t.id !== id);
-    });
-    setActiveTemplateId(prev => prev === id ? null : prev);
-  }, [logActivity]);
+    try {
+      coachPlanRepository.beginTransaction();
+      coachPlanRepository.softDelete(id);
+      coachPlanRepository.commit();
+    } catch (e) {
+      coachPlanRepository.rollback();
+      console.error("AppContext: Failed to delete template transactional", e);
+    }
+  }, []);
 
   const archiveTemplate = useCallback((id: string) => {
-    setTemplates(prev => prev.map(t =>
-      t.id === id ? { ...t, archived: true, updatedAt: new Date().toISOString() } : t
-    ));
-    logActivity('planner', `Archived template`);
-  }, [logActivity]);
+    try {
+      coachPlanRepository.beginTransaction();
+      coachPlanRepository.archive(id);
+      coachPlanRepository.commit();
+
+      // Publish Analytics
+      eventBus.publish({
+        type: 'PlanArchived',
+        timestamp: new Date().toISOString(),
+        source: 'AppContext',
+        entityId: id,
+        payload: { id }
+      });
+    } catch (e) {
+      coachPlanRepository.rollback();
+      console.error("AppContext: Failed to archive template transactional", e);
+    }
+  }, []);
 
   const duplicateTemplate = useCallback((id: string) => {
-    const source = templates.find(t => t.id === id);
-    if (!source) return;
-    const now = new Date().toISOString();
-    const duplicated: TimelineTemplate = {
-      id: `${source.id}-dup-${Date.now()}`,
-      name: `${source.name} (Copy)`,
-      description: source.description,
-      isEditable: true,
-      blocks: JSON.parse(JSON.stringify(source.blocks)),
-      createdAt: now,
-      updatedAt: now,
-      version: 1
-    };
-    setTemplates(prev => [...prev, duplicated]);
-    setActiveTemplateId(duplicated.id);
-    logActivity('planner', `Duplicated template: ${source.name}`);
-  }, [templates, logActivity]);
+    try {
+      coachPlanRepository.beginTransaction();
+      coachPlanRepository.duplicate(id);
+      coachPlanRepository.commit();
+    } catch (e) {
+      coachPlanRepository.rollback();
+      console.error("AppContext: Failed to duplicate template transactional", e);
+    }
+  }, []);
 
   const updateFormula = (id: string, updates: Partial<Formula>) => {
     setFormulas(prev =>

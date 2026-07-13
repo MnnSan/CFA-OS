@@ -817,6 +817,15 @@ export interface TimelineBlock {
   endDate: string;    // YYYY-MM-DD
 }
 
+export type TemplateStatus = 'ACTIVE' | 'ARCHIVED' | 'DELETED';
+
+export interface SemanticVersion {
+  coachPlanVersion: number;
+  studyStrategyVersion: number;
+  schemaVersion: number;
+  resourceVersion: number;
+}
+
 export interface TimelineTemplate {
   id: string;
   name: string;
@@ -827,6 +836,8 @@ export interface TimelineTemplate {
   updatedAt: string;
   version?: number;
   archived?: boolean;
+  status?: TemplateStatus;
+  semanticVersion?: SemanticVersion;
 }
 
 // -- Sprint M10  Mission Control & Study Stack --
@@ -972,6 +983,7 @@ export interface StudyStrategy {
   createdAt: string;
   updatedAt: string;
   version?: number;
+  semanticVersion?: SemanticVersion;
 }
 
 export interface AIStrategySuggestion {

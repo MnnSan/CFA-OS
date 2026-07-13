@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { aiDiagnostics, AIDiagnosticRecord } from '../services/AIDiagnosticsService';
-import { syncService, SyncStatus } from '../services/SyncService';
+import { syncService, SyncStatus } from '../services/sync/SyncService';
 import { ChevronDown, ChevronRight, Trash2, AlertTriangle, CheckCircle2, Clock, XCircle, Database, Cpu, Wifi, RefreshCw } from 'lucide-react';
 
 export const DeveloperDiagnosticsPanel: React.FC = () => {
@@ -164,7 +164,23 @@ export const DeveloperDiagnosticsPanel: React.FC = () => {
               <span className="block text-[8px] text-slate-500 uppercase font-semibold">Version</span>
               <span className="text-slate-300 font-bold">v{syncStatus.version}</span>
             </div>
-            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded col-span-5">
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Health Check</span>
+              <span className={`font-bold ${
+                syncStatus.healthCheckStatus === 'Healthy' ? 'text-emerald-400' :
+                syncStatus.healthCheckStatus === 'Repaired' ? 'text-amber-400 animate-pulse' :
+                'text-rose-450'
+              }`}>
+                {syncStatus.healthCheckStatus.toUpperCase()}
+              </span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Backup Snap</span>
+              <span className={`font-bold ${syncStatus.backupStatus === 'Active' ? 'text-amber-400 animate-pulse' : 'text-slate-550'}`}>
+                {syncStatus.backupStatus.toUpperCase()}
+              </span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded col-span-2 sm:col-span-3 lg:col-span-4 xl:col-span-3">
               <span className="block text-[8px] text-slate-500 uppercase font-semibold">Last Error</span>
               <span className={`block truncate ${syncStatus.lastError ? 'text-rose-450 font-bold' : 'text-slate-500'}`} title={syncStatus.lastError || ''}>
                 {syncStatus.lastError || 'None'}
