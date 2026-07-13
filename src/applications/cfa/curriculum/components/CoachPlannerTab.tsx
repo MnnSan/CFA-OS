@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useApp } from '../../../../context/AppContext';
-import { CheckCircle, Clock, ListChecks, HelpCircle, ShieldCheck, CheckCircle2, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
+import { CheckCircle, Clock, ListChecks, HelpCircle, ShieldCheck, CheckCircle2, ChevronDown, ChevronRight, AlertTriangle, BrainCircuit, Pencil } from 'lucide-react';
 import { aiJobQueue, AiJob } from '../../../../services/AiJobQueueService';
+import { StrategySession } from './StrategySession';
 
 type Granularity = 'subject' | 'reading' | 'los';
 
@@ -41,10 +42,11 @@ function isDateInRange(today: string, start: string, end: string): boolean {
 }
 
 export const CoachPlannerTab: React.FC = () => {
-  const { subjects, readings, losList, activeTemplate, settings, getReadingProgress } = useApp();
+  const { subjects, readings, losList, activeTemplate, settings, getReadingProgress, studyStrategy, setStudyStrategy } = useApp();
   const [granularity, setGranularity] = useState<Granularity>('subject');
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const [jobs, setJobs] = useState<AiJob[]>([]);
+  const [showStrategySession, setShowStrategySession] = useState(false);
 
   useEffect(() => {
     return aiJobQueue.subscribe(setJobs);
@@ -248,8 +250,55 @@ export const CoachPlannerTab: React.FC = () => {
 
   const remainingHours = totalHours - completedHours;
 
+  // Show Strategy Session if no strategy exists or user clicked edit
+  if (!studyStrategy || showStrategySession) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BrainCircuit className="h-5 w-5 text-slate-400" />
+            <h2 className="text-xs font-bold uppercase tracking-wider text-white">
+              Strategy Session
+            </h2>
+          </div>
+          {studyStrategy && (
+            <button
+              onClick={() => setShowStrategySession(false)}
+              className="text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-300 cursor-pointer"
+            >
+              Back to Ledger
+            </button>
+          )}
+        </div>
+        <div className="bg-[#101116] border border-slate-800/50 rounded-xl p-5">
+          <StrategySession
+            onComplete={() => setShowStrategySession(false)}
+            onCancel={() => {
+              if (!studyStrategy) setStudyStrategy(null);
+              setShowStrategySession(false);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
+      {/* Strategy Context Banner */}
+      <div className="flex items-center justify-between px-3 py-2 bg-blue-500/5 border border-blue-500/20 rounded">
+        <div className="flex items-center gap-2 text-[10px] text-slate-300">
+          <BrainCircuit className="h-3.5 w-3.5 text-blue-400" />
+          <span>Strategy active: <strong>{subjects.find(s => s.id === studyStrategy.firstSubjectId)?.name || studyStrategy.firstSubjectId}</strong> first with {studyStrategy.parallelSubjects.filter(p => p.enabled).length} parallel subjects</span>
+        </div>
+        <button
+          onClick={() => setShowStrategySession(true)}
+          className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-amber-400 hover:text-amber-300 cursor-pointer"
+        >
+          <Pencil className="h-3 w-3" /> Edit Strategy
+        </button>
+      </div>
+
       {/* Header Controls — Granularity toggle + sync beacon */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex rounded-lg border border-slate-800/50 bg-[#101116] p-0.5 gap-0.5">

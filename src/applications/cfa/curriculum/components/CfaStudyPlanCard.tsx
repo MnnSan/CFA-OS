@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Reading, LearningOutcomeStatement, StudySession, PlannerReadingProgress, CalendarEvent } from '../../../../types';
+import { Reading, LearningOutcomeStatement, StudySession, PlannerReadingProgress, CalendarEvent, StudyStrategy } from '../../../../types';
+import { BrainCircuit } from 'lucide-react';
 
 interface StudyPlanCardProps {
   readings: Reading[];
@@ -15,6 +16,8 @@ interface StudyPlanCardProps {
     readingNumber: number;
     readingTitle: string;
   } | null;
+  studyStrategy?: StudyStrategy | null;
+  subjects?: { id: string; name: string; code: string }[];
 }
 
 const weekDayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -42,6 +45,8 @@ export const CfaStudyPlanCard: React.FC<StudyPlanCardProps> = ({
   examDate,
   events,
   dailyMission,
+  studyStrategy,
+  subjects: propSubjects,
 }) => {
   const today = new Date('2026-06-30');
   const finishDate = new Date(targetFinishDateStr);
@@ -128,6 +133,12 @@ export const CfaStudyPlanCard: React.FC<StudyPlanCardProps> = ({
           <span className="text-[10px] font-mono tracking-widest bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 font-bold uppercase">
             MACRO STUDY PLAN
           </span>
+          {studyStrategy && (
+            <span className="flex items-center gap-1 text-[9px] text-blue-400 ml-2">
+              <BrainCircuit className="h-3 w-3" />
+              {propSubjects?.find(s => s.id === studyStrategy.firstSubjectId)?.name || studyStrategy.firstSubjectId} first
+            </span>
+          )}
         </div>
         <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-200 font-sans">
           Your CFA L3: PM plan is ready

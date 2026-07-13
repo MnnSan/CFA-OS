@@ -421,7 +421,7 @@ export interface StudyNote {
 export interface ActivityItem {
   id: string;
   timestamp: string;
-  type: 'study' | 'note' | 'resource' | 'setting' | 'calendar';
+  type: 'study' | 'note' | 'resource' | 'setting' | 'calendar' | 'planner';
   description: string;
   meta?: string;
 }
@@ -941,4 +941,42 @@ export interface CoachInsight {
   response: string;
   generatedAt: string;
   curriculumVersion?: string;
+}
+
+// ─── Strategy Session Types ───
+
+export interface ParallelSubjectConfig {
+  subjectId: string;
+  enabled: boolean;
+  offsetType: 'relative' | 'absolute';
+  relativeOffsetDays?: number;
+  absoluteStartDate?: string;
+  estimatedDays?: number;
+}
+
+export interface TimeAllocation {
+  subjectId: string;
+  days: number;
+}
+
+export interface StudyStrategy {
+  id: string;
+  name: string;
+  firstSubjectId: string;
+  firstReadingId?: string;
+  parallelSubjects: ParallelSubjectConfig[];
+  timeAllocations: TimeAllocation[];
+  autoBalanceRemaining: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AIStrategySuggestion {
+  id: string;
+  type: 'reorder' | 'reschedule' | 'redistribute' | 'repair';
+  targetSubjectId?: string;
+  description: string;
+  impact: string;
+  action: (strategy: StudyStrategy) => StudyStrategy;
+  applied: boolean;
 }

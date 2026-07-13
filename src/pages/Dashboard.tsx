@@ -45,7 +45,8 @@ import {
   BarChart3,
   Target,
   Sparkles,
-  Brain
+  Brain,
+  BrainCircuit
 } from 'lucide-react';
 
 interface MissionBriefData {
@@ -99,7 +100,8 @@ export const Dashboard: React.FC = () => {
     plannerProgress,
     plannerReadings,
     notes,
-    resources
+    resources,
+    studyStrategy
   } = useApp();
 
   const lrRepo = useLearningResources();
@@ -355,6 +357,25 @@ export const Dashboard: React.FC = () => {
           </div>
           <button onClick={() => setShowSessionSaved(false)} className="text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-200 p-1 cursor-pointer">
             <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* STRATEGY BADGE */}
+      {studyStrategy && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/5 border border-blue-500/20 rounded">
+          <BrainCircuit className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+          <span className="text-[10px] text-slate-400">
+            Strategy: <strong className="text-slate-200">{subjects.find(s => s.id === studyStrategy.firstSubjectId)?.name || 'Custom'}</strong> first
+            {studyStrategy.parallelSubjects.filter(p => p.enabled).length > 0 && (
+              <> · {studyStrategy.parallelSubjects.filter(p => p.enabled).length} parallel subjects</>
+            )}
+          </span>
+          <button
+            onClick={() => setActiveTab('planner')}
+            className="ml-auto text-[9px] font-bold uppercase tracking-wider text-blue-400 hover:text-blue-300 cursor-pointer"
+          >
+            View Plan
           </button>
         </div>
       )}
@@ -887,6 +908,8 @@ export const Dashboard: React.FC = () => {
             examDate={settings.examDate || '2026-09-01'}
             events={[]}
             dailyMission={dailyMission}
+            studyStrategy={studyStrategy}
+            subjects={subjects}
           />
 
           {/* 7-Day Performance Dynamics */}

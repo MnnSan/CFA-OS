@@ -41,9 +41,10 @@ import {
   CurriculumWorkspaceState,
   TimelineTemplate,
   TimelineBlock,
-  ReadingStudyTargets
+  ReadingStudyTargets,
+  StudyStrategy
 } from '../types';
-import { generateCoachTemplate, CoachEngineParams } from '../services/CoachEngine';
+import { generateCoachTemplate, generateStrategyTemplate, CoachEngineParams } from '../services/CoachEngine';
 import { StudySessionService } from '../services/StudySessionService';
 import { CurriculumIntelligenceService } from '../services/CurriculumIntelligenceService';
 import {
@@ -244,6 +245,11 @@ interface AppContextType {
   copyCoachToSandbox: () => void;
   updateTemplateBlocks: (templateId: string, blocks: TimelineBlock[]) => void;
   activeTemplate: TimelineTemplate | null;
+
+  // Strategy Session
+  studyStrategy: StudyStrategy | null;
+  setStudyStrategy: (strategy: StudyStrategy | null) => void;
+  recalculateFromStrategy: (strategy: StudyStrategy, blocks: TimelineBlock[]) => void;
 
   // Reading workspace resource helpers
   getResourcesByReading: (readingId: string) => any[];
@@ -876,6 +882,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return [];
   });
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+
+  // Strategy Session State
+  const [studyStrategy, setStudyStrategyState] = useState<StudyStrategy | null>(() => {
+    const saved = localStorage.getItem('cfa_study_strategy');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { }
+    }
+    return null;
+  });
+
+  const setStudyStrategy = useCallback((strategy: StudyStrategy | null) => {
+    setStudyStrategyState(strategy);
+    if (strategy) {
+      localStorage.setItem('cfa_study_strategy', JSON.stringify(strategy));
+    } else {
+      localStorage.removeItem('cfa_study_strategy');
+    }
+  }, []);
 
   const activeTemplate = useMemo(() => {
     if (!activeTemplateId) return null;
@@ -2316,6 +2340,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ));
   }, []);
 
+  const recalculateFromStrategy = useCallback((strategy: StudyStrategy, blocks: TimelineBlock[]) => {
+    const now = new Date().toISOString();
+    const newTemplate: TimelineTemplate = {
+      id: 'coach-blueprint',
+      name: 'Coach AI Blueprint',
+      description: `Strategy-based: ${subjects.find(s => s.id === strategy.firstSubjectId)?.name || strategy.firstSubjectId} first`,
+      isEditable: false,
+      blocks,
+      createdAt: now,
+      updatedAt: now,
+    };
+    setTemplates(prev => {
+      const filtered = prev.filter(t => t.id !== 'coach-blueprint');
+      return [...filtered, newTemplate];
+    });
+    setStudyStrategyState(strategy);
+    localStorage.setItem('cfa_study_strategy', JSON.stringify(strategy));
+    setActiveTemplateId('coach-blueprint');
+    logActivity('planner', `Applied study strategy: ${strategy.firstSubjectId} first with ${strategy.parallelSubjects.filter(p => p.enabled).length} parallel subjects`);
+    eventBus.publish({
+      type: 'CurriculumMutated',
+      timestamp: now,
+      source: 'StrategySession',
+      entityId: 'coach-blueprint',
+      payload: { strategy, blocks }
+    });
+  }, [subjects, logActivity]);
+
   const updateFormula = (id: string, updates: Partial<Formula>) => {
     setFormulas(prev =>
       prev.map(f => {
@@ -2690,6 +2742,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         copyCoachToSandbox,
         updateTemplateBlocks,
         activeTemplate,
+        studyStrategy,
+        setStudyStrategy,
+        recalculateFromStrategy,
         getResourcesByReading,
         markResourceOpened,
         markResourceCompleted,

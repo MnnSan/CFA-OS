@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Subject, Reading, LearningOutcomeStatement, TimelineBlock } from '../types';
+import { Subject, Reading, LearningOutcomeStatement, TimelineBlock, StudyStrategy } from '../types';
+import { calculatePlan } from './StrategyEngine';
 
 export interface CoachEngineParams {
   startDate: string;
@@ -125,4 +126,27 @@ export function generateCoachTemplate(params: CoachEngineParams): TimelineBlock[
   }
 
   return sanitizeBlocks(blocks);
+}
+
+/**
+ * Generates a strategy-based template using the user's study strategy preferences.
+ * Delegates to StrategyEngine for the actual calculation.
+ */
+export function generateStrategyTemplate(
+  strategy: StudyStrategy,
+  subjects: Subject[],
+  readings: Reading[],
+  losList: LearningOutcomeStatement[],
+  settings: { startDate: string; examDate: string; bufferDays: number }
+): TimelineBlock[] {
+  const result = calculatePlan({
+    strategy,
+    subjects,
+    readings,
+    losList,
+    startDate: settings.startDate,
+    examDate: settings.examDate,
+    bufferDays: settings.bufferDays,
+  });
+  return result.blocks;
 }
