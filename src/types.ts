@@ -825,6 +825,8 @@ export interface TimelineTemplate {
   blocks: TimelineBlock[];
   createdAt: string;
   updatedAt: string;
+  version?: number;
+  archived?: boolean;
 }
 
 // -- Sprint M10  Mission Control & Study Stack --
@@ -969,6 +971,7 @@ export interface StudyStrategy {
   autoBalanceRemaining: boolean;
   createdAt: string;
   updatedAt: string;
+  version?: number;
 }
 
 export interface AIStrategySuggestion {

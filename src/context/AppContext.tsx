@@ -16,6 +16,7 @@ import {
   onAuthStateChanged
 } from '../firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { syncService } from '../services/SyncService';
 import {
   UserProfile,
   StudySettings,
@@ -245,6 +246,10 @@ interface AppContextType {
   copyCoachToSandbox: () => void;
   updateTemplateBlocks: (templateId: string, blocks: TimelineBlock[]) => void;
   activeTemplate: TimelineTemplate | null;
+  renameTemplate: (id: string, newName: string) => void;
+  deleteTemplate: (id: string) => void;
+  archiveTemplate: (id: string) => void;
+  duplicateTemplate: (id: string) => void;
 
   // Strategy Session
   studyStrategy: StudyStrategy | null;
@@ -881,7 +886,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return [];
   });
-  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(() => {
+    return localStorage.getItem('cfa_active_template_id');
+  });
 
   // Strategy Session State
   const [studyStrategy, setStudyStrategyState] = useState<StudyStrategy | null>(() => {
@@ -894,11 +901,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const setStudyStrategy = useCallback((strategy: StudyStrategy | null) => {
     setStudyStrategyState(strategy);
-    if (strategy) {
-      localStorage.setItem('cfa_study_strategy', JSON.stringify(strategy));
-    } else {
-      localStorage.removeItem('cfa_study_strategy');
-    }
   }, []);
 
   const activeTemplate = useMemo(() => {
@@ -906,10 +908,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return templates.find(t => t.id === activeTemplateId) || null;
   }, [templates, activeTemplateId]);
 
-  // Persist templates to localStorage
+  // Synchronization hooks for templates, studyStrategy, and activeTemplateId
+  const prevTemplatesRef = useRef<TimelineTemplate[]>([]);
   useEffect(() => {
-    localStorage.setItem('cfa_timeline_templates', JSON.stringify(templates));
-  }, [templates]);
+    const prev = prevTemplatesRef.current;
+    if (prev.length > 0 && user) {
+      // Sync added or changed templates
+      templates.forEach(t => {
+        const old = prev.find(o => o.id === t.id);
+        if (!old || JSON.stringify(old) !== JSON.stringify(t)) {
+          syncService.triggerSyncCoachPlan(t);
+        }
+      });
+      // Sync deleted templates
+      prev.forEach(o => {
+        if (!templates.some(t => t.id === o.id)) {
+          syncService.triggerDeleteCoachPlan(o.id);
+        }
+      });
+    } else {
+      localStorage.setItem('cfa_timeline_templates', JSON.stringify(templates));
+    }
+    prevTemplatesRef.current = templates;
+  }, [templates, user]);
+
+  const prevStrategyRef = useRef<StudyStrategy | null>(null);
+  useEffect(() => {
+    const prev = prevStrategyRef.current;
+    if (prev !== studyStrategy && user) {
+      if (studyStrategy) {
+        syncService.triggerSyncStudyStrategy(studyStrategy);
+      }
+    } else {
+      if (studyStrategy) {
+        localStorage.setItem('cfa_study_strategy', JSON.stringify(studyStrategy));
+      } else {
+        localStorage.removeItem('cfa_study_strategy');
+      }
+    }
+    prevStrategyRef.current = studyStrategy;
+  }, [studyStrategy, user]);
+
+  const prevActiveTemplateIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevActiveTemplateIdRef.current;
+    if (prev !== activeTemplateId && user) {
+      syncService.triggerSyncMetadata(activeTemplateId);
+    } else {
+      if (activeTemplateId) {
+        localStorage.setItem('cfa_active_template_id', activeTemplateId);
+      } else {
+        localStorage.removeItem('cfa_active_template_id');
+      }
+    }
+    prevActiveTemplateIdRef.current = activeTemplateId;
+  }, [activeTemplateId, user]);
 
   // Auto-generate Coach AI Blueprint on first load
   const coachPlanGeneratedRef = useRef(false);
@@ -1765,6 +1818,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setSettings(defaultSettings);
             logActivity('setting', `Created profile for new user: ${newProfile.name}`);
           }
+          // Initialize SyncService startup sync
+          await syncService.initialize(firebaseUser.uid, {
+            setTemplates,
+            setStudyStrategy,
+            setActiveTemplateId
+          });
         } catch (error: any) {
           console.error("Error syncing with Firestore on auth change:", error);
           setUser({
@@ -1774,9 +1833,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             joinedDate: new Date().toISOString().split('T')[0],
             streakDays: 1
           });
+          // Attempt sync startup fallback
+          await syncService.initialize(firebaseUser.uid, {
+            setTemplates,
+            setStudyStrategy,
+            setActiveTemplateId
+          });
         }
       } else {
         setUser(null);
+        syncService.clearUser();
       }
       setAuthLoading(false);
     });
@@ -2372,6 +2438,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, [subjects, logActivity]);
 
+  const renameTemplate = useCallback((id: string, newName: string) => {
+    setTemplates(prev => prev.map(t =>
+      t.id === id ? { ...t, name: newName, updatedAt: new Date().toISOString() } : t
+    ));
+    logActivity('planner', `Renamed template to "${newName}"`);
+  }, [logActivity]);
+
+  const deleteTemplate = useCallback((id: string) => {
+    setTemplates(prev => {
+      const target = prev.find(t => t.id === id);
+      if (target) logActivity('planner', `Deleted template: ${target.name}`);
+      return prev.filter(t => t.id !== id);
+    });
+    setActiveTemplateId(prev => prev === id ? null : prev);
+  }, [logActivity]);
+
+  const archiveTemplate = useCallback((id: string) => {
+    setTemplates(prev => prev.map(t =>
+      t.id === id ? { ...t, archived: true, updatedAt: new Date().toISOString() } : t
+    ));
+    logActivity('planner', `Archived template`);
+  }, [logActivity]);
+
+  const duplicateTemplate = useCallback((id: string) => {
+    const source = templates.find(t => t.id === id);
+    if (!source) return;
+    const now = new Date().toISOString();
+    const duplicated: TimelineTemplate = {
+      id: `${source.id}-dup-${Date.now()}`,
+      name: `${source.name} (Copy)`,
+      description: source.description,
+      isEditable: true,
+      blocks: JSON.parse(JSON.stringify(source.blocks)),
+      createdAt: now,
+      updatedAt: now,
+      version: 1
+    };
+    setTemplates(prev => [...prev, duplicated]);
+    setActiveTemplateId(duplicated.id);
+    logActivity('planner', `Duplicated template: ${source.name}`);
+  }, [templates, logActivity]);
+
   const updateFormula = (id: string, updates: Partial<Formula>) => {
     setFormulas(prev =>
       prev.map(f => {
@@ -2746,6 +2854,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         copyCoachToSandbox,
         updateTemplateBlocks,
         activeTemplate,
+        renameTemplate,
+        deleteTemplate,
+        archiveTemplate,
+        duplicateTemplate,
         studyStrategy,
         setStudyStrategy,
         recalculateFromStrategy,
