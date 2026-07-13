@@ -24,7 +24,7 @@ root.render(
   </div>
 );
 
-curriculumBootstrapService.bootstrap().then(() => {
+curriculumBootstrapService.bootstrap(true).then(() => {
   root.render(
     <StrictMode>
       <App />
