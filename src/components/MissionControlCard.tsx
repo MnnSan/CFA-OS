@@ -295,7 +295,7 @@ const PhaseRow: React.FC<{
                 {lectureList.length === 0 ? (
                   <p className="text-xs text-slate-500 italic p-3 bg-slate-900/10 rounded">No video lectures found for this reading.</p>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1.5 custom-scrollbar">
                     {lectureList.map((lec: any, idx: number) => {
                       const isLecCompleted = lec.progress?.completed;
                       const isLecSubExpanded = !!expandedSubItems[lec.id];
@@ -390,7 +390,7 @@ const PhaseRow: React.FC<{
                 {readingLosList.length === 0 ? (
                   <p className="text-xs text-slate-500 italic p-3 bg-slate-900/10 rounded">No LOS items found for this reading in curriculum database.</p>
                 ) : (
-                  <div className="space-y-2.5">
+                  <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1.5 custom-scrollbar">
                     {readingLosList.map((los) => {
                       const isLosCompleted = los.status === 'Completed';
                       const isLosSubExpanded = !!expandedSubItems[los.id];
@@ -886,6 +886,73 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
     return `[ Target Schedule: ${formatDate(block.startDate)} ──► ${formatDate(block.endDate)} ]`;
   }, [activeTemplate, stack.readingId]);
 
+  // Calculate real-time overall progress percentage across all lectures & LOS items in the reading
+  const realTimeProgress = React.useMemo(() => {
+    if (!dailyMission?.readingId) return { completedItems: 0, totalItems: 10, pct: stack.progressPercent || 0 };
+    
+    const readingResources = lrRepo.getByReadingId(dailyMission.readingId);
+    const readingLOS = losList.filter(l => l.readingId === dailyMission.readingId);
+    const readingNotesList = notes.filter(n => n.linkedReadingId === dailyMission.readingId);
+
+    const lectures = readingResources.filter((r: any) => r.resourceType === 'Video' || r.provider === 'SSCI' || r.id.startsWith('lrs-sec-') || r.id.startsWith('lrs-yt-'));
+    const totalLectures = lectures.length || 1;
+    const completedLectures = lectures.filter((r: any) => r.progress?.completed).length;
+
+    const totalLOS = readingLOS.length || 1;
+    const completedLOS = readingLOS.filter(l => l.status === 'Completed').length;
+
+    const totalNotes = readingNotesList.length || 1;
+    const reviewedNotes = readingNotesList.filter(n => (n as any).confidenceLevel && (n as any).confidenceLevel >= 3).length;
+
+    const totalItems = totalLectures + totalLOS + totalNotes;
+    const completedItems = completedLectures + completedLOS + reviewedNotes;
+
+    const pct = totalItems > 0 ? Math.min(100, Math.round((completedItems / totalItems) * 100)) : 0;
+
+    return { completedItems, totalItems, pct };
+  }, [dailyMission?.readingId, lrRepo, losList, notes, stack.progressPercent, updateTrigger]);
+
+  // Calculate Coach Planner Pacing & Workload breakdown
+  const activeBlockPacing = React.useMemo(() => {
+    const block = activeTemplate?.blocks?.find((b: any) => b.readingId === dailyMission?.readingId)
+      || activeTemplate?.blocks?.find((b: any) => {
+           const today = new Date().toISOString().split('T')[0];
+           return today >= b.startDate && today <= b.endDate;
+         })
+      || null;
+
+    if (!block) {
+      const totalMins = stack.totalEstimatedMinutes || 706;
+      const days = 5;
+      return {
+        allottedDays: days,
+        dailyPaceMinutes: Math.round(totalMins / days),
+        startDate: 'Jul 19',
+        endDate: 'Jul 23'
+      };
+    }
+
+    const start = new Date(block.startDate);
+    const end = new Date(block.endDate);
+    const diffDays = Math.max(1, Math.ceil(Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+    const totalMins = stack.totalEstimatedMinutes || 706;
+    const dailyPaceMinutes = Math.round(totalMins / diffDays);
+
+    const fmt = (s: string) => {
+      try {
+        const d = new Date(s);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+      } catch { return s; }
+    };
+
+    return {
+      allottedDays: diffDays,
+      dailyPaceMinutes,
+      startDate: fmt(block.startDate),
+      endDate: fmt(block.endDate)
+    };
+  }, [activeTemplate, dailyMission?.readingId, stack.totalEstimatedMinutes]);
+
   const handleProgressChange = (phase: StudyPhase, progressPercent: number) => {
     execution.recordProgress(phase.id, progressPercent);
 
@@ -1251,20 +1318,57 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
       </div>
 
       <div className="p-5 pb-4 border-b border-slate-100 dark:border-[#1e2026]">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-baseline gap-2">
-            <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-200 font-sans">
-              MISSION CONTROL
-            </h2>
-            {scheduleDates && (
-              <span className="text-xs font-mono text-indigo-500 dark:text-indigo-400 font-semibold">
-                {scheduleDates}
+        {/* Prominent Subject & Reading Title Header */}
+        <div className="flex items-start justify-between border-b border-slate-100 dark:border-[#1e2026] pb-4 mb-4 flex-wrap gap-3">
+          <div className="space-y-1 min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-indigo-500/15 text-indigo-400 border border-indigo-500/25 rounded">
+                {dailyMission.subjectCode || 'DER'}
               </span>
-            )}
+              <span className="text-[10px] font-mono font-bold text-amber-500 uppercase tracking-widest">
+                READING {dailyMission.readingNumber || 18}
+              </span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight font-sans leading-tight">
+              {dailyMission.readingTitle || 'Swaps, Forwards, and Futures Strategies'}
+            </h1>
           </div>
-          <span className="bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider">
-            {dailyMission.subjectCode}
-          </span>
+          
+          <div className="text-right shrink-0 font-mono">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              Schedule Window
+            </span>
+            <span className="text-xs font-bold text-indigo-400 block mt-0.5">
+              {activeBlockPacing.startDate} ──► {activeBlockPacing.endDate}
+            </span>
+          </div>
+        </div>
+
+        {/* 3 Workload & Daily Target Pacing Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 font-mono text-xs">
+          <div className="p-3 bg-slate-50/70 dark:bg-[#121319] border border-slate-200 dark:border-slate-800 rounded-xl space-y-0.5">
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Total Workload</span>
+            <span className="text-base font-extrabold text-slate-900 dark:text-slate-100 block">
+              {formatMinutes(stack.totalEstimatedMinutes)}
+            </span>
+            <span className="text-[10px] text-slate-500 block truncate">Full Reading Syllabus</span>
+          </div>
+
+          <div className="p-3 bg-slate-50/70 dark:bg-[#121319] border border-slate-200 dark:border-slate-800 rounded-xl space-y-0.5">
+            <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider block">Coach Schedule</span>
+            <span className="text-base font-extrabold text-indigo-400 block">
+              {activeBlockPacing.allottedDays} Days Allotted
+            </span>
+            <span className="text-[10px] text-slate-400 block">{activeBlockPacing.startDate} ──► {activeBlockPacing.endDate}</span>
+          </div>
+
+          <div className="p-3 bg-indigo-500/[0.04] border border-indigo-500/30 rounded-xl space-y-0.5">
+            <span className="text-[9px] font-bold text-amber-500 uppercase tracking-wider block">Today's Target Pace</span>
+            <span className="text-base font-extrabold text-amber-500 block">
+              {formatMinutes(activeBlockPacing.dailyPaceMinutes)} / day
+            </span>
+            <span className="text-[10px] text-slate-400 block">Paced over {activeBlockPacing.allottedDays} days</span>
+          </div>
         </div>
 
         {/* Current Active Phase Panel */}
@@ -1331,29 +1435,15 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
           </div>
         )}
 
-        <div className="flex items-baseline gap-2 mb-2">
-          <span className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">
-            {formatMinutes(stack.totalEstimatedMinutes)}
-          </span>
-          <span className="text-[10px] font-mono text-slate-500">
-            {stack.remainingMinutes < stack.totalEstimatedMinutes
-              ? `Remaining ${formatMinutes(stack.remainingMinutes)}`
-              : "Today's Mission"}
-          </span>
-          <span className="text-[9px] font-mono text-slate-400 italic ml-auto">
-            {stack.completionForecast}
-          </span>
-        </div>
-
-        <div className="space-y-1">
-          <div className="flex justify-between text-[10px] font-mono font-bold text-slate-505 dark:text-slate-400">
-            <span>Mission Progress</span>
-            <span>{stack.progressPercent}% · {stack.completedPhases} of {stack.totalPhases} Phases Complete</span>
+        <div className="space-y-1 pt-1">
+          <div className="flex justify-between text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400">
+            <span>Real-Time Mission Progress</span>
+            <span>{realTimeProgress.pct}% · {realTimeProgress.completedItems} of {realTimeProgress.totalItems} Items Complete</span>
           </div>
-          <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+          <div className="h-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
             <div
-              className={`h-full bg-gradient-to-r from-indigo-500 to-indigo-700 dark:from-indigo-400 dark:to-white rounded-full transition-all duration-700 ease-out ${notComplete ? 'animate-progress-pulse' : ''}`}
-              style={{ width: `${stack.progressPercent}%` }}
+              className={`h-full bg-gradient-to-r from-emerald-500 to-emerald-400 dark:from-emerald-400 dark:to-teal-300 rounded-full transition-all duration-500 ease-out`}
+              style={{ width: `${realTimeProgress.pct}%` }}
             />
           </div>
         </div>

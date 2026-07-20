@@ -150,36 +150,38 @@ export class MissionEngineService {
 
     // Priority 6: Coach planner active block — subdivide into the exact reading for today
     if (!targetLOS && activeBlock) {
-      const subjectReadings = readings
-        .filter(r => r.subjectId === activeBlock.subjectId)
-        .sort((a, b) => a.number - b.number);
+      let activeReading: Reading | undefined;
+      if (activeBlock.readingId) {
+        activeReading = readings.find(r => r.id === activeBlock.readingId);
+      }
+      if (!activeReading) {
+        const subjectReadings = readings
+          .filter(r => r.subjectId === activeBlock.subjectId)
+          .sort((a, b) => a.number - b.number);
 
-      if (subjectReadings.length > 0) {
-        let activeReading: Reading;
+        if (subjectReadings.length > 0) {
+          if (subjectReadings.length === 1) {
+            activeReading = subjectReadings[0];
+          } else {
+            const blockStartMs = new Date(activeBlock.startDate).getTime();
+            const blockEndMs = new Date(activeBlock.endDate).getTime();
+            const todayMs = Date.now();
+            const msPerReading = (blockEndMs - blockStartMs) / subjectReadings.length;
 
-        if (subjectReadings.length === 1) {
-          activeReading = subjectReadings[0];
-        } else {
-          // Subdivide block date range proportionally across readings
-          const blockStartMs = new Date(activeBlock.startDate).getTime();
-          const blockEndMs = new Date(activeBlock.endDate).getTime();
-          const todayMs = Date.now();
-          const msPerReading = (blockEndMs - blockStartMs) / subjectReadings.length;
-
-          const matchedReading = subjectReadings.find((_, idx) => {
-            const rStart = blockStartMs + idx * msPerReading;
-            const rEnd = idx === subjectReadings.length - 1
-              ? blockEndMs
-              : blockStartMs + (idx + 1) * msPerReading - 1;
-            return todayMs >= rStart && todayMs <= rEnd;
-          });
-
-          activeReading = matchedReading || subjectReadings[0];
+            activeReading = subjectReadings.find((_, idx) => {
+              const rStart = blockStartMs + idx * msPerReading;
+              const rEnd = idx === subjectReadings.length - 1
+                ? blockEndMs
+                : blockStartMs + (idx + 1) * msPerReading - 1;
+              return todayMs >= rStart && todayMs <= rEnd;
+            }) || subjectReadings[0];
+          }
         }
+      }
 
-        targetLOS = losList.find(
-          l => l.readingId === activeReading.id && l.status !== 'Completed'
-        );
+      if (activeReading) {
+        targetLOS = losList.find(l => l.readingId === activeReading!.id && l.status !== 'Completed')
+                 || losList.find(l => l.readingId === activeReading!.id);
         method = 'Deadline Optimization';
       }
     }
