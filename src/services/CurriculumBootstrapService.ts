@@ -17,7 +17,7 @@ export class CurriculumBootstrapService {
   private METADATA_KEY = 'cfa_bootstrap_metadata';
   private SCHEMA_VERSION = 2;
   private CURRICULUM_VERSION = '2027_v1';
-  private RESOURCE_VERSION = '1.2.0';
+  private RESOURCE_VERSION = '1.3.0';
 
   private constructor() {}
 

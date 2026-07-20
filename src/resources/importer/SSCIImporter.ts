@@ -168,8 +168,8 @@ export function findReadingId(excelReadingStr: string, cleanCode: string, cleanT
     }
   }
 
-  if (readingStr.includes('Guidance For Standards') || readingStr.includes('Guidance for Standards')) {
-    const match = cleanCode.match(/5\.3\.(\d+)/);
+  if (readingStr.includes('Guidance For Standards') || readingStr.includes('Guidance for Standards') || cleanCode.includes('5.3.') || cleanTitle.includes('5.3.')) {
+    const match = (cleanCode + ' ' + cleanTitle + ' ' + readingStr).match(/5\.3\.(\d+)/);
     if (match) {
       const x = parseInt(match[1]);
       if (x === 1) return 'read-eth-code';

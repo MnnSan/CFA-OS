@@ -191,7 +191,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Medium',
     enabled: true,
     order: 1,
-    targets: { pageCount: 54, totalLOSCount: 10, eocqCount: 16, videoDurationString: '01:26:17', videoDurationMinutes: 86.28, weightingFactor: 1.11 }
+    targets: { pageCount: 54, totalLOSCount: 10, eocqCount: 16, videoDurationString: '08:25:00', videoDurationMinutes: 505, weightingFactor: 1.11 }
   },
   {
     id: 'read-cme-2',
@@ -207,7 +207,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Hard',
     enabled: true,
     order: 2,
-    targets: { pageCount: 51, totalLOSCount: 8, eocqCount: 30, videoDurationString: '02:19:02', videoDurationMinutes: 139.03, weightingFactor: 1.05 }
+    targets: { pageCount: 51, totalLOSCount: 8, eocqCount: 30, videoDurationString: '00:00:00', videoDurationMinutes: 0, weightingFactor: 1.05 }
   },
   // Chapter: Asset Allocation Principles
   {
@@ -240,7 +240,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Hard',
     enabled: true,
     order: 2,
-    targets: { pageCount: 42, totalLOSCount: 15, eocqCount: 14, videoDurationString: '02:05:48', videoDurationMinutes: 125.80, weightingFactor: 0.86 }
+    targets: { pageCount: 42, totalLOSCount: 15, eocqCount: 14, videoDurationString: '19:24:00', videoDurationMinutes: 1164, weightingFactor: 0.86 }
   },
   {
     id: 'read-aa-constraints',
@@ -275,7 +275,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Medium',
     enabled: true,
     order: 1,
-    targets: { pageCount: 35, totalLOSCount: 6, eocqCount: 11, videoDurationString: '00:49:51', videoDurationMinutes: 49.85, weightingFactor: 0.72 }
+    targets: { pageCount: 35, totalLOSCount: 6, eocqCount: 11, videoDurationString: '03:48:00', videoDurationMinutes: 228, weightingFactor: 0.72 }
   },
   {
     id: 'read-pc-fixed-income',
@@ -291,7 +291,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Hard',
     enabled: true,
     order: 2,
-    targets: { pageCount: 49, totalLOSCount: 9, eocqCount: 12, videoDurationString: '01:45:07', videoDurationMinutes: 105.12, weightingFactor: 1.00 }
+    targets: { pageCount: 49, totalLOSCount: 9, eocqCount: 12, videoDurationString: '04:39:00', videoDurationMinutes: 279, weightingFactor: 1.00 }
   },
   {
     id: 'read-pc-alternatives',
@@ -307,7 +307,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Medium',
     enabled: true,
     order: 3,
-    targets: { pageCount: 42, totalLOSCount: 8, eocqCount: 10, videoDurationString: '01:35:22', videoDurationMinutes: 95.37, weightingFactor: 0.86 }
+    targets: { pageCount: 42, totalLOSCount: 8, eocqCount: 10, videoDurationString: '06:24:00', videoDurationMinutes: 384, weightingFactor: 0.86 }
   },
   // Chapter: Wealth & Asset Management
   {
@@ -324,7 +324,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Hard',
     enabled: true,
     order: 1,
-    targets: { pageCount: 44, totalLOSCount: 5, eocqCount: 12, videoDurationString: '01:52:18', videoDurationMinutes: 112.30, weightingFactor: 0.90 }
+    targets: { pageCount: 44, totalLOSCount: 5, eocqCount: 12, videoDurationString: '06:22:00', videoDurationMinutes: 382, weightingFactor: 0.90 }
   },
   {
     id: 'read-pc-institutional',
@@ -340,7 +340,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Hard',
     enabled: true,
     order: 2,
-    targets: { pageCount: 42, totalLOSCount: 8, eocqCount: 14, videoDurationString: '01:36:55', videoDurationMinutes: 96.92, weightingFactor: 0.86 }
+    targets: { pageCount: 42, totalLOSCount: 8, eocqCount: 14, videoDurationString: '12:52:00', videoDurationMinutes: 772, weightingFactor: 0.86 }
   },
   // Chapter: Trading & Institutional Cases
   {
@@ -357,7 +357,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Medium',
     enabled: true,
     order: 1,
-    targets: { pageCount: 32, totalLOSCount: 10, eocqCount: 10, videoDurationString: '01:12:08', videoDurationMinutes: 72.13, weightingFactor: 0.65 }
+    targets: { pageCount: 32, totalLOSCount: 10, eocqCount: 10, videoDurationString: '04:27:00', videoDurationMinutes: 267, weightingFactor: 0.65 }
   },
   {
     id: 'read-pc-inst-swf',
@@ -373,7 +373,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Hard',
     enabled: true,
     order: 2,
-    targets: { pageCount: 28, totalLOSCount: 5, eocqCount: 8, videoDurationString: '00:58:12', videoDurationMinutes: 58.20, weightingFactor: 0.57 }
+    targets: { pageCount: 28, totalLOSCount: 5, eocqCount: 8, videoDurationString: '02:04:00', videoDurationMinutes: 124, weightingFactor: 0.57 }
   },
 
   // --- Subject: Performance Measurement ---
@@ -392,7 +392,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Medium',
     enabled: true,
     order: 1,
-    targets: { pageCount: 46, totalLOSCount: 16, eocqCount: 16, videoDurationString: '01:42:33', videoDurationMinutes: 102.55, weightingFactor: 0.94 }
+    targets: { pageCount: 46, totalLOSCount: 16, eocqCount: 16, videoDurationString: '12:26:00', videoDurationMinutes: 746, weightingFactor: 0.94 }
   },
   {
     id: 'read-perf-selection',
@@ -424,7 +424,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Medium',
     enabled: true,
     order: 3,
-    targets: { pageCount: 24, totalLOSCount: 11, eocqCount: 8, videoDurationString: '00:45:30', videoDurationMinutes: 45.50, weightingFactor: 0.49 }
+    targets: { pageCount: 24, totalLOSCount: 11, eocqCount: 8, videoDurationString: '06:44:00', videoDurationMinutes: 404, weightingFactor: 0.49 }
   },
 
   // --- Subject: Derivatives and Risk Management ---
@@ -443,7 +443,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Hard',
     enabled: true,
     order: 1,
-    targets: { pageCount: 36, totalLOSCount: 10, eocqCount: 14, videoDurationString: '02:48:22', videoDurationMinutes: 168.37, weightingFactor: 0.74 }
+    targets: { pageCount: 36, totalLOSCount: 10, eocqCount: 14, videoDurationString: '06:42:00', videoDurationMinutes: 402, weightingFactor: 0.74 }
   },
   {
     id: 'read-deriv-swaps',
@@ -459,7 +459,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Hard',
     enabled: true,
     order: 2,
-    targets: { pageCount: 44, totalLOSCount: 6, eocqCount: 14, videoDurationString: '01:52:30', videoDurationMinutes: 112.50, weightingFactor: 0.90 }
+    targets: { pageCount: 44, totalLOSCount: 6, eocqCount: 14, videoDurationString: '10:06:00', videoDurationMinutes: 606, weightingFactor: 0.90 }
   },
   {
     id: 'read-deriv-currency',
@@ -475,7 +475,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Medium',
     enabled: true,
     order: 3,
-    targets: { pageCount: 36, totalLOSCount: 9, eocqCount: 10, videoDurationString: '01:22:18', videoDurationMinutes: 82.30, weightingFactor: 0.74 }
+    targets: { pageCount: 36, totalLOSCount: 9, eocqCount: 10, videoDurationString: '12:15:00', videoDurationMinutes: 735, weightingFactor: 0.74 }
   },
 
   // --- Subject: Ethical and Professional Standards ---
@@ -494,7 +494,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Easy',
     enabled: true,
     order: 1,
-    targets: { pageCount: 40, totalLOSCount: 2, eocqCount: 14, videoDurationString: '01:22:15', videoDurationMinutes: 82.25, weightingFactor: 0.82 }
+    targets: { pageCount: 40, totalLOSCount: 2, eocqCount: 14, videoDurationString: '01:19:00', videoDurationMinutes: 79, weightingFactor: 0.82 }
   },
   {
     id: 'read-eth-std-1',
@@ -510,7 +510,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Medium',
     enabled: true,
     order: 2,
-    targets: { pageCount: 10, totalLOSCount: 2, eocqCount: 5, videoDurationString: '00:20:00', videoDurationMinutes: 20, weightingFactor: 0.2 }
+    targets: { pageCount: 10, totalLOSCount: 2, eocqCount: 5, videoDurationString: '06:49:00', videoDurationMinutes: 409, weightingFactor: 0.2 }
   },
   {
     id: 'read-eth-std-2',
@@ -526,7 +526,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Medium',
     enabled: true,
     order: 3,
-    targets: { pageCount: 10, totalLOSCount: 0, eocqCount: 5, videoDurationString: '00:20:00', videoDurationMinutes: 20, weightingFactor: 0.2 }
+    targets: { pageCount: 10, totalLOSCount: 0, eocqCount: 5, videoDurationString: '05:08:00', videoDurationMinutes: 308, weightingFactor: 0.2 }
   },
   {
     id: 'read-eth-std-3',
@@ -542,7 +542,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Medium',
     enabled: true,
     order: 4,
-    targets: { pageCount: 10, totalLOSCount: 0, eocqCount: 5, videoDurationString: '00:20:00', videoDurationMinutes: 20, weightingFactor: 0.2 }
+    targets: { pageCount: 10, totalLOSCount: 0, eocqCount: 5, videoDurationString: '04:13:00', videoDurationMinutes: 253, weightingFactor: 0.2 }
   },
   {
     id: 'read-eth-std-4',
@@ -558,7 +558,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Medium',
     enabled: true,
     order: 5,
-    targets: { pageCount: 10, totalLOSCount: 0, eocqCount: 5, videoDurationString: '00:20:00', videoDurationMinutes: 20, weightingFactor: 0.2 }
+    targets: { pageCount: 10, totalLOSCount: 0, eocqCount: 5, videoDurationString: '04:36:00', videoDurationMinutes: 276, weightingFactor: 0.2 }
   },
   {
     id: 'read-eth-std-5',
@@ -574,7 +574,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Medium',
     enabled: true,
     order: 6,
-    targets: { pageCount: 10, totalLOSCount: 0, eocqCount: 5, videoDurationString: '00:20:00', videoDurationMinutes: 20, weightingFactor: 0.2 }
+    targets: { pageCount: 10, totalLOSCount: 0, eocqCount: 5, videoDurationString: '04:19:00', videoDurationMinutes: 259, weightingFactor: 0.2 }
   },
   {
     id: 'read-eth-std-6',
@@ -590,7 +590,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Medium',
     enabled: true,
     order: 7,
-    targets: { pageCount: 10, totalLOSCount: 0, eocqCount: 5, videoDurationString: '00:20:00', videoDurationMinutes: 20, weightingFactor: 0.2 }
+    targets: { pageCount: 10, totalLOSCount: 0, eocqCount: 5, videoDurationString: '04:48:00', videoDurationMinutes: 288, weightingFactor: 0.2 }
   },
   {
     id: 'read-eth-std-7',
@@ -606,7 +606,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Medium',
     enabled: true,
     order: 8,
-    targets: { pageCount: 10, totalLOSCount: 0, eocqCount: 5, videoDurationString: '00:20:00', videoDurationMinutes: 20, weightingFactor: 0.2 }
+    targets: { pageCount: 10, totalLOSCount: 0, eocqCount: 5, videoDurationString: '04:20:00', videoDurationMinutes: 260, weightingFactor: 0.2 }
   },
   {
     id: 'read-eth-apply',
@@ -622,7 +622,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Hard',
     enabled: true,
     order: 9,
-    targets: { pageCount: 15, totalLOSCount: 2, eocqCount: 5, videoDurationString: '00:40:00', videoDurationMinutes: 40, weightingFactor: 0.4 }
+    targets: { pageCount: 15, totalLOSCount: 2, eocqCount: 5, videoDurationString: '03:46:00', videoDurationMinutes: 226, weightingFactor: 0.4 }
   },
   {
     id: 'read-eth-asset-code',
@@ -638,7 +638,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Easy',
     enabled: true,
     order: 10,
-    targets: { pageCount: 20, totalLOSCount: 4, eocqCount: 5, videoDurationString: '00:30:00', videoDurationMinutes: 30, weightingFactor: 0.3 }
+    targets: { pageCount: 20, totalLOSCount: 4, eocqCount: 5, videoDurationString: '00:17:00', videoDurationMinutes: 17, weightingFactor: 0.3 }
   },
 
   // --- Subject: Portfolio Management Pathway ---
@@ -657,7 +657,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Medium',
     enabled: true,
     order: 1,
-    targets: { pageCount: 36, totalLOSCount: 6, eocqCount: 10, videoDurationString: '01:28:44', videoDurationMinutes: 88.73, weightingFactor: 0.78 }
+    targets: { pageCount: 36, totalLOSCount: 6, eocqCount: 10, videoDurationString: '05:20:00', videoDurationMinutes: 320, weightingFactor: 0.78 }
   },
   {
     id: 'read-path-active-eq',
@@ -673,7 +673,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Hard',
     enabled: true,
     order: 2,
-    targets: { pageCount: 42, totalLOSCount: 9, eocqCount: 12, videoDurationString: '01:35:22', videoDurationMinutes: 95.37, weightingFactor: 0.86 }
+    targets: { pageCount: 42, totalLOSCount: 9, eocqCount: 12, videoDurationString: '07:19:00', videoDurationMinutes: 439, weightingFactor: 0.86 }
   },
   {
     id: 'read-path-active-eq-const',
@@ -689,7 +689,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Hard',
     enabled: true,
     order: 3,
-    targets: { pageCount: 32, totalLOSCount: 8, eocqCount: 10, videoDurationString: '01:12:08', videoDurationMinutes: 72.13, weightingFactor: 0.65 }
+    targets: { pageCount: 32, totalLOSCount: 8, eocqCount: 10, videoDurationString: '08:11:00', videoDurationMinutes: 491, weightingFactor: 0.65 }
   },
   {
     id: 'read-path-ldi',
@@ -705,7 +705,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Hard',
     enabled: true,
     order: 4,
-    targets: { pageCount: 49, totalLOSCount: 7, eocqCount: 12, videoDurationString: '07:23:30', videoDurationMinutes: 443.50, weightingFactor: 26.7 }
+    targets: { pageCount: 49, totalLOSCount: 7, eocqCount: 12, videoDurationString: '11:51:00', videoDurationMinutes: 711, weightingFactor: 26.7 }
   },
   {
     id: 'read-path-yc',
@@ -721,7 +721,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Hard',
     enabled: true,
     order: 5,
-    targets: { pageCount: 38, totalLOSCount: 7, eocqCount: 10, videoDurationString: '03:15:00', videoDurationMinutes: 195.0, weightingFactor: 0.78 }
+    targets: { pageCount: 38, totalLOSCount: 7, eocqCount: 10, videoDurationString: '04:16:00', videoDurationMinutes: 256, weightingFactor: 0.78 }
   },
   {
     id: 'read-path-fi-credit',
@@ -737,7 +737,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Hard',
     enabled: true,
     order: 6,
-    targets: { pageCount: 36, totalLOSCount: 11, eocqCount: 14, videoDurationString: '02:48:22', videoDurationMinutes: 168.37, weightingFactor: 0.74 }
+    targets: { pageCount: 36, totalLOSCount: 11, eocqCount: 14, videoDurationString: '16:19:00', videoDurationMinutes: 979, weightingFactor: 0.74 }
   },
   // Chapter: Pathway Trade & Cases
   {
@@ -754,7 +754,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Medium',
     enabled: true,
     order: 1,
-    targets: { pageCount: 28, totalLOSCount: 9, eocqCount: 8, videoDurationString: '00:58:12', videoDurationMinutes: 58.20, weightingFactor: 0.57 }
+    targets: { pageCount: 28, totalLOSCount: 9, eocqCount: 8, videoDurationString: '05:26:00', videoDurationMinutes: 326, weightingFactor: 0.57 }
   },
   {
     id: 'read-path-inst-endowment',
@@ -770,7 +770,7 @@ export const INITIAL_2027_READINGS: Reading[] = [
     difficulty: 'Hard',
     enabled: true,
     order: 2,
-    targets: { pageCount: 32, totalLOSCount: 7, eocqCount: 10, videoDurationString: '01:12:44', videoDurationMinutes: 72.73, weightingFactor: 0.65 }
+    targets: { pageCount: 32, totalLOSCount: 7, eocqCount: 10, videoDurationString: '01:35:00', videoDurationMinutes: 95, weightingFactor: 0.65 }
   }
 ];
 

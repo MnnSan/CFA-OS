@@ -27,7 +27,8 @@
     "reading": "read-aa-principles",
     "subReadingTag": "a",
     "runtimeMinutes": 60,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 60
   },
   {
     "id": "lrs-ssci-common-core-1",
@@ -57,7 +58,8 @@
     "reading": "read-aa-principles",
     "subReadingTag": "a",
     "runtimeMinutes": 55,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 55
   },
   {
     "id": "lrs-ssci-common-core-2",
@@ -87,7 +89,8 @@
     "reading": "read-aa-principles",
     "subReadingTag": "b",
     "runtimeMinutes": 59,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 59
   },
   {
     "id": "lrs-ssci-common-core-3",
@@ -117,7 +120,8 @@
     "reading": "read-aa-principles",
     "subReadingTag": "b",
     "runtimeMinutes": 56,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 56
   },
   {
     "id": "lrs-ssci-common-core-4",
@@ -147,7 +151,8 @@
     "reading": "read-aa-principles",
     "subReadingTag": "c",
     "runtimeMinutes": 63,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 63
   },
   {
     "id": "lrs-ssci-common-core-5",
@@ -177,7 +182,8 @@
     "reading": "read-aa-principles",
     "subReadingTag": "c",
     "runtimeMinutes": 65,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 65
   },
   {
     "id": "lrs-ssci-common-core-6",
@@ -207,7 +213,8 @@
     "reading": "read-aa-principles",
     "subReadingTag": "d",
     "runtimeMinutes": 55,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 55
   },
   {
     "id": "lrs-ssci-common-core-7",
@@ -237,7 +244,8 @@
     "reading": "read-aa-principles",
     "subReadingTag": "d",
     "runtimeMinutes": 51,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 51
   },
   {
     "id": "lrs-ssci-common-core-8",
@@ -269,7 +277,8 @@
     "runtimeMinutes": 120,
     "resourceLinks": [
       "https://docs.google.com/spreadsheets/d/1SvEEjEqaqbYQwU62or6bQYmTwMDKS3O0/edit?usp=sharing&ouid=101038948391744797770&rtpof=true&sd=true"
-    ]
+    ],
+    "durationMinutes": 120
   },
   {
     "id": "lrs-ssci-common-core-9",
@@ -281,7 +290,7 @@
     "losIds": [
       "los-4f"
     ],
-    "duration": 107,
+    "duration": 108,
     "launchUrl": "",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.770Z",
@@ -298,8 +307,9 @@
     "subject": "sub-asset-allocation",
     "reading": "read-aa-principles",
     "subReadingTag": "f",
-    "runtimeMinutes": 107,
-    "resourceLinks": []
+    "runtimeMinutes": 108,
+    "resourceLinks": [],
+    "durationMinutes": 108
   },
   {
     "id": "lrs-ssci-common-core-10",
@@ -329,7 +339,8 @@
     "reading": "read-aa-principles",
     "subReadingTag": "g",
     "runtimeMinutes": 107,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 107
   },
   {
     "id": "lrs-ssci-common-core-11",
@@ -359,7 +370,8 @@
     "reading": "read-aa-principles",
     "subReadingTag": "h",
     "runtimeMinutes": 94,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 94
   },
   {
     "id": "lrs-ssci-common-core-12",
@@ -389,7 +401,8 @@
     "reading": "read-aa-principles",
     "subReadingTag": "i",
     "runtimeMinutes": 112,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 112
   },
   {
     "id": "lrs-ssci-common-core-13",
@@ -419,7 +432,8 @@
     "reading": "read-aa-principles",
     "subReadingTag": "j",
     "runtimeMinutes": 80,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 80
   },
   {
     "id": "lrs-ssci-common-core-14",
@@ -449,7 +463,8 @@
     "reading": "read-aa-principles",
     "subReadingTag": "k",
     "runtimeMinutes": 79,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 79
   },
   {
     "id": "lrs-ssci-common-core-15",
@@ -459,7 +474,7 @@
     "description": "Asset Allocation Reading 1 - Live Classes Taking Place for 2026",
     "readingId": "read-cme-1",
     "losIds": [],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.770Z",
@@ -476,8 +491,9 @@
     "subject": "sub-asset-allocation",
     "reading": "read-cme-1",
     "subReadingTag": "",
-    "runtimeMinutes": 90,
-    "resourceLinks": []
+    "runtimeMinutes": 0,
+    "resourceLinks": [],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-16",
@@ -489,7 +505,7 @@
     "losIds": [
       "los-1a"
     ],
-    "duration": 90,
+    "duration": 80,
     "launchUrl": "https://drive.google.com/file/d/1dlnasK0XTJGLKOsR3qmMTDTvhcCWN6Rv/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.770Z",
@@ -506,10 +522,11 @@
     "subject": "sub-asset-allocation",
     "reading": "read-cme-1",
     "subReadingTag": "a",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 80,
     "resourceLinks": [
       "https://drive.google.com/file/d/1dlnasK0XTJGLKOsR3qmMTDTvhcCWN6Rv/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 80
   },
   {
     "id": "lrs-ssci-common-core-17",
@@ -521,7 +538,7 @@
     "losIds": [
       "los-1b"
     ],
-    "duration": 90,
+    "duration": 67,
     "launchUrl": "https://drive.google.com/file/d/1XTUE2yuiTHSJgu2trcRKnILnSv3d-ye6/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.770Z",
@@ -538,10 +555,11 @@
     "subject": "sub-asset-allocation",
     "reading": "read-cme-1",
     "subReadingTag": "b",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 67,
     "resourceLinks": [
       "https://drive.google.com/file/d/1XTUE2yuiTHSJgu2trcRKnILnSv3d-ye6/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 67
   },
   {
     "id": "lrs-ssci-common-core-18",
@@ -553,7 +571,7 @@
     "losIds": [
       "los-1c"
     ],
-    "duration": 90,
+    "duration": 70,
     "launchUrl": "https://drive.google.com/file/d/1uiZPYLvQrpQRQklhJMFg5r1JW3NkqjZi/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.770Z",
@@ -570,10 +588,11 @@
     "subject": "sub-asset-allocation",
     "reading": "read-cme-1",
     "subReadingTag": "c",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 70,
     "resourceLinks": [
       "https://drive.google.com/file/d/1uiZPYLvQrpQRQklhJMFg5r1JW3NkqjZi/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 70
   },
   {
     "id": "lrs-ssci-common-core-19",
@@ -585,7 +604,7 @@
     "losIds": [
       "los-1d"
     ],
-    "duration": 90,
+    "duration": 85,
     "launchUrl": "https://drive.google.com/file/d/13ahqNVyvfzMYnK1Hrzz3_6jVprcp9gnp/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.770Z",
@@ -602,10 +621,11 @@
     "subject": "sub-asset-allocation",
     "reading": "read-cme-1",
     "subReadingTag": "d",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 85,
     "resourceLinks": [
       "https://drive.google.com/file/d/13ahqNVyvfzMYnK1Hrzz3_6jVprcp9gnp/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 85
   },
   {
     "id": "lrs-ssci-common-core-20",
@@ -617,7 +637,7 @@
     "losIds": [
       "los-1e"
     ],
-    "duration": 90,
+    "duration": 50,
     "launchUrl": "https://drive.google.com/file/d/1QSKk3USzisjmpVu_GjXezO54kR9JrRVC/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.770Z",
@@ -634,10 +654,11 @@
     "subject": "sub-asset-allocation",
     "reading": "read-cme-1",
     "subReadingTag": "e",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 50,
     "resourceLinks": [
       "https://drive.google.com/file/d/1QSKk3USzisjmpVu_GjXezO54kR9JrRVC/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 50
   },
   {
     "id": "lrs-ssci-common-core-21",
@@ -649,7 +670,7 @@
     "losIds": [
       "los-1f"
     ],
-    "duration": 90,
+    "duration": 62,
     "launchUrl": "https://drive.google.com/file/d/1STELSkbcY5wvYbv3eYfodenh5R7TPHz1/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.770Z",
@@ -666,10 +687,11 @@
     "subject": "sub-asset-allocation",
     "reading": "read-cme-1",
     "subReadingTag": "f",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 62,
     "resourceLinks": [
       "https://drive.google.com/file/d/1STELSkbcY5wvYbv3eYfodenh5R7TPHz1/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 62
   },
   {
     "id": "lrs-ssci-common-core-22",
@@ -681,7 +703,7 @@
     "losIds": [
       "los-1g"
     ],
-    "duration": 90,
+    "duration": 53,
     "launchUrl": "https://drive.google.com/file/d/14CHwHR8JYeMsanNKdNt3K2vFn2pGAOoW/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.770Z",
@@ -698,10 +720,11 @@
     "subject": "sub-asset-allocation",
     "reading": "read-cme-1",
     "subReadingTag": "g",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 53,
     "resourceLinks": [
       "https://drive.google.com/file/d/14CHwHR8JYeMsanNKdNt3K2vFn2pGAOoW/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 53
   },
   {
     "id": "lrs-ssci-common-core-23",
@@ -713,7 +736,7 @@
     "losIds": [
       "los-1h"
     ],
-    "duration": 90,
+    "duration": 38,
     "launchUrl": "https://drive.google.com/file/d/10rH9Tk5sESoHbLkpR0dqUUCS8fEMVbys/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.770Z",
@@ -730,10 +753,11 @@
     "subject": "sub-asset-allocation",
     "reading": "read-cme-1",
     "subReadingTag": "h",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 38,
     "resourceLinks": [
       "https://drive.google.com/file/d/10rH9Tk5sESoHbLkpR0dqUUCS8fEMVbys/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 38
   },
   {
     "id": "lrs-ssci-common-core-24",
@@ -745,7 +769,7 @@
     "losIds": [
       "los-1i"
     ],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "https://drive.google.com/file/d/1PVbJaTm7sr40W4pn1BiIIxnJBEYqDhGW/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.770Z",
@@ -762,10 +786,11 @@
     "subject": "sub-asset-allocation",
     "reading": "read-cme-1",
     "subReadingTag": "i",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/1PVbJaTm7sr40W4pn1BiIIxnJBEYqDhGW/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-25",
@@ -777,7 +802,7 @@
     "losIds": [
       "los-1j"
     ],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "https://drive.google.com/file/d/1lHcsEneJzdUMXzpWDe-4PzW5xBi4LZi0/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.770Z",
@@ -794,10 +819,11 @@
     "subject": "sub-asset-allocation",
     "reading": "read-cme-1",
     "subReadingTag": "j",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/1lHcsEneJzdUMXzpWDe-4PzW5xBi4LZi0/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-26",
@@ -807,7 +833,7 @@
     "description": "Asset Allocation Reading 1 - CME Class 11",
     "readingId": "read-cme-1",
     "losIds": [],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "https://drive.google.com/file/d/1SoV6uT1Ri_YdcIebZqp_jInn1maMCluy/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.770Z",
@@ -824,10 +850,11 @@
     "subject": "sub-asset-allocation",
     "reading": "read-cme-1",
     "subReadingTag": "k",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/1SoV6uT1Ri_YdcIebZqp_jInn1maMCluy/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-27",
@@ -837,7 +864,7 @@
     "description": "Asset Allocation Reading 1 - CME Class 12",
     "readingId": "read-cme-1",
     "losIds": [],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.770Z",
@@ -854,8 +881,9 @@
     "subject": "sub-asset-allocation",
     "reading": "read-cme-1",
     "subReadingTag": "l",
-    "runtimeMinutes": 90,
-    "resourceLinks": []
+    "runtimeMinutes": 0,
+    "resourceLinks": [],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-28",
@@ -865,7 +893,7 @@
     "description": "Asset Allocation Reading 1 - CME Class 13",
     "readingId": "read-cme-1",
     "losIds": [],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "https://drive.google.com/file/d/1PE4maOleHPR5y5bMfmHd66Bz7sEhzxoe/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.770Z",
@@ -882,10 +910,11 @@
     "subject": "sub-asset-allocation",
     "reading": "read-cme-1",
     "subReadingTag": "m",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/1PE4maOleHPR5y5bMfmHd66Bz7sEhzxoe/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-29",
@@ -895,7 +924,7 @@
     "description": "Asset Allocation Reading 1 - CME Class 14 (Capital Market Expectations Part 1 A Short Recap & Discussion on Macro Economics Linkages)",
     "readingId": "read-cme-1",
     "losIds": [],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.770Z",
@@ -912,8 +941,9 @@
     "subject": "sub-asset-allocation",
     "reading": "read-cme-1",
     "subReadingTag": "n",
-    "runtimeMinutes": 90,
-    "resourceLinks": []
+    "runtimeMinutes": 0,
+    "resourceLinks": [],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-30",
@@ -923,7 +953,7 @@
     "description": "Asset Allocation Reading 1 - CME Class 15 (Capital Market Expectations Part 1 Discussion On Negative Interest Rates Analysis Of Monetary & Fiscal Policies & International Linkages)",
     "readingId": "read-cme-1",
     "losIds": [],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.771Z",
@@ -940,8 +970,9 @@
     "subject": "sub-asset-allocation",
     "reading": "read-cme-1",
     "subReadingTag": "o",
-    "runtimeMinutes": 90,
-    "resourceLinks": []
+    "runtimeMinutes": 0,
+    "resourceLinks": [],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-31",
@@ -951,7 +982,7 @@
     "description": "Asset Allocation Reading 2 - CME Class 16 (CME Part 2: Currency Discussion)",
     "readingId": "read-cme-2",
     "losIds": [],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.771Z",
@@ -968,8 +999,9 @@
     "subject": "sub-asset-allocation",
     "reading": "read-cme-2",
     "subReadingTag": "p",
-    "runtimeMinutes": 90,
-    "resourceLinks": []
+    "runtimeMinutes": 0,
+    "resourceLinks": [],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-32",
@@ -999,7 +1031,8 @@
     "reading": "read-deriv-options",
     "subReadingTag": "a",
     "runtimeMinutes": 1,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 1
   },
   {
     "id": "lrs-ssci-common-core-33",
@@ -1029,7 +1062,8 @@
     "reading": "read-deriv-options",
     "subReadingTag": "b",
     "runtimeMinutes": 133,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 133
   },
   {
     "id": "lrs-ssci-common-core-34",
@@ -1059,7 +1093,8 @@
     "reading": "read-deriv-options",
     "subReadingTag": "c",
     "runtimeMinutes": 145,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 145
   },
   {
     "id": "lrs-ssci-common-core-35",
@@ -1089,7 +1124,8 @@
     "reading": "read-deriv-options",
     "subReadingTag": "d",
     "runtimeMinutes": 123,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 123
   },
   {
     "id": "lrs-ssci-common-core-36",
@@ -1121,7 +1157,8 @@
     "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/1HoE2-gRq1Hxfb7b9HUuej2-NuMZjpeLN/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-37",
@@ -1153,7 +1190,8 @@
     "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/1fzxKrIwtGnd5Gd2J44ayGzooOq8Vl9-_/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-38",
@@ -1185,7 +1223,8 @@
     "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/1OVg3R2-KXf76SplY7pj76SDmKuIxJTG-/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-39",
@@ -1217,7 +1256,8 @@
     "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/1WeVcIrQAIQHKvZhLsAcarAr5quZqAU_-/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-40",
@@ -1249,7 +1289,8 @@
     "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/drive/folders/1_9m7b5Y5rAo2cUXgKS_occqVPrXvK9JB?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-41",
@@ -1281,7 +1322,8 @@
     "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/19NJQ_y5XkGNSFMXc5pdP700k44u8YZet/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-42",
@@ -1311,7 +1353,8 @@
     "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/13k4TQc2CXIF6fzfhqTbGm69UcO3RxrrE/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-43",
@@ -1341,7 +1384,8 @@
     "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/1AxJht6sqdeeLTgYapKZy-mLNoF0byNEf/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-44",
@@ -1369,7 +1413,8 @@
     "reading": "read-deriv-options",
     "subReadingTag": "m",
     "runtimeMinutes": 0,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-45",
@@ -1397,7 +1442,8 @@
     "reading": "read-deriv-options",
     "subReadingTag": "n",
     "runtimeMinutes": 0,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-46",
@@ -1425,7 +1471,8 @@
     "reading": "read-deriv-options",
     "subReadingTag": "o",
     "runtimeMinutes": 0,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-47",
@@ -1453,7 +1500,8 @@
     "reading": "read-deriv-options",
     "subReadingTag": "p",
     "runtimeMinutes": 0,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-48",
@@ -1483,7 +1531,8 @@
     "reading": "read-deriv-swaps",
     "subReadingTag": "a",
     "runtimeMinutes": 1,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 1
   },
   {
     "id": "lrs-ssci-common-core-49",
@@ -1513,7 +1562,8 @@
     "reading": "read-deriv-swaps",
     "subReadingTag": "b",
     "runtimeMinutes": 114,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 114
   },
   {
     "id": "lrs-ssci-common-core-50",
@@ -1543,7 +1593,8 @@
     "reading": "read-deriv-swaps",
     "subReadingTag": "c",
     "runtimeMinutes": 115,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 115
   },
   {
     "id": "lrs-ssci-common-core-51",
@@ -1573,7 +1624,8 @@
     "reading": "read-deriv-swaps",
     "subReadingTag": "d",
     "runtimeMinutes": 123,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 123
   },
   {
     "id": "lrs-ssci-common-core-52",
@@ -1603,7 +1655,8 @@
     "reading": "read-deriv-swaps",
     "subReadingTag": "e",
     "runtimeMinutes": 125,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 125
   },
   {
     "id": "lrs-ssci-common-core-53",
@@ -1633,7 +1686,8 @@
     "reading": "read-deriv-swaps",
     "subReadingTag": "f",
     "runtimeMinutes": 128,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 128
   },
   {
     "id": "lrs-ssci-common-core-54",
@@ -1663,7 +1717,8 @@
     "reading": "read-deriv-currency",
     "subReadingTag": "a",
     "runtimeMinutes": 1,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 1
   },
   {
     "id": "lrs-ssci-common-core-55",
@@ -1693,7 +1748,8 @@
     "reading": "read-deriv-currency",
     "subReadingTag": "b",
     "runtimeMinutes": 124,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 124
   },
   {
     "id": "lrs-ssci-common-core-56",
@@ -1723,7 +1779,8 @@
     "reading": "read-deriv-currency",
     "subReadingTag": "c",
     "runtimeMinutes": 110,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 110
   },
   {
     "id": "lrs-ssci-common-core-57",
@@ -1753,7 +1810,8 @@
     "reading": "read-deriv-currency",
     "subReadingTag": "d",
     "runtimeMinutes": 134,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 134
   },
   {
     "id": "lrs-ssci-common-core-58",
@@ -1783,7 +1841,8 @@
     "reading": "read-deriv-currency",
     "subReadingTag": "e",
     "runtimeMinutes": 114,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 114
   },
   {
     "id": "lrs-ssci-common-core-59",
@@ -1813,7 +1872,8 @@
     "reading": "read-deriv-currency",
     "subReadingTag": "f",
     "runtimeMinutes": 131,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 131
   },
   {
     "id": "lrs-ssci-common-core-60",
@@ -1843,7 +1903,8 @@
     "reading": "read-deriv-currency",
     "subReadingTag": "g",
     "runtimeMinutes": 91,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 91
   },
   {
     "id": "lrs-ssci-common-core-61",
@@ -1873,7 +1934,8 @@
     "reading": "read-deriv-currency",
     "subReadingTag": "h",
     "runtimeMinutes": 30,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 30
   },
   {
     "id": "lrs-ssci-common-core-62",
@@ -1905,7 +1967,8 @@
     "runtimeMinutes": 133,
     "resourceLinks": [
       "https://drive.google.com/file/d/15mfl93lK_1Ym6et1wivSKmhNChtAPSex/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 133
   },
   {
     "id": "lrs-ssci-common-core-63",
@@ -1937,7 +2000,8 @@
     "runtimeMinutes": 71,
     "resourceLinks": [
       "https://drive.google.com/file/d/13IKkgh15JSkVMW82OREvKpccrLGzR2qi/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 71
   },
   {
     "id": "lrs-ssci-common-core-64",
@@ -1967,7 +2031,8 @@
     "reading": "read-pc-pwm",
     "subReadingTag": "c",
     "runtimeMinutes": 75,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 75
   },
   {
     "id": "lrs-ssci-common-core-65",
@@ -1997,7 +2062,8 @@
     "reading": "read-pc-pwm",
     "subReadingTag": "d",
     "runtimeMinutes": 56,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 56
   },
   {
     "id": "lrs-ssci-common-core-66",
@@ -2027,7 +2093,8 @@
     "reading": "read-pc-pwm",
     "subReadingTag": "e",
     "runtimeMinutes": 47,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 47
   },
   {
     "id": "lrs-ssci-common-core-68",
@@ -2059,7 +2126,8 @@
     "runtimeMinutes": 85,
     "resourceLinks": [
       "https://drive.google.com/file/d/1zT5h7dCNLZcb1JIFmiqsbiKWiuwJh-Vj/view?usp=sharing"
-    ]
+    ],
+    "durationMinutes": 85
   },
   {
     "id": "lrs-ssci-common-core-69",
@@ -2091,7 +2159,8 @@
     "runtimeMinutes": 107,
     "resourceLinks": [
       "https://drive.google.com/file/d/1KTaBKn22WjuJ91-QNxfckiC1MIy7hgwj/view?usp=sharing"
-    ]
+    ],
+    "durationMinutes": 107
   },
   {
     "id": "lrs-ssci-common-core-70",
@@ -2123,7 +2192,8 @@
     "runtimeMinutes": 115,
     "resourceLinks": [
       "https://drive.google.com/file/d/1GKnN5jqF9gulVoxmS5e05S5pfNkVnmK9/view?usp=sharing"
-    ]
+    ],
+    "durationMinutes": 115
   },
   {
     "id": "lrs-ssci-common-core-71",
@@ -2153,7 +2223,8 @@
     "reading": "read-pc-alternatives",
     "subReadingTag": "d",
     "runtimeMinutes": 77,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 77
   },
   {
     "id": "lrs-ssci-common-core-72",
@@ -2183,7 +2254,8 @@
     "reading": "read-pc-equity",
     "subReadingTag": "a",
     "runtimeMinutes": 77,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 77
   },
   {
     "id": "lrs-ssci-common-core-73",
@@ -2213,7 +2285,8 @@
     "reading": "read-pc-equity",
     "subReadingTag": "b",
     "runtimeMinutes": 111,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 111
   },
   {
     "id": "lrs-ssci-common-core-74",
@@ -2243,7 +2316,8 @@
     "reading": "read-pc-equity",
     "subReadingTag": "c",
     "runtimeMinutes": 40,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 40
   },
   {
     "id": "lrs-ssci-common-core-75",
@@ -2273,7 +2347,8 @@
     "reading": "read-pc-fixed-income",
     "subReadingTag": "a",
     "runtimeMinutes": 60,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 60
   },
   {
     "id": "lrs-ssci-common-core-76",
@@ -2303,7 +2378,8 @@
     "reading": "read-pc-fixed-income",
     "subReadingTag": "a",
     "runtimeMinutes": 75,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 75
   },
   {
     "id": "lrs-ssci-common-core-77",
@@ -2333,7 +2409,8 @@
     "reading": "read-pc-fixed-income",
     "subReadingTag": "b",
     "runtimeMinutes": 72,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 72
   },
   {
     "id": "lrs-ssci-common-core-78",
@@ -2345,7 +2422,7 @@
     "losIds": [
       "los-7b"
     ],
-    "duration": 71,
+    "duration": 72,
     "launchUrl": "",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.771Z",
@@ -2362,8 +2439,9 @@
     "subject": "sub-portfolio-construction",
     "reading": "read-pc-fixed-income",
     "subReadingTag": "b",
-    "runtimeMinutes": 71,
-    "resourceLinks": []
+    "runtimeMinutes": 72,
+    "resourceLinks": [],
+    "durationMinutes": 72
   },
   {
     "id": "lrs-ssci-common-core-80",
@@ -2375,7 +2453,7 @@
     "losIds": [
       "los-7c"
     ],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "https://drive.google.com/file/d/1v492Eo3ksQRYlSM6HI9ZGuOiNFFxztbu/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.771Z",
@@ -2392,10 +2470,11 @@
     "subject": "sub-portfolio-construction",
     "reading": "read-pc-fixed-income",
     "subReadingTag": "c",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/1v492Eo3ksQRYlSM6HI9ZGuOiNFFxztbu/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-81",
@@ -2407,7 +2486,7 @@
     "losIds": [
       "los-7c"
     ],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "https://drive.google.com/file/d/1oBXLczqXquaH_9W3p7IxrKVX8doxWlpn/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.771Z",
@@ -2424,10 +2503,11 @@
     "subject": "sub-portfolio-construction",
     "reading": "read-pc-fixed-income",
     "subReadingTag": "c",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/1oBXLczqXquaH_9W3p7IxrKVX8doxWlpn/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-82",
@@ -2439,7 +2519,7 @@
     "losIds": [
       "los-7c"
     ],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.771Z",
@@ -2456,8 +2536,9 @@
     "subject": "sub-portfolio-construction",
     "reading": "read-pc-fixed-income",
     "subReadingTag": "c",
-    "runtimeMinutes": 90,
-    "resourceLinks": []
+    "runtimeMinutes": 0,
+    "resourceLinks": [],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-83",
@@ -2469,7 +2550,7 @@
     "losIds": [
       "los-7d"
     ],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "https://youtu.be/OXsW67VeVtY?si=hrBajlhD0ajh_25S",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.771Z",
@@ -2486,10 +2567,11 @@
     "subject": "sub-portfolio-construction",
     "reading": "read-pc-fixed-income",
     "subReadingTag": "d",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 0,
     "resourceLinks": [
       "https://youtu.be/OXsW67VeVtY?si=hrBajlhD0ajh_25S"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-84",
@@ -2521,7 +2603,8 @@
     "runtimeMinutes": 131,
     "resourceLinks": [
       "https://drive.google.com/file/d/1UNOgPhsxCNs83czriICGDvNnjus2PZIN/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 131
   },
   {
     "id": "lrs-ssci-common-core-85",
@@ -2553,7 +2636,8 @@
     "runtimeMinutes": 47,
     "resourceLinks": [
       "https://drive.google.com/file/d/1t7W8WCcqpibb7aGwqkDGLmkUZ52sz_kN/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 47
   },
   {
     "id": "lrs-ssci-common-core-86",
@@ -2585,7 +2669,8 @@
     "runtimeMinutes": 42,
     "resourceLinks": [
       "https://drive.google.com/file/d/1pEc6m8UQNI5ts1k4zXbEnBV599CMIKJI/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 42
   },
   {
     "id": "lrs-ssci-common-core-87",
@@ -2615,7 +2700,8 @@
     "reading": "read-pc-trading-costs",
     "subReadingTag": "d",
     "runtimeMinutes": 8,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 8
   },
   {
     "id": "lrs-ssci-common-core-88",
@@ -2645,7 +2731,8 @@
     "reading": "read-pc-trading-costs",
     "subReadingTag": "e",
     "runtimeMinutes": 22,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 22
   },
   {
     "id": "lrs-ssci-common-core-89",
@@ -2675,7 +2762,8 @@
     "reading": "read-pc-trading-costs",
     "subReadingTag": "f",
     "runtimeMinutes": 17,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 17
   },
   {
     "id": "lrs-ssci-common-core-90",
@@ -2707,7 +2795,8 @@
     "runtimeMinutes": 2,
     "resourceLinks": [
       "https://drive.google.com/file/d/1x6_xZwgqd7dqw1xPkuxhT4VKeEZqkw0E/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 2
   },
   {
     "id": "lrs-ssci-common-core-91",
@@ -2739,7 +2828,8 @@
     "runtimeMinutes": 58,
     "resourceLinks": [
       "https://drive.google.com/file/d/1JXXxnIcBMidcnAsJnkESHupR06A2QhFR/view?usp=sharing"
-    ]
+    ],
+    "durationMinutes": 58
   },
   {
     "id": "lrs-ssci-common-core-92",
@@ -2771,7 +2861,8 @@
     "runtimeMinutes": 61,
     "resourceLinks": [
       "https://drive.google.com/file/d/1zjSYOnsJCUoHxqE2TiPnQuWcZHKGphqK/view?usp=sharing"
-    ]
+    ],
+    "durationMinutes": 61
   },
   {
     "id": "lrs-ssci-common-core-93",
@@ -2803,7 +2894,8 @@
     "runtimeMinutes": 59,
     "resourceLinks": [
       "https://drive.google.com/file/d/12fDUsTTDYze-uxAa6SjyuHQ6ZlZs-YqP/view?usp=sharing"
-    ]
+    ],
+    "durationMinutes": 59
   },
   {
     "id": "lrs-ssci-common-core-94",
@@ -2835,7 +2927,8 @@
     "runtimeMinutes": 61,
     "resourceLinks": [
       "https://docs.google.com/presentation/d/1oqkcosFgFyn7whnC-1e3k6FiFPkf92w-/edit?usp=sharing&ouid=117406260527758485526&rtpof=true&sd=true"
-    ]
+    ],
+    "durationMinutes": 61
   },
   {
     "id": "lrs-ssci-common-core-95",
@@ -2865,7 +2958,8 @@
     "reading": "read-pc-institutional",
     "subReadingTag": "d",
     "runtimeMinutes": 94,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 94
   },
   {
     "id": "lrs-ssci-common-core-96",
@@ -2897,7 +2991,8 @@
     "runtimeMinutes": 59,
     "resourceLinks": [
       "https://drive.google.com/file/d/1I9_jP4l1OFEpJWCtcNAgNPLSkA-0Luuj/view?usp=sharing"
-    ]
+    ],
+    "durationMinutes": 59
   },
   {
     "id": "lrs-ssci-common-core-97",
@@ -2929,7 +3024,8 @@
     "runtimeMinutes": 76,
     "resourceLinks": [
       "https://drive.google.com/file/d/1niuTAsGlKKNdCV0kgIR0uHIIJjpDC4Ev/view?usp=sharing\\"
-    ]
+    ],
+    "durationMinutes": 76
   },
   {
     "id": "lrs-ssci-common-core-98",
@@ -2961,7 +3057,8 @@
     "runtimeMinutes": 62,
     "resourceLinks": [
       "https://docs.google.com/spreadsheets/d/1ry54vGaMWXVVYQ7_26Q0H6Yq51mTbZ2G/edit?usp=sharing&ouid=117406260527758485526&rtpof=true&sd=true"
-    ]
+    ],
+    "durationMinutes": 62
   },
   {
     "id": "lrs-ssci-common-core-99",
@@ -2991,7 +3088,8 @@
     "reading": "read-pc-institutional",
     "subReadingTag": "f",
     "runtimeMinutes": 39,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 39
   },
   {
     "id": "lrs-ssci-common-core-100",
@@ -3021,7 +3119,8 @@
     "reading": "read-pc-institutional",
     "subReadingTag": "g",
     "runtimeMinutes": 70,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 70
   },
   {
     "id": "lrs-ssci-common-core-101",
@@ -3051,7 +3150,8 @@
     "reading": "read-pc-institutional",
     "subReadingTag": "h",
     "runtimeMinutes": 73,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 73
   },
   {
     "id": "lrs-ssci-common-core-102",
@@ -3079,7 +3179,8 @@
     "reading": "read-pc-institutional",
     "subReadingTag": "i",
     "runtimeMinutes": 58,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 58
   },
   {
     "id": "lrs-ssci-common-core-103",
@@ -3109,7 +3210,8 @@
     "reading": "read-pc-inst-swf",
     "subReadingTag": "a",
     "runtimeMinutes": 29,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 29
   },
   {
     "id": "lrs-ssci-common-core-104",
@@ -3139,7 +3241,8 @@
     "reading": "read-pc-inst-swf",
     "subReadingTag": "b",
     "runtimeMinutes": 23,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 23
   },
   {
     "id": "lrs-ssci-common-core-105",
@@ -3169,7 +3272,8 @@
     "reading": "read-pc-inst-swf",
     "subReadingTag": "c",
     "runtimeMinutes": 20,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 20
   },
   {
     "id": "lrs-ssci-common-core-106",
@@ -3199,7 +3303,8 @@
     "reading": "read-pc-inst-swf",
     "subReadingTag": "d",
     "runtimeMinutes": 34,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 34
   },
   {
     "id": "lrs-ssci-common-core-107",
@@ -3229,7 +3334,8 @@
     "reading": "read-pc-inst-swf",
     "subReadingTag": "e",
     "runtimeMinutes": 18,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 18
   },
   {
     "id": "lrs-ssci-common-core-108",
@@ -3259,7 +3365,8 @@
     "reading": "read-perf-evaluation",
     "subReadingTag": "a",
     "runtimeMinutes": 1,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 1
   },
   {
     "id": "lrs-ssci-common-core-109",
@@ -3291,7 +3398,8 @@
     "runtimeMinutes": 128,
     "resourceLinks": [
       "https://docs.google.com/presentation/d/12bmTpr0yejSkke61Am9HXias7AEwVYSC/edit?usp=sharing&ouid=101038948391744797770&rtpof=true&sd=true"
-    ]
+    ],
+    "durationMinutes": 128
   },
   {
     "id": "lrs-ssci-common-core-110",
@@ -3321,7 +3429,8 @@
     "reading": "read-perf-evaluation",
     "subReadingTag": "c",
     "runtimeMinutes": 149,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 149
   },
   {
     "id": "lrs-ssci-common-core-111",
@@ -3353,7 +3462,8 @@
     "runtimeMinutes": 22,
     "resourceLinks": [
       "https://docs.google.com/presentation/d/1Rq5PZWny9RUP36jbcK2a_nyB6EihqbTd/edit?usp=sharing&ouid=101038948391744797770&rtpof=true&sd=true"
-    ]
+    ],
+    "durationMinutes": 22
   },
   {
     "id": "lrs-ssci-common-core-112",
@@ -3385,7 +3495,8 @@
     "runtimeMinutes": 40,
     "resourceLinks": [
       "https://docs.google.com/presentation/d/13PSy-C1anRhDjkVa6VrGaLrytFNxftU8/edit?usp=sharing&ouid=101038948391744797770&rtpof=true&sd=true"
-    ]
+    ],
+    "durationMinutes": 40
   },
   {
     "id": "lrs-ssci-common-core-113",
@@ -3417,7 +3528,8 @@
     "runtimeMinutes": 85,
     "resourceLinks": [
       "https://drive.google.com/file/d/1pzHaz5H6L0lQRCKkSPYXVk4OAdPpmIGc/view?usp=sharing"
-    ]
+    ],
+    "durationMinutes": 85
   },
   {
     "id": "lrs-ssci-common-core-114",
@@ -3447,7 +3559,8 @@
     "reading": "read-perf-evaluation",
     "subReadingTag": "g",
     "runtimeMinutes": 68,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 68
   },
   {
     "id": "lrs-ssci-common-core-116",
@@ -3479,7 +3592,8 @@
     "runtimeMinutes": 123,
     "resourceLinks": [
       "https://docs.google.com/presentation/d/1G0K8CRD_r8-Dh8sK8ZNZlEm4fdayjVry/edit?usp=sharing&ouid=101038948391744797770&rtpof=true&sd=true"
-    ]
+    ],
+    "durationMinutes": 123
   },
   {
     "id": "lrs-ssci-common-core-117",
@@ -3511,7 +3625,8 @@
     "runtimeMinutes": 65,
     "resourceLinks": [
       "https://drive.google.com/file/d/1LIGDns6_-6oqKMRvmkZb3cd4dW-St7q5/view?usp=sharing"
-    ]
+    ],
+    "durationMinutes": 65
   },
   {
     "id": "lrs-ssci-common-core-118",
@@ -3543,7 +3658,8 @@
     "runtimeMinutes": 65,
     "resourceLinks": [
       "https://drive.google.com/file/d/1koLfgM53dbjthxeqsX1ZTQoxneaV-_xF/view?usp=sharing"
-    ]
+    ],
+    "durationMinutes": 65
   },
   {
     "id": "lrs-ssci-common-core-119",
@@ -3575,7 +3691,8 @@
     "runtimeMinutes": 95,
     "resourceLinks": [
       "https://drive.google.com/drive/folders/1izl5pIOjmpooDzYchAsmT8nn6nP31-yD?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 95
   },
   {
     "id": "lrs-ssci-common-core-120",
@@ -3607,7 +3724,8 @@
     "runtimeMinutes": 101,
     "resourceLinks": [
       "https://drive.google.com/drive/folders/1hKq-beqbQ8eo52E6Ty0Dn2vJYMseaw63?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 101
   },
   {
     "id": "lrs-ssci-common-core-121",
@@ -3639,7 +3757,8 @@
     "runtimeMinutes": 93,
     "resourceLinks": [
       "https://drive.google.com/drive/folders/1HW8Jr3MD56wc0x6dE63j0z1600QG4oue?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 93
   },
   {
     "id": "lrs-ssci-common-core-122",
@@ -3669,7 +3788,8 @@
     "reading": "read-perf-gips",
     "subReadingTag": "d",
     "runtimeMinutes": 31,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 31
   },
   {
     "id": "lrs-ssci-common-core-123",
@@ -3699,7 +3819,8 @@
     "reading": "read-perf-gips",
     "subReadingTag": "e",
     "runtimeMinutes": 12,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 12
   },
   {
     "id": "lrs-ssci-common-core-124",
@@ -3729,7 +3850,8 @@
     "reading": "read-perf-gips",
     "subReadingTag": "f",
     "runtimeMinutes": 32,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 32
   },
   {
     "id": "lrs-ssci-common-core-125",
@@ -3761,7 +3883,8 @@
     "runtimeMinutes": 40,
     "resourceLinks": [
       "https://drive.google.com/file/d/1gdPOnzjAZD8Bh6zwQ9W0wULX-QPMdk5E/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 40
   },
   {
     "id": "lrs-ssci-common-core-126",
@@ -3789,7 +3912,8 @@
     "reading": "read-eth-asset-code",
     "subReadingTag": "",
     "runtimeMinutes": 17,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 17
   },
   {
     "id": "lrs-ssci-common-core-127",
@@ -3819,7 +3943,8 @@
     "reading": "read-eth-apply",
     "subReadingTag": "a",
     "runtimeMinutes": 1,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 1
   },
   {
     "id": "lrs-ssci-common-core-128",
@@ -3849,7 +3974,8 @@
     "reading": "read-eth-apply",
     "subReadingTag": "b",
     "runtimeMinutes": 123,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 123
   },
   {
     "id": "lrs-ssci-common-core-129",
@@ -3877,7 +4003,8 @@
     "reading": "read-eth-apply",
     "subReadingTag": "c",
     "runtimeMinutes": 38,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 38
   },
   {
     "id": "lrs-ssci-common-core-130",
@@ -3905,7 +4032,8 @@
     "reading": "read-eth-apply",
     "subReadingTag": "d",
     "runtimeMinutes": 25,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 25
   },
   {
     "id": "lrs-ssci-common-core-131",
@@ -3913,7 +4041,7 @@
     "resourceType": "Lecture",
     "title": "Ethics from 30000 ft",
     "description": "Ethical and Professional Standards Reading 20 - Ethics from 30000 ft",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-code",
     "losIds": [],
     "duration": 79,
     "launchUrl": "https://drive.google.com/drive/folders/1NQKNH0mkTLaRPxOfF7Rpgunz1oMVjRnw?usp=drive_link",
@@ -3930,12 +4058,13 @@
     },
     "lectureCode": "5.3.1",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-code",
     "subReadingTag": "",
     "runtimeMinutes": 79,
     "resourceLinks": [
       "https://drive.google.com/drive/folders/1NQKNH0mkTLaRPxOfF7Rpgunz1oMVjRnw?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 79
   },
   {
     "id": "lrs-ssci-common-core-132",
@@ -3963,7 +4092,8 @@
     "reading": "read-eth-std-1",
     "subReadingTag": "",
     "runtimeMinutes": 112,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 112
   },
   {
     "id": "lrs-ssci-common-core-133",
@@ -3991,7 +4121,8 @@
     "reading": "read-eth-std-1",
     "subReadingTag": "",
     "runtimeMinutes": 102,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 102
   },
   {
     "id": "lrs-ssci-common-core-134",
@@ -4019,7 +4150,8 @@
     "reading": "read-eth-std-1",
     "subReadingTag": "",
     "runtimeMinutes": 118,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 118
   },
   {
     "id": "lrs-ssci-common-core-135",
@@ -4047,7 +4179,8 @@
     "reading": "read-eth-std-1",
     "subReadingTag": "",
     "runtimeMinutes": 77,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 77
   },
   {
     "id": "lrs-ssci-common-core-136",
@@ -4055,7 +4188,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I–VII and its Applications LM 3 and 5 Class 4 CW Part 2- Optional",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I–VII and its Applications LM 3 and 5 Class 4 CW Part 2- Optional",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-2",
     "losIds": [],
     "duration": 31,
     "launchUrl": "",
@@ -4072,10 +4205,11 @@
     },
     "lectureCode": "5.3.6",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-2",
     "subReadingTag": "",
     "runtimeMinutes": 31,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 31
   },
   {
     "id": "lrs-ssci-common-core-137",
@@ -4083,7 +4217,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I–VII and its Applications LM 3 and 5 Class 5 CW",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I–VII and its Applications LM 3 and 5 Class 5 CW",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-2",
     "losIds": [],
     "duration": 111,
     "launchUrl": "",
@@ -4100,10 +4234,11 @@
     },
     "lectureCode": "5.3.7",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-2",
     "subReadingTag": "",
     "runtimeMinutes": 111,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 111
   },
   {
     "id": "lrs-ssci-common-core-138",
@@ -4111,7 +4246,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I-VII and its Applications LM 3 and 5 Class 5 Part 2- Optional",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I-VII and its Applications LM 3 and 5 Class 5 Part 2- Optional",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-2",
     "losIds": [],
     "duration": 67,
     "launchUrl": "",
@@ -4128,10 +4263,11 @@
     },
     "lectureCode": "5.3.8",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-2",
     "subReadingTag": "",
     "runtimeMinutes": 67,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 67
   },
   {
     "id": "lrs-ssci-common-core-139",
@@ -4139,7 +4275,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I–VII and its Applications LM 3 and 5 Class 6 CW",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I–VII and its Applications LM 3 and 5 Class 6 CW",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-2",
     "losIds": [],
     "duration": 99,
     "launchUrl": "",
@@ -4156,10 +4292,11 @@
     },
     "lectureCode": "5.3.9",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-2",
     "subReadingTag": "",
     "runtimeMinutes": 99,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 99
   },
   {
     "id": "lrs-ssci-common-core-140",
@@ -4167,7 +4304,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I-VII and its Applications LM 3 and 5 Class 6 Part 2 Optional",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I-VII and its Applications LM 3 and 5 Class 6 Part 2 Optional",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-3",
     "losIds": [],
     "duration": 67,
     "launchUrl": "",
@@ -4184,10 +4321,11 @@
     },
     "lectureCode": "5.3.10",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-3",
     "subReadingTag": "",
     "runtimeMinutes": 67,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 67
   },
   {
     "id": "lrs-ssci-common-core-141",
@@ -4195,7 +4333,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I–VII and its Applications LM 3 and 5 Class 7 CW",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I–VII and its Applications LM 3 and 5 Class 7 CW",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-3",
     "losIds": [],
     "duration": 90,
     "launchUrl": "",
@@ -4212,10 +4350,11 @@
     },
     "lectureCode": "5.3.11",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-3",
     "subReadingTag": "",
     "runtimeMinutes": 90,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 90
   },
   {
     "id": "lrs-ssci-common-core-142",
@@ -4223,7 +4362,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I-VII and its Applications LM 3 and 5 Class 7 Part 2 Optional",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I-VII and its Applications LM 3 and 5 Class 7 Part 2 Optional",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-3",
     "losIds": [],
     "duration": 20,
     "launchUrl": "",
@@ -4240,10 +4379,11 @@
     },
     "lectureCode": "5.3.12",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-3",
     "subReadingTag": "",
     "runtimeMinutes": 20,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 20
   },
   {
     "id": "lrs-ssci-common-core-143",
@@ -4251,7 +4391,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I–VII and its Applications LM 3 and 5 Class 8 CW",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I–VII and its Applications LM 3 and 5 Class 8 CW",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-3",
     "losIds": [],
     "duration": 76,
     "launchUrl": "",
@@ -4268,10 +4408,11 @@
     },
     "lectureCode": "5.3.13",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-3",
     "subReadingTag": "",
     "runtimeMinutes": 76,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 76
   },
   {
     "id": "lrs-ssci-common-core-144",
@@ -4279,7 +4420,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I-VII and its Applications LM 3 and 5 Class 8 Part 2 Optional",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I-VII and its Applications LM 3 and 5 Class 8 Part 2 Optional",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-4",
     "losIds": [],
     "duration": 13,
     "launchUrl": "",
@@ -4296,10 +4437,11 @@
     },
     "lectureCode": "5.3.14",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-4",
     "subReadingTag": "",
     "runtimeMinutes": 13,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 13
   },
   {
     "id": "lrs-ssci-common-core-145",
@@ -4307,7 +4449,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I–VII and its Applications LM 3 and 5 Class 9 CW",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I–VII and its Applications LM 3 and 5 Class 9 CW",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-4",
     "losIds": [],
     "duration": 111,
     "launchUrl": "",
@@ -4324,10 +4466,11 @@
     },
     "lectureCode": "5.3.15",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-4",
     "subReadingTag": "",
     "runtimeMinutes": 111,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 111
   },
   {
     "id": "lrs-ssci-common-core-146",
@@ -4335,7 +4478,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I-VII and its Applications LM 3 and 5 Class 9 Part 2 Optional",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I-VII and its Applications LM 3 and 5 Class 9 Part 2 Optional",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-4",
     "losIds": [],
     "duration": 43,
     "launchUrl": "",
@@ -4352,10 +4495,11 @@
     },
     "lectureCode": "5.3.16",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-4",
     "subReadingTag": "",
     "runtimeMinutes": 43,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 43
   },
   {
     "id": "lrs-ssci-common-core-147",
@@ -4363,7 +4507,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I–VII and its Applications LM 3 and 5 Class 10 CW",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I–VII and its Applications LM 3 and 5 Class 10 CW",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-4",
     "losIds": [],
     "duration": 109,
     "launchUrl": "",
@@ -4380,10 +4524,11 @@
     },
     "lectureCode": "5.3.17",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-4",
     "subReadingTag": "",
     "runtimeMinutes": 109,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 109
   },
   {
     "id": "lrs-ssci-common-core-148",
@@ -4391,7 +4536,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I-VII and its Applications LM 3 and 5 Class 10 Part 2 Optional",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I-VII and its Applications LM 3 and 5 Class 10 Part 2 Optional",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-5",
     "losIds": [],
     "duration": 25,
     "launchUrl": "",
@@ -4408,10 +4553,11 @@
     },
     "lectureCode": "5.3.18",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-5",
     "subReadingTag": "",
     "runtimeMinutes": 25,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 25
   },
   {
     "id": "lrs-ssci-common-core-149",
@@ -4419,7 +4565,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I–VII and its Applications LM 3 and 5 Class 11 CW",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I–VII and its Applications LM 3 and 5 Class 11 CW",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-5",
     "losIds": [],
     "duration": 104,
     "launchUrl": "",
@@ -4436,10 +4582,11 @@
     },
     "lectureCode": "5.3.19",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-5",
     "subReadingTag": "",
     "runtimeMinutes": 104,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 104
   },
   {
     "id": "lrs-ssci-common-core-150",
@@ -4447,7 +4594,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I-VII and its Applications LM 3 and 5 Class 11 Part 2 Optional",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I-VII and its Applications LM 3 and 5 Class 11 Part 2 Optional",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-5",
     "losIds": [],
     "duration": 25,
     "launchUrl": "",
@@ -4464,10 +4611,11 @@
     },
     "lectureCode": "5.3.20",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-5",
     "subReadingTag": "",
     "runtimeMinutes": 25,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 25
   },
   {
     "id": "lrs-ssci-common-core-151",
@@ -4475,7 +4623,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I–VII and its Applications LM 3 and 5 Class 12 CW",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I–VII and its Applications LM 3 and 5 Class 12 CW",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-5",
     "losIds": [],
     "duration": 105,
     "launchUrl": "",
@@ -4492,10 +4640,11 @@
     },
     "lectureCode": "5.3.21",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-5",
     "subReadingTag": "",
     "runtimeMinutes": 105,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 105
   },
   {
     "id": "lrs-ssci-common-core-152",
@@ -4503,7 +4652,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I-VII and its Applications LM 3 and 5 Class 12 Part 2 Optional",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I-VII and its Applications LM 3 and 5 Class 12 Part 2 Optional",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-6",
     "losIds": [],
     "duration": 43,
     "launchUrl": "",
@@ -4520,10 +4669,11 @@
     },
     "lectureCode": "5.3.22",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-6",
     "subReadingTag": "",
     "runtimeMinutes": 43,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 43
   },
   {
     "id": "lrs-ssci-common-core-153",
@@ -4531,7 +4681,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I–VII and its Applications LM 3 and 5 Class 13 CW",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I–VII and its Applications LM 3 and 5 Class 13 CW",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-6",
     "losIds": [],
     "duration": 95,
     "launchUrl": "",
@@ -4548,10 +4698,11 @@
     },
     "lectureCode": "5.3.23",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-6",
     "subReadingTag": "",
     "runtimeMinutes": 95,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 95
   },
   {
     "id": "lrs-ssci-common-core-154",
@@ -4559,7 +4710,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I–VII and its Applications LM 3 and 5 Class 14 CW",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I–VII and its Applications LM 3 and 5 Class 14 CW",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-6",
     "losIds": [],
     "duration": 95,
     "launchUrl": "",
@@ -4576,10 +4727,11 @@
     },
     "lectureCode": "5.3.24",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-6",
     "subReadingTag": "",
     "runtimeMinutes": 95,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 95
   },
   {
     "id": "lrs-ssci-common-core-155",
@@ -4587,7 +4739,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I-VII and its Applications LM 3 and 5 Class 14 Part 2 Optional",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I-VII and its Applications LM 3 and 5 Class 14 Part 2 Optional",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-6",
     "losIds": [],
     "duration": 55,
     "launchUrl": "",
@@ -4604,10 +4756,11 @@
     },
     "lectureCode": "5.3.25",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-6",
     "subReadingTag": "",
     "runtimeMinutes": 55,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 55
   },
   {
     "id": "lrs-ssci-common-core-156",
@@ -4615,7 +4768,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I–VII and its Applications LM 3 and 5 Class 15 CW",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I–VII and its Applications LM 3 and 5 Class 15 CW",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-7",
     "losIds": [],
     "duration": 79,
     "launchUrl": "",
@@ -4632,10 +4785,11 @@
     },
     "lectureCode": "5.3.26",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-7",
     "subReadingTag": "",
     "runtimeMinutes": 79,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 79
   },
   {
     "id": "lrs-ssci-common-core-157",
@@ -4643,7 +4797,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I–VII and its Applications LM 3 and 5 Class 15 Part 2 CW",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I–VII and its Applications LM 3 and 5 Class 15 Part 2 CW",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-7",
     "losIds": [],
     "duration": 22,
     "launchUrl": "",
@@ -4660,10 +4814,11 @@
     },
     "lectureCode": "5.3.27",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-7",
     "subReadingTag": "",
     "runtimeMinutes": 22,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 22
   },
   {
     "id": "lrs-ssci-common-core-158",
@@ -4671,7 +4826,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I–VII and its Applications LM 3 and 5 Class 16 CW",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I–VII and its Applications LM 3 and 5 Class 16 CW",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-7",
     "losIds": [],
     "duration": 75,
     "launchUrl": "",
@@ -4688,10 +4843,11 @@
     },
     "lectureCode": "5.3.28",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-7",
     "subReadingTag": "",
     "runtimeMinutes": 75,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 75
   },
   {
     "id": "lrs-ssci-common-core-159",
@@ -4699,7 +4855,7 @@
     "resourceType": "Lecture",
     "title": "Guidance for Standards I–VII and its Applications LM 3 and 5 Class 17 CW",
     "description": "Ethical and Professional Standards Reading 20 - Guidance for Standards I–VII and its Applications LM 3 and 5 Class 17 CW",
-    "readingId": "read-eth-std-1",
+    "readingId": "read-eth-std-7",
     "losIds": [],
     "duration": 84,
     "launchUrl": "",
@@ -4716,10 +4872,11 @@
     },
     "lectureCode": "5.3.29",
     "subject": "sub-ethical-professional",
-    "reading": "read-eth-std-1",
+    "reading": "read-eth-std-7",
     "subReadingTag": "",
     "runtimeMinutes": 84,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 84
   },
   {
     "id": "lrs-ssci-common-core-160",
@@ -4751,7 +4908,8 @@
     "runtimeMinutes": 39,
     "resourceLinks": [
       "https://drive.google.com/file/d/1RfjnofAD9qTASHgXlycyAUiucHOTLKWo/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 39
   },
   {
     "id": "lrs-ssci-common-core-161",
@@ -4761,7 +4919,7 @@
     "description": "Ethical and Professional Standards Reading 27 - CFA Level 3 - Constructed Response Bootcamp – Practice, Structure & Scoring Class 1",
     "readingId": "read-eth-apply",
     "losIds": [],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "https://drive.google.com/file/d/11BpgkkzTYpZxU9d7ZT-INB1x-maTDwb3/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.772Z",
@@ -4778,10 +4936,11 @@
     "subject": "sub-ethical-professional",
     "reading": "read-eth-apply",
     "subReadingTag": "",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/11BpgkkzTYpZxU9d7ZT-INB1x-maTDwb3/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-common-core-162",
@@ -4791,7 +4950,7 @@
     "description": "Ethical and Professional Standards Reading 27 - CFA Level 3 - Constructed Response Bootcamp – Practice, Structure & Scoring Class 2",
     "readingId": "read-eth-apply",
     "losIds": [],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "https://drive.google.com/file/d/1H591cOZnjoNUSvFfEvcQ9kpWNMAEAEvA/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.772Z",
@@ -4808,10 +4967,11 @@
     "subject": "sub-ethical-professional",
     "reading": "read-eth-apply",
     "subReadingTag": "",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/1H591cOZnjoNUSvFfEvcQ9kpWNMAEAEvA/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-0",
@@ -4843,7 +5003,8 @@
     "runtimeMinutes": 66,
     "resourceLinks": [
       "https://drive.google.com/file/d/16vA-U-gry-gyGZYnSU68vm4EhV07lhJo/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 66
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-1",
@@ -4873,7 +5034,8 @@
     "reading": "read-path-index-eq",
     "subReadingTag": "b",
     "runtimeMinutes": 89,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 89
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-2",
@@ -4903,7 +5065,8 @@
     "reading": "read-path-index-eq",
     "subReadingTag": "b",
     "runtimeMinutes": 39,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 39
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-3",
@@ -4933,7 +5096,8 @@
     "reading": "read-path-index-eq",
     "subReadingTag": "c",
     "runtimeMinutes": 13,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 13
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-4",
@@ -4963,7 +5127,8 @@
     "reading": "read-path-index-eq",
     "subReadingTag": "c",
     "runtimeMinutes": 113,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 113
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-5",
@@ -4993,7 +5158,8 @@
     "reading": "read-path-active-eq",
     "subReadingTag": "a",
     "runtimeMinutes": 88,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 88
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-6",
@@ -5023,7 +5189,8 @@
     "reading": "read-path-active-eq",
     "subReadingTag": "b",
     "runtimeMinutes": 119,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 119
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-7",
@@ -5053,7 +5220,8 @@
     "reading": "read-path-active-eq",
     "subReadingTag": "c",
     "runtimeMinutes": 99,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 99
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-8",
@@ -5083,7 +5251,8 @@
     "reading": "read-path-active-eq",
     "subReadingTag": "d",
     "runtimeMinutes": 133,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 133
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-9",
@@ -5113,7 +5282,8 @@
     "reading": "read-path-active-eq-const",
     "subReadingTag": "a",
     "runtimeMinutes": 112,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 112
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-10",
@@ -5143,7 +5313,8 @@
     "reading": "read-path-active-eq-const",
     "subReadingTag": "b",
     "runtimeMinutes": 106,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 106
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-11",
@@ -5173,7 +5344,8 @@
     "reading": "read-path-active-eq-const",
     "subReadingTag": "c",
     "runtimeMinutes": 133,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 133
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-12",
@@ -5203,7 +5375,8 @@
     "reading": "read-path-active-eq-const",
     "subReadingTag": "d",
     "runtimeMinutes": 140,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 140
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-13",
@@ -5235,7 +5408,8 @@
     "runtimeMinutes": 69,
     "resourceLinks": [
       "https://docs.google.com/spreadsheets/d/1pxti0x3OkZ_7T9pVhMedoVsVfwyWvh5U/edit?usp=sharing&ouid=101038948391744797770&rtpof=true&sd=true"
-    ]
+    ],
+    "durationMinutes": 69
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-14",
@@ -5267,7 +5441,8 @@
     "runtimeMinutes": 61,
     "resourceLinks": [
       "https://drive.google.com/file/d/1DH24o0iDIP4WPOxnHWAXfJhsydkchSX3/view?usp=sharing"
-    ]
+    ],
+    "durationMinutes": 61
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-15",
@@ -5300,7 +5475,8 @@
     "resourceLinks": [
       "https://docs.google.com/spreadsheets/d/19ugl4XIvcoRixCLPEZzlDON1JwDsQx2u/edit?usp=sharing&ouid=101038948391744797770&rtpof=true&sd=true",
       "https://docs.google.com/spreadsheets/d/1dP8WcdvKMfoDebzeTElFb_zm0vMJuaJx/edit?usp=sharing&ouid=117406260527758485526&rtpof=true&sd=true"
-    ]
+    ],
+    "durationMinutes": 58
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-16",
@@ -5330,7 +5506,8 @@
     "reading": "read-path-ldi",
     "subReadingTag": "b",
     "runtimeMinutes": 54,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 54
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-17",
@@ -5360,7 +5537,8 @@
     "reading": "read-path-ldi",
     "subReadingTag": "c",
     "runtimeMinutes": 59,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 59
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-18",
@@ -5390,7 +5568,8 @@
     "reading": "read-path-ldi",
     "subReadingTag": "c",
     "runtimeMinutes": 64,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 64
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-19",
@@ -5420,7 +5599,8 @@
     "reading": "read-path-ldi",
     "subReadingTag": "d",
     "runtimeMinutes": 63,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 63
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-20",
@@ -5450,7 +5630,8 @@
     "reading": "read-path-ldi",
     "subReadingTag": "d",
     "runtimeMinutes": 66,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 66
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-21",
@@ -5480,7 +5661,8 @@
     "reading": "read-path-ldi",
     "subReadingTag": "e",
     "runtimeMinutes": 56,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 56
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-22",
@@ -5510,7 +5692,8 @@
     "reading": "read-path-ldi",
     "subReadingTag": "e",
     "runtimeMinutes": 56,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 56
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-23",
@@ -5540,7 +5723,8 @@
     "reading": "read-path-ldi",
     "subReadingTag": "f",
     "runtimeMinutes": 105,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 105
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-24",
@@ -5570,7 +5754,8 @@
     "reading": "read-path-yc",
     "subReadingTag": "a",
     "runtimeMinutes": 60,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 60
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-25",
@@ -5600,7 +5785,8 @@
     "reading": "read-path-yc",
     "subReadingTag": "b",
     "runtimeMinutes": 72,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 72
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-26",
@@ -5630,7 +5816,8 @@
     "reading": "read-path-yc",
     "subReadingTag": "c",
     "runtimeMinutes": 70,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 70
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-27",
@@ -5660,7 +5847,8 @@
     "reading": "read-path-yc",
     "subReadingTag": "d",
     "runtimeMinutes": 22,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 22
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-28",
@@ -5690,7 +5878,8 @@
     "reading": "read-path-yc",
     "subReadingTag": "e",
     "runtimeMinutes": 32,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 32
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-29",
@@ -5720,7 +5909,8 @@
     "reading": "read-path-fi-credit",
     "subReadingTag": "a",
     "runtimeMinutes": 53,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 53
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-30",
@@ -5750,7 +5940,8 @@
     "reading": "read-path-fi-credit",
     "subReadingTag": "b",
     "runtimeMinutes": 60,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 60
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-31",
@@ -5780,7 +5971,8 @@
     "reading": "read-path-fi-credit",
     "subReadingTag": "c",
     "runtimeMinutes": 60,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 60
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-32",
@@ -5810,7 +6002,8 @@
     "reading": "read-path-fi-credit",
     "subReadingTag": "d",
     "runtimeMinutes": 31,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 31
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-33",
@@ -5840,7 +6033,8 @@
     "reading": "read-path-fi-credit",
     "subReadingTag": "e",
     "runtimeMinutes": 22,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 22
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-34",
@@ -5870,7 +6064,8 @@
     "reading": "read-path-fi-credit",
     "subReadingTag": "f",
     "runtimeMinutes": 23,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 23
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-35",
@@ -5900,7 +6095,8 @@
     "reading": "read-path-fi-credit",
     "subReadingTag": "g",
     "runtimeMinutes": 84,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 84
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-36",
@@ -5930,7 +6126,8 @@
     "reading": "read-path-fi-credit",
     "subReadingTag": "h",
     "runtimeMinutes": 76,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 76
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-37",
@@ -5960,7 +6157,8 @@
     "reading": "read-path-fi-credit",
     "subReadingTag": "i",
     "runtimeMinutes": 29,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 29
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-38",
@@ -5990,7 +6188,8 @@
     "reading": "read-path-fi-credit",
     "subReadingTag": "j",
     "runtimeMinutes": 36,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 36
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-39",
@@ -6022,7 +6221,8 @@
     "runtimeMinutes": 84,
     "resourceLinks": [
       "https://drive.google.com/file/d/1WKzksLQLJZfDdu9-lzb8g6DuPmKkUi0V/view?usp=sharing"
-    ]
+    ],
+    "durationMinutes": 84
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-40",
@@ -6054,7 +6254,8 @@
     "runtimeMinutes": 11,
     "resourceLinks": [
       "https://drive.google.com/file/d/1OhpC-G4A-M4dhfpUC7xlqETc4JA-ZZyg/view?usp=sharing"
-    ]
+    ],
+    "durationMinutes": 11
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-41",
@@ -6086,7 +6287,8 @@
     "runtimeMinutes": 1,
     "resourceLinks": [
       "https://docs.google.com/presentation/d/17r2dKNyUOUqXXuBZmj7y_ppfAqXyOY_h/edit?usp=sharing&ouid=101038948391744797770&rtpof=true&sd=true"
-    ]
+    ],
+    "durationMinutes": 1
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-42",
@@ -6116,7 +6318,8 @@
     "reading": "read-path-trade-exec",
     "subReadingTag": "b",
     "runtimeMinutes": 121,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 121
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-43",
@@ -6146,7 +6349,8 @@
     "reading": "read-path-trade-exec",
     "subReadingTag": "c",
     "runtimeMinutes": 29,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 29
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-44",
@@ -6176,7 +6380,8 @@
     "reading": "read-path-trade-exec",
     "subReadingTag": "d",
     "runtimeMinutes": 23,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 23
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-45",
@@ -6206,7 +6411,8 @@
     "reading": "read-path-trade-exec",
     "subReadingTag": "e",
     "runtimeMinutes": 38,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 38
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-46",
@@ -6238,7 +6444,8 @@
     "runtimeMinutes": 40,
     "resourceLinks": [
       "https://drive.google.com/file/d/1tzejL5kKCV3SkuVc3BzuTfD9bdM-eLdm/view?usp=sharing"
-    ]
+    ],
+    "durationMinutes": 40
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-47",
@@ -6268,7 +6475,8 @@
     "reading": "read-path-trade-exec",
     "subReadingTag": "f",
     "runtimeMinutes": 35,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 35
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-48",
@@ -6300,7 +6508,8 @@
     "runtimeMinutes": 39,
     "resourceLinks": [
       "https://drive.google.com/file/d/16ComOpi18APwDiTa6scNLfl-RutPS-KL/view?usp=sharing"
-    ]
+    ],
+    "durationMinutes": 39
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-49",
@@ -6332,7 +6541,8 @@
     "runtimeMinutes": 80,
     "resourceLinks": [
       "https://drive.google.com/file/d/1zNqdWHxKTGHzXI-yMnod52hw0r0VTky4/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 80
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-50",
@@ -6364,7 +6574,8 @@
     "runtimeMinutes": 67,
     "resourceLinks": [
       "https://drive.google.com/file/d/1FiZjSnB92cBCCYfR-ps_K0lR8tkbVxXU/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 67
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-51",
@@ -6394,7 +6605,8 @@
     "reading": "read-path-fi-credit",
     "subReadingTag": "c",
     "runtimeMinutes": 70,
-    "resourceLinks": []
+    "resourceLinks": [],
+    "durationMinutes": 70
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-52",
@@ -6426,7 +6638,8 @@
     "runtimeMinutes": 85,
     "resourceLinks": [
       "https://drive.google.com/file/d/1pJFnadyHRCV3ExChFV8Zl8J2kJZpg5ss/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 85
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-53",
@@ -6458,7 +6671,8 @@
     "runtimeMinutes": 50,
     "resourceLinks": [
       "https://drive.google.com/file/d/1o3Bvj2LpyRqdmW2EJXEAgchPKn-3yTjf/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 50
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-54",
@@ -6490,7 +6704,8 @@
     "runtimeMinutes": 62,
     "resourceLinks": [
       "https://drive.google.com/file/d/1C1bNB7RxtWlZcdUc_9wJeYNb88MqJyWw/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 62
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-55",
@@ -6522,7 +6737,8 @@
     "runtimeMinutes": 53,
     "resourceLinks": [
       "https://drive.google.com/file/d/1K_c1m_9OYn5QkXCk89s7Vg4GPu-6YedY/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 53
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-56",
@@ -6554,7 +6770,8 @@
     "runtimeMinutes": 38,
     "resourceLinks": [
       "https://drive.google.com/drive/folders/1WOYbk9VOfABzD2yGavqdPs5x3Y13BWTo?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 38
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-57",
@@ -6566,7 +6783,7 @@
     "losIds": [
       "los-p6i"
     ],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "https://drive.google.com/file/d/19zH9ZnRI_GzpZjF0YDcyRQFBGDe6jp7I/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.775Z",
@@ -6583,10 +6800,11 @@
     "subject": "sub-portfolio-mgmt-pathway",
     "reading": "read-path-fi-credit",
     "subReadingTag": "i",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/19zH9ZnRI_GzpZjF0YDcyRQFBGDe6jp7I/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-58",
@@ -6598,7 +6816,7 @@
     "losIds": [
       "los-p6k"
     ],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "https://drive.google.com/file/d/1VJ8CLcBYpMPKgd88IY9ml1JCX4fzzLEg/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.775Z",
@@ -6615,10 +6833,11 @@
     "subject": "sub-portfolio-mgmt-pathway",
     "reading": "read-path-fi-credit",
     "subReadingTag": "k",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/1VJ8CLcBYpMPKgd88IY9ml1JCX4fzzLEg/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-59",
@@ -6628,7 +6847,7 @@
     "description": "Portfolio Management Pathway Reading 34 - Fixed-Income Active Management: Credit Strategies CLS 11",
     "readingId": "read-path-fi-credit",
     "losIds": [],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "https://drive.google.com/file/d/10ldDK7JLYD3jc7cW5tNga5Pf_qn-y39M/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.775Z",
@@ -6645,10 +6864,11 @@
     "subject": "sub-portfolio-mgmt-pathway",
     "reading": "read-path-fi-credit",
     "subReadingTag": "l",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/10ldDK7JLYD3jc7cW5tNga5Pf_qn-y39M/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-60",
@@ -6658,7 +6878,7 @@
     "description": "Portfolio Management Pathway Reading 34 - Fixed-Income Active Management: Credit Strategies CLS 12",
     "readingId": "read-path-fi-credit",
     "losIds": [],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "https://drive.google.com/file/d/1EAOFQHKawOruirvo_iPwfcwFSQWT_PK9/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.775Z",
@@ -6675,10 +6895,11 @@
     "subject": "sub-portfolio-mgmt-pathway",
     "reading": "read-path-fi-credit",
     "subReadingTag": "m",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/1EAOFQHKawOruirvo_iPwfcwFSQWT_PK9/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-61",
@@ -6688,7 +6909,7 @@
     "description": "Portfolio Management Pathway Reading 34 - Fixed-Income Active Management: Credit Strategies CLS 13",
     "readingId": "read-path-fi-credit",
     "losIds": [],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "https://drive.google.com/drive/folders/1c9LOg1-ih2_dxoFPaBuSkz-mL2ETicwQ?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.775Z",
@@ -6705,10 +6926,11 @@
     "subject": "sub-portfolio-mgmt-pathway",
     "reading": "read-path-fi-credit",
     "subReadingTag": "n",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/drive/folders/1c9LOg1-ih2_dxoFPaBuSkz-mL2ETicwQ?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-62",
@@ -6718,7 +6940,7 @@
     "description": "Portfolio Management Pathway Reading 34 - Fixed-Income Active Management: Credit Strategies CLS 14",
     "readingId": "read-path-fi-credit",
     "losIds": [],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "https://drive.google.com/file/d/1ugRQCQoOLINClcVJwyGHleRgwX663D87/view?usp=drive_link",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.775Z",
@@ -6735,10 +6957,11 @@
     "subject": "sub-portfolio-mgmt-pathway",
     "reading": "read-path-fi-credit",
     "subReadingTag": "o",
-    "runtimeMinutes": 90,
+    "runtimeMinutes": 0,
     "resourceLinks": [
       "https://drive.google.com/file/d/1ugRQCQoOLINClcVJwyGHleRgwX663D87/view?usp=drive_link"
-    ]
+    ],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-63",
@@ -6748,7 +6971,7 @@
     "description": "Portfolio Management Pathway Reading 34 - Fixed-Income Active Management: Credit Strategies CLS 15",
     "readingId": "read-path-fi-credit",
     "losIds": [],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.775Z",
@@ -6765,8 +6988,9 @@
     "subject": "sub-portfolio-mgmt-pathway",
     "reading": "read-path-fi-credit",
     "subReadingTag": "p",
-    "runtimeMinutes": 90,
-    "resourceLinks": []
+    "runtimeMinutes": 0,
+    "resourceLinks": [],
+    "durationMinutes": 0
   },
   {
     "id": "lrs-ssci-portfolio-management-pathway-64",
@@ -6776,7 +7000,7 @@
     "description": "Portfolio Management Pathway Reading 34 - Fixed-Income Active Management: Credit Strategies CLS 16",
     "readingId": "read-path-fi-credit",
     "losIds": [],
-    "duration": 90,
+    "duration": 0,
     "launchUrl": "",
     "importMetadata": {
       "importedAt": "2026-07-14T05:07:07.775Z",
@@ -6793,7 +7017,8 @@
     "subject": "sub-portfolio-mgmt-pathway",
     "reading": "read-path-fi-credit",
     "subReadingTag": "q",
-    "runtimeMinutes": 90,
-    "resourceLinks": []
+    "runtimeMinutes": 0,
+    "resourceLinks": [],
+    "durationMinutes": 0
   }
 ]

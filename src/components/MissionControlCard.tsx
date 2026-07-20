@@ -788,6 +788,7 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
   const { missionControl, execution, coachRepository } = useMissionControl();
 
   const [expandedPhases, setExpandedPhases] = React.useState<Record<string, boolean>>({});
+  const [isBriefExplanationExpanded, setIsBriefExplanationExpanded] = React.useState<boolean>(false);
   const [jobs, setJobs] = React.useState<AiJob[]>([]);
   const [updateTrigger, setUpdateTrigger] = React.useState(0);
 
@@ -1218,60 +1219,87 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
     <div className="bg-white dark:bg-[#101116] border border-slate-200 dark:border-[#1e2026] relative overflow-hidden rounded-xl shadow-md">
       <div className="absolute top-0 left-0 w-0.5 h-full bg-slate-900 dark:bg-slate-200" />
 
-      {/* AI Study Brief Explanation Panel with Checklist */}
+      {/* AI Study Brief Explanation Panel with Checklist (Collapsible & Expandable) */}
       {explain && (
-        <div className="p-4 bg-slate-50/50 dark:bg-[#15161d]/30 border-b border-slate-100 dark:border-[#1e2026]/80 text-[11px] leading-relaxed">
-          <div className="flex items-center justify-between mb-2">
-            <span className="font-bold text-indigo-400 font-mono uppercase tracking-widest flex items-center gap-1.5 text-[9px]">
-              <Sparkles size={11} className="text-amber-500" /> AI Study Brief Explanation
-            </span>
-            <span className="px-2 py-0.5 rounded font-mono font-bold text-[9px] bg-indigo-500/15 text-indigo-400 border border-indigo-500/20">
-              Priority: {explain.priorityScore}/100
-            </span>
-          </div>
-          <div className="space-y-1.5 text-slate-350 dark:text-slate-350">
-            <p>
-              <strong className="text-slate-400 dark:text-slate-400 font-mono">Selection Method: </strong>
-              <span className="px-1.5 py-0.2 bg-slate-200 dark:bg-slate-800 rounded font-semibold text-slate-300 dark:text-slate-200">{explain.selectionMethod}</span>
-            </p>
-            <p>
-              <strong className="text-slate-400 dark:text-slate-400 font-mono">Why This Reading: </strong>
-              {explain.whySelected}
-            </p>
-            <p>
-              <strong className="text-slate-400 dark:text-slate-400 font-mono">Why Now: </strong>
-              {explain.whyNow}
-            </p>
-            <p>
-              <strong className="text-slate-400 dark:text-slate-400 font-mono">Expected Outcome: </strong>
-              {explain.expectedOutcome}
-            </p>
-            {explain.blockingFactors && explain.blockingFactors.length > 0 && (
-              <p className="text-rose-400 font-mono text-[10px] flex items-center gap-1">
-                <AlertTriangle size={10} /> Blocking Factors: {explain.blockingFactors.join(', ')}
-              </p>
-            )}
+        <div className="bg-slate-50/50 dark:bg-[#15161d]/30 border-b border-slate-100 dark:border-[#1e2026]/80 text-[11px] leading-relaxed transition-all duration-200">
+          {/* Header Bar - Clickable Toggle */}
+          <button
+            type="button"
+            onClick={() => setIsBriefExplanationExpanded(prev => !prev)}
+            className="w-full p-4 flex items-center justify-between hover:bg-slate-100/50 dark:hover:bg-slate-800/30 transition-colors text-left cursor-pointer focus:outline-none"
+            aria-expanded={isBriefExplanationExpanded}
+            aria-label="Toggle AI Study Brief Explanation details"
+          >
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-bold text-indigo-400 font-mono uppercase tracking-widest flex items-center gap-1.5 text-[9px]">
+                <Sparkles size={11} className="text-amber-500" /> AI Study Brief Explanation
+              </span>
+              <span className="px-1.5 py-0.5 rounded font-mono font-semibold text-[9px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                {explain.selectionMethod}
+              </span>
+            </div>
 
-            {/* Why Checklist */}
-            <div className="border-t border-slate-200 dark:border-slate-800 pt-2 mt-2">
-              <span className="text-[9px] font-mono font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">Why?</span>
-              <div className="space-y-1">
-                {explanationChecklist.map((item, i) => (
-                  <div key={i} className="flex items-center gap-1.5 text-[10px]">
-                    <span className={`${item.satisfied ? 'text-emerald-500' : 'text-slate-400'}`}>
-                      {item.satisfied ? '✓' : '○'}
-                    </span>
-                    <span className={`${item.satisfied ? 'text-slate-400' : 'text-slate-500'}`}>
-                      {item.icon}
-                    </span>
-                    <span className={`${item.satisfied ? 'text-slate-300 font-semibold' : 'text-slate-500'}`}>
-                      {item.label}
-                    </span>
-                  </div>
-                ))}
+            <div className="flex items-center gap-2.5">
+              <span className="px-2 py-0.5 rounded font-mono font-bold text-[9px] bg-indigo-500/15 text-indigo-400 border border-indigo-500/20">
+                Priority: {explain.priorityScore}/100
+              </span>
+              <div className="flex items-center gap-1 text-[10px] font-mono text-slate-400 hover:text-indigo-400 font-semibold transition-colors">
+                <span>{isBriefExplanationExpanded ? 'Collapse' : 'Expand'}</span>
+                {isBriefExplanationExpanded ? (
+                  <ChevronDown size={14} className="text-indigo-400" />
+                ) : (
+                  <ChevronRight size={14} className="text-slate-400" />
+                )}
               </div>
             </div>
-          </div>
+          </button>
+
+          {/* Expandable Explanation Details & Checklist */}
+          {isBriefExplanationExpanded && (
+            <div className="px-4 pb-4 space-y-1.5 text-slate-350 dark:text-slate-350 border-t border-slate-100 dark:border-[#1e2026]/40 pt-3 animate-fade-in">
+              <p>
+                <strong className="text-slate-400 dark:text-slate-400 font-mono">Selection Method: </strong>
+                <span className="px-1.5 py-0.2 bg-slate-200 dark:bg-slate-800 rounded font-semibold text-slate-300 dark:text-slate-200">{explain.selectionMethod}</span>
+              </p>
+              <p>
+                <strong className="text-slate-400 dark:text-slate-400 font-mono">Why This Reading: </strong>
+                {explain.whySelected}
+              </p>
+              <p>
+                <strong className="text-slate-400 dark:text-slate-400 font-mono">Why Now: </strong>
+                {explain.whyNow}
+              </p>
+              <p>
+                <strong className="text-slate-400 dark:text-slate-400 font-mono">Expected Outcome: </strong>
+                {explain.expectedOutcome}
+              </p>
+              {explain.blockingFactors && explain.blockingFactors.length > 0 && (
+                <p className="text-rose-400 font-mono text-[10px] flex items-center gap-1">
+                  <AlertTriangle size={10} /> Blocking Factors: {explain.blockingFactors.join(', ')}
+                </p>
+              )}
+
+              {/* Why Checklist */}
+              <div className="border-t border-slate-200 dark:border-slate-800 pt-2 mt-2">
+                <span className="text-[9px] font-mono font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">Why?</span>
+                <div className="space-y-1">
+                  {explanationChecklist.map((item, i) => (
+                    <div key={i} className="flex items-center gap-1.5 text-[10px]">
+                      <span className={`${item.satisfied ? 'text-emerald-500' : 'text-slate-400'}`}>
+                        {item.satisfied ? '✓' : '○'}
+                      </span>
+                      <span className={`${item.satisfied ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {item.icon}
+                      </span>
+                      <span className={`${item.satisfied ? 'text-slate-300 font-semibold' : 'text-slate-500'}`}>
+                        {item.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
