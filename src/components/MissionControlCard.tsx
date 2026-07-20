@@ -57,6 +57,7 @@ const PhaseRow: React.FC<{
   onStartResume: () => void;
   onPause: () => void;
   onToggleComplete: () => void;
+  onProgressPercentChange: (percent: number) => void;
   onReset: () => void;
   onGenerateInsight: () => void;
   cachedInsight: any;
@@ -76,6 +77,7 @@ const PhaseRow: React.FC<{
   onStartResume,
   onPause,
   onToggleComplete,
+  onProgressPercentChange,
   onReset,
   onGenerateInsight,
   cachedInsight,
@@ -222,27 +224,22 @@ const PhaseRow: React.FC<{
             </>
           )}
 
-          {/* Checkbox Complete / Reopen Toggle */}
-          {phase.completed ? (
-            <button
-              type="button"
-              onClick={onToggleComplete}
-              className="text-[10px] font-mono text-emerald-500 hover:text-rose-500 font-bold flex items-center gap-1 cursor-pointer transition-colors border border-emerald-500/20 bg-emerald-500/[0.04] px-2 py-0.5 rounded"
-              title="Click to reopen phase"
+          {/* Dropdown selector for completion levels */}
+          {!phase.locked && (
+            <select
+              value={phase.progress !== undefined ? Math.round(phase.progress * 100) : (phase.completed ? 100 : 0)}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                onProgressPercentChange(val);
+              }}
+              className="text-[10px] font-mono border border-slate-200 dark:border-slate-800 rounded bg-white dark:bg-[#101116] text-slate-700 dark:text-slate-350 px-1 py-0.5 focus:outline-none focus:border-indigo-500 cursor-pointer"
             >
-              ✓ Done
-            </button>
-          ) : (
-            !phase.locked && (
-              <button
-                type="button"
-                onClick={onToggleComplete}
-                className="text-[10px] font-mono text-slate-400 hover:text-emerald-500 flex items-center gap-1 cursor-pointer transition-colors"
-                title="Mark complete"
-              >
-                <div className="w-3.5 h-3.5 border border-slate-350 dark:border-slate-700 rounded hover:border-emerald-500" />
-              </button>
-            )
+              <option value="0">0%</option>
+              <option value="25">25%</option>
+              <option value="50">50%</option>
+              <option value="75">75%</option>
+              <option value="100">100%</option>
+            </select>
           )}
 
           <button
@@ -528,6 +525,7 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
     sessionHistory,
     updateWorkspaceState,
     selectLOS,
+    activeTemplate,
   } = useApp();
 
   const lrRepo = useLearningResources();
@@ -615,6 +613,52 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
   const nextMissionCandidate = React.useMemo(() => {
     return missionEngineService.getNextMission(stack.readingId, readings, losList);
   }, [stack.readingId, readings, losList]);
+
+  const scheduleDates = React.useMemo(() => {
+    if (!activeTemplate || !stack.readingId) return null;
+    const block = activeTemplate.blocks.find(b => b.readingId === stack.readingId);
+    if (!block) return null;
+    
+    const formatDate = (dateStr: string) => {
+      try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+      } catch {
+        return dateStr;
+      }
+    };
+    return `[ Target Schedule: ${formatDate(block.startDate)} ──► ${formatDate(block.endDate)} ]`;
+  }, [activeTemplate, stack.readingId]);
+
+  const handleProgressChange = (phase: StudyPhase, progressPercent: number) => {
+    execution.recordProgress(phase.id, progressPercent);
+
+    // Update individual resources progress proportionally
+    phase.resources.forEach(ref => {
+      const res = lrRepo.getById(ref.resourceId);
+      if (res) {
+        const completed = progressPercent === 100;
+        const minutesCompleted = Math.round((progressPercent / 100) * res.duration);
+        lrRepo.updateProgress(ref.resourceId, { completed, minutesCompleted });
+      }
+    });
+
+     eventBus.publish({
+      type: 'ResourceProgressUpdated',
+      timestamp: new Date().toISOString(),
+      source: 'MissionControlCard',
+      entityId: phase.id,
+      payload: { 
+        phaseId: phase.id, 
+        progressPercent,
+        readingId: phase.readingId,
+        linkedLosIds: phase.linkedLosIds,
+        resourceName: phase.resourceName
+      }
+    });
+
+    setUpdateTrigger(prev => prev + 1);
+  };
 
   const togglePhase = (phaseId: string) => {
     setExpandedPhases(prev => ({ ...prev, [phaseId]: !prev[phaseId] }));
@@ -952,9 +996,16 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
 
       <div className="p-5 pb-4 border-b border-slate-100 dark:border-[#1e2026]">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-200 font-sans">
-            MISSION CONTROL
-          </h2>
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-200 font-sans">
+              MISSION CONTROL
+            </h2>
+            {scheduleDates && (
+              <span className="text-xs font-mono text-indigo-500 dark:text-indigo-400 font-semibold">
+                {scheduleDates}
+              </span>
+            )}
+          </div>
           <span className="bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider">
             {dailyMission.subjectCode}
           </span>
@@ -1090,6 +1141,7 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
               onStartResume={() => handleStartResume(phase.id)}
               onPause={() => handlePause(phase.id)}
               onToggleComplete={() => handleToggleComplete(phase)}
+              onProgressPercentChange={(percent) => handleProgressChange(phase, percent)}
               onReset={() => handleReset(phase.id)}
               onGenerateInsight={() => handleGenerateInsight(phase)}
               cachedInsight={getCachedInsight(phase.id)}

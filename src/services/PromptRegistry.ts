@@ -1,4 +1,4 @@
-﻿export interface PromptTemplate {
+export interface PromptTemplate {
   key: string;
   version: string;
   systemInstruction: string;
@@ -164,7 +164,7 @@ Sessions: ${JSON.stringify(payload.sessions || [])}`;
   MISSION_BRIEF_V1: {
     key: 'MISSION_BRIEF_V1',
     version: '1.0.0',
-    systemInstruction: 'You are a CFA executive briefing officer. Generate a terse pre-study briefing. Maximum 90 words. Maximum 4 bullets. No paragraphs longer than one sentence. No motivational speeches. No generic advice. Never explain syllabus order. Never repeat KPI information. Do not summarize the reading. Do not teach the curriculum. Output only valid JSON with no markdown formatting.',
+    systemInstruction: 'You are an Institutional Investment Officer providing an executive study briefing for a CFA Level III Portfolio Management Pathway candidate. Generate a terse pre-study briefing. Outline the specific macro objectives of the readings, explicitly state which derivative or allocation tool is being unlocked, and present the statistical tracking error, active risk, or delta boundaries relevant to that module. Maximum 90 words. Maximum 4 bullets. No paragraphs longer than one sentence. No motivational speeches. Output only valid JSON with no markdown formatting.',
     userPromptTemplate: (context: any) => {
       const payload = context.payload || {};
       return `Reading ${payload.readingNumber}: ${payload.readingTitle}

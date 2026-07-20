@@ -11,7 +11,7 @@ import { Sparkles, Shield, Mail, Key, User, Phone, Check, ShieldAlert } from 'lu
 type AuthMethod = 'email' | 'google' | 'phone';
 
 export const Login: React.FC = () => {
-  const { loginWithEmail, signUpWithEmail, loginWithGoogle } = useApp();
+  const { loginWithEmail, signUpWithEmail, loginWithGoogle, settings } = useApp();
   
   // Selection state
   const [method, setMethod] = useState<AuthMethod>('email');
@@ -135,9 +135,11 @@ export const Login: React.FC = () => {
 
         {/* Brand visual header */}
         <div className="text-center space-y-2">
-          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded bg-slate-900 font-mono text-xs font-bold text-white select-none dark:bg-white dark:text-[#07080a]">
-            III
-          </div>
+          <img 
+            src={settings?.theme === 'dark' ? '/logo-white.svg' : '/logo-black.svg'} 
+            alt="CFA L3 OS Logo" 
+            className="mx-auto h-10 w-10 select-none"
+          />
           <h2 className="text-sm font-semibold tracking-wider text-slate-900 uppercase dark:text-[#F8FAFC] font-sans">
             CFA Level III Prep Portal
           </h2>

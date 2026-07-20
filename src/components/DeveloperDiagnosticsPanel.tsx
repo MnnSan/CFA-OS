@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { aiDiagnostics, AIDiagnosticRecord } from '../services/AIDiagnosticsService';
 import { syncService, SyncStatus } from '../services/sync/SyncService';
-import { ChevronDown, ChevronRight, Trash2, AlertTriangle, CheckCircle2, Clock, XCircle, Database, Cpu, Wifi, RefreshCw } from 'lucide-react';
+import { forceVerifyService, ForceVerifyReport } from '../services/sync/ForceVerifyService';
+import { ChevronDown, ChevronRight, Trash2, AlertTriangle, CheckCircle2, Clock, XCircle, Database, Cpu, Wifi, RefreshCw, Search } from 'lucide-react';
 import { coachPlanRepository } from '../repositories/CoachPlanRepository';
 import { studyStrategyRepository } from '../repositories/StudyStrategyRepository';
 import { aiStudyMemoryService } from '../services/AIStudyMemoryService';
 import { checksumService } from '../services/sync/ChecksumService';
+import { db } from '../firebase';
 
 export const DeveloperDiagnosticsPanel: React.FC = () => {
   const [isOpen, setIsOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<'sync' | 'ai'>('sync');
+  const [activeTab, setActiveTab] = useState<'sync' | 'ai' | 'pipeline'>('sync');
+  const [verifyReport, setVerifyReport] = useState<ForceVerifyReport | null>(null);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
   
   // AI Execution Log State
   const [records, setRecords] = useState<AIDiagnosticRecord[]>([]);
@@ -77,6 +82,16 @@ export const DeveloperDiagnosticsPanel: React.FC = () => {
               }`}
             >
               <Cpu className="w-3 h-3" /> AI Execution
+            </button>
+            <button
+              onClick={() => setActiveTab('pipeline')}
+              className={`flex items-center gap-1 px-2.5 py-1 text-[9px] font-bold font-mono uppercase rounded-sm transition-all ${
+                activeTab === 'pipeline'
+                  ? 'bg-slate-900 text-white dark:bg-slate-800 dark:text-amber-400'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <Search className="w-3 h-3" /> Pipeline
             </button>
           </div>
         )}
@@ -147,9 +162,39 @@ export const DeveloperDiagnosticsPanel: React.FC = () => {
               </span>
             </div>
             <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Sync State</span>
+              <span className={`font-bold text-[11px] ${
+                syncStatus.syncState === 'SYNCED' || syncStatus.syncState === 'IDLE' ? 'text-emerald-400' :
+                syncStatus.syncState === 'UPLOADING' || syncStatus.syncState === 'VERIFYING' ? 'text-amber-400 animate-pulse' :
+                'text-rose-450'
+              }`}>
+                {syncStatus.syncState || 'IDLE'}
+              </span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
               <span className="block text-[8px] text-slate-500 uppercase font-semibold">Last Sync</span>
               <span className="text-slate-300 font-bold text-[11px]">
                 {syncStatus.lastSync === 'Never' ? 'Never' : new Date(syncStatus.lastSync).toLocaleTimeString()}
+              </span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Firestore Init</span>
+              <span className={`font-bold text-[11px] ${
+                syncStatus.firestoreInitStatus === 'Success' ? 'text-emerald-400' :
+                syncStatus.firestoreInitStatus === 'Failed' ? 'text-rose-450' :
+                'text-slate-400'
+              }`}>
+                {syncStatus.firestoreInitStatus || 'Uninitialized'}
+              </span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Listener Status</span>
+              <span className={`font-bold text-[11px] ${
+                syncStatus.listenerStatus === 'Active' ? 'text-emerald-400' :
+                syncStatus.listenerStatus === 'Failed' ? 'text-rose-450 animate-pulse' :
+                'text-slate-400'
+              }`}>
+                {syncStatus.listenerStatus || 'Inactive'}
               </span>
             </div>
             <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
@@ -218,10 +263,56 @@ export const DeveloperDiagnosticsPanel: React.FC = () => {
                 {syncStatus.backupStatus.toUpperCase()}
               </span>
             </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Queue Size</span>
+              <span className="text-slate-300 font-bold">{syncStatus.queueSize ?? 0}</span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Queue Age</span>
+              <span className="text-slate-300 font-bold">{syncStatus.queueAgeSeconds ?? 0}s</span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Queue Retries</span>
+              <span className="text-slate-300 font-bold">{syncStatus.queueRetryCount ?? 0}</span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Sync Latency</span>
+              <span className="text-slate-300 font-bold">{syncStatus.syncLatencyMs ?? 0}ms</span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded col-span-2">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Last Checksum</span>
+              <span className="text-slate-300 font-bold text-[10px]">{syncStatus.lastChecksumVerification || 'Never'}</span>
+            </div>
             <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded col-span-2 sm:col-span-3 lg:col-span-4 xl:col-span-3">
               <span className="block text-[8px] text-slate-500 uppercase font-semibold">Last Error</span>
               <span className={`block truncate ${syncStatus.lastError ? 'text-rose-450 font-bold' : 'text-slate-500'}`} title={syncStatus.lastError || ''}>
                 {syncStatus.lastError || 'None'}
+              </span>
+            </div>
+          </div>
+
+          {/* Queue & Error Diagnostics */}
+          <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 text-[10px] font-mono">
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Last Upload</span>
+              <span className="text-slate-300 font-bold text-[10px]">{syncStatus.lastSuccessfulUpload === 'Never' ? 'Never' : new Date(syncStatus.lastSuccessfulUpload).toLocaleTimeString()}</span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Last Failed Upload</span>
+              <span className={`font-bold text-[10px] ${syncStatus.lastFailedUpload !== 'Never' ? 'text-rose-450' : 'text-slate-400'}`}>
+                {syncStatus.lastFailedUpload === 'Never' ? 'Never' : new Date(syncStatus.lastFailedUpload).toLocaleTimeString()}
+              </span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Firestore Error</span>
+              <span className={`font-bold text-[10px] truncate block ${syncStatus.lastFirestoreError ? 'text-rose-450' : 'text-slate-400'}`} title={syncStatus.lastFirestoreError || ''}>
+                {syncStatus.lastFirestoreError || 'None'}
+              </span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Permission Error</span>
+              <span className={`font-bold text-[10px] truncate block ${syncStatus.lastPermissionError ? 'text-rose-450' : 'text-slate-400'}`} title={syncStatus.lastPermissionError || ''}>
+                {syncStatus.lastPermissionError || 'None'}
               </span>
             </div>
           </div>
@@ -401,6 +492,235 @@ export const DeveloperDiagnosticsPanel: React.FC = () => {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {isOpen && activeTab === 'pipeline' && (
+        <div className="space-y-3 animate-fade-in">
+          {/* Synchronization Pipeline Diagnostics */}
+          <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 text-[10px] font-mono">
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Firestore Reachable</span>
+              <span className={`font-bold text-[11px] ${syncStatus.firestoreStatus === 'connected' ? 'text-emerald-400' : 'text-rose-450'}`}>
+                {syncStatus.firestoreStatus === 'connected' ? 'YES' : 'NO'}
+              </span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Auth Initialized</span>
+              <span className={`font-bold text-[11px] ${syncStatus.authStatus === 'authenticated' ? 'text-emerald-400' : 'text-rose-450'}`}>
+                {syncStatus.authStatus === 'authenticated' ? 'YES' : 'NO'}
+              </span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Snapshot Listeners</span>
+              <span className={`font-bold text-[11px] ${
+                syncStatus.listenerStatus === 'Active' ? 'text-emerald-400' :
+                syncStatus.listenerStatus === 'Failed' ? 'text-rose-450 animate-pulse' :
+                'text-slate-400'
+              }`}>
+                {syncStatus.listenerStatus || 'Inactive'}
+              </span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Queue Length</span>
+              <span className={`font-bold text-[11px] ${(syncStatus.pendingWrites || 0) > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                {syncStatus.pendingWrites ?? 0}
+              </span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Queue Oldest Age</span>
+              <span className="text-slate-300 font-bold">{syncStatus.queueAgeSeconds ?? 0}s</span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Last Upload</span>
+              <span className="text-slate-300 font-bold text-[10px]">
+                {syncStatus.lastSuccessfulUpload === 'Never' ? 'Never' : new Date(syncStatus.lastSuccessfulUpload).toLocaleTimeString()}
+              </span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Last Failed</span>
+              <span className={`font-bold text-[10px] ${syncStatus.lastFailedUpload !== 'Never' ? 'text-rose-450' : 'text-slate-400'}`}>
+                {syncStatus.lastFailedUpload === 'Never' ? 'Never' : new Date(syncStatus.lastFailedUpload).toLocaleTimeString()}
+              </span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Last Verification</span>
+              <span className="text-slate-300 font-bold text-[10px]">{syncStatus.lastChecksumVerification === 'Never' ? 'Never' : new Date(syncStatus.lastChecksumVerification).toLocaleTimeString()}</span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Equality Status</span>
+              <span className={`font-bold text-[11px] ${
+                syncStatus.healthCheckStatus === 'Healthy' ? 'text-emerald-400' :
+                syncStatus.healthCheckStatus === 'Repaired' ? 'text-amber-400' :
+                'text-rose-450'
+              }`}>
+                {syncStatus.healthCheckStatus === 'Healthy' ? 'EQUAL' : syncStatus.healthCheckStatus === 'Repaired' ? 'REPAIRED' : 'MISMATCH'}
+              </span>
+            </div>
+          </div>
+
+          {/* Checksums */}
+          <div className="grid gap-2 grid-cols-3 text-[10px] font-mono">
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Repo Checksum</span>
+              <span className="font-bold text-[9px] text-indigo-400 block truncate">{checksumService.compute(coachPlanRepository.getAll())}</span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Cache Checksum</span>
+              <span className="font-bold text-[9px] text-indigo-400 block truncate">
+                {(() => {
+                  try { return checksumService.compute(JSON.parse(localStorage.getItem('cfa_timeline_templates') || '[]')); }
+                  catch { return 'ERROR'; }
+                })()}
+              </span>
+            </div>
+            <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+              <span className="block text-[8px] text-slate-500 uppercase font-semibold">Strategy Checksum</span>
+              <span className="font-bold text-[9px] text-indigo-400 block truncate">{checksumService.compute(studyStrategyRepository.get())}</span>
+            </div>
+          </div>
+
+          {/* Force Verify Button */}
+          <div className="space-y-2">
+            <button
+              onClick={async () => {
+                setVerifyLoading(true);
+                setVerifyError(null);
+                try {
+                  const uid = syncStatus.currentUid;
+                  if (!uid) {
+                    setVerifyError('Not authenticated — no UID available');
+                    setVerifyLoading(false);
+                    return;
+                  }
+                  const report = await forceVerifyService.verify(uid);
+                  setVerifyReport(report);
+                } catch (e: any) {
+                  setVerifyError(e.message || String(e));
+                }
+                setVerifyLoading(false);
+              }}
+              disabled={verifyLoading}
+              className="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 text-white rounded text-[10px] font-bold font-mono uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+            >
+              {verifyLoading ? (
+                <>Scanning...</>
+              ) : (
+                <><Search className="w-3 h-3" /> Force Verify — Compare All Layers Document-by-Document</>
+              )}
+            </button>
+
+            {verifyError && (
+              <div className="p-2 bg-rose-500/10 border border-rose-500/20 rounded text-[10px] font-mono text-rose-450">
+                {verifyError}
+              </div>
+            )}
+
+            {verifyReport && (
+              <div className="space-y-2">
+                <div className="grid gap-2 grid-cols-3 text-[10px] font-mono">
+                  <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+                    <span className="block text-[8px] text-slate-500 uppercase">Repo</span>
+                    <span className="font-bold text-[11px]">{verifyReport.repositoryCount}</span>
+                  </div>
+                  <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+                    <span className="block text-[8px] text-slate-500 uppercase">Cache</span>
+                    <span className={`font-bold text-[11px] ${verifyReport.cacheCount === verifyReport.repositoryCount ? 'text-emerald-400' : 'text-rose-450'}`}>
+                      {verifyReport.cacheCount}
+                      {verifyReport.cacheCount !== verifyReport.repositoryCount && ' MISMATCH'}
+                    </span>
+                  </div>
+                  <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded">
+                    <span className="block text-[8px] text-slate-500 uppercase">Cloud</span>
+                    <span className={`font-bold text-[11px] ${verifyReport.cloudCount === verifyReport.repositoryCount ? 'text-emerald-400' : 'text-rose-450'}`}>
+                      {verifyReport.cloudCount}
+                      {verifyReport.cloudCount !== verifyReport.repositoryCount && ' MISMATCH'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Template-by-template comparison */}
+                {verifyReport.templates.length > 0 && (
+                  <div className="max-h-[200px] overflow-y-auto border border-slate-200 dark:border-slate-850 rounded">
+                    <table className="w-full text-[8px] font-mono">
+                      <thead>
+                        <tr className="text-slate-500 uppercase border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900/80">
+                          <th className="text-left py-1 px-2">Template ID</th>
+                          <th className="text-center py-1 px-2">Repo</th>
+                          <th className="text-center py-1 px-2">Cache</th>
+                          <th className="text-center py-1 px-2">Cloud</th>
+                          <th className="text-right py-1 px-2">Issues</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {verifyReport.templates.map(d => (
+                          <tr key={d.templateId} className={`border-b border-slate-100 dark:border-slate-800/40 ${d.mismatches.length > 0 ? 'bg-rose-500/5' : ''}`}>
+                            <td className="py-1 px-2 text-slate-700 dark:text-slate-300 max-w-[100px] truncate" title={d.templateId}>
+                              {d.templateId}
+                            </td>
+                            <td className="py-1 px-2 text-center">
+                              <span className={d.repositoryExists ? 'text-emerald-400' : 'text-rose-450'}>{d.repositoryExists ? 'YES' : 'NO'}</span>
+                            </td>
+                            <td className="py-1 px-2 text-center">
+                              <span className={d.cacheExists ? 'text-emerald-400' : 'text-rose-450'}>{d.cacheExists ? 'YES' : 'NO'}</span>
+                            </td>
+                            <td className="py-1 px-2 text-center">
+                              <span className={d.cloudExists ? 'text-emerald-400' : 'text-amber-400'}>{d.cloudExists ? 'YES' : 'NO'}</span>
+                            </td>
+                            <td className="py-1 px-2 text-right">
+                              <span className={d.mismatches.length > 0 ? 'text-rose-450 font-bold' : 'text-emerald-400'}>
+                                {d.mismatches.length > 0 ? d.mismatches.length : 'OK'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Strategy report */}
+                {verifyReport.strategy && (
+                  <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded text-[10px] font-mono">
+                    <span className="block text-[8px] text-slate-500 uppercase font-semibold mb-1">Study Strategy</span>
+                    <div className="flex gap-4">
+                      <span>Repo: <span className={verifyReport.strategy.repositoryExists ? 'text-emerald-400' : 'text-slate-400'}>{verifyReport.strategy.repositoryExists ? 'YES' : 'NO'}</span></span>
+                      <span>Cloud: <span className={verifyReport.strategy.cloudExists ? 'text-emerald-400' : 'text-slate-400'}>{verifyReport.strategy.cloudExists ? 'YES' : 'NO'}</span></span>
+                      <span>Match: <span className={verifyReport.strategy.match ? 'text-emerald-400' : 'text-rose-450'}>{verifyReport.strategy.match ? 'YES' : 'NO'}</span></span>
+                    </div>
+                    {verifyReport.strategy.details.map((d, i) => (
+                      <div key={i} className="text-rose-450 text-[9px]">• {d}</div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Active template ID report */}
+                {verifyReport.activeTemplateId && (
+                  <div className="p-2 bg-white dark:bg-[#101116] border border-slate-100 dark:border-slate-850 rounded text-[10px] font-mono">
+                    <span className="block text-[8px] text-slate-500 uppercase font-semibold mb-1">Active Template ID</span>
+                    <div className="grid gap-1 grid-cols-3">
+                      <span>Repo: <span className="font-bold">{verifyReport.activeTemplateId.repositoryActiveId || '—'}</span></span>
+                      <span>localStorage: <span className="font-bold">{verifyReport.activeTemplateId.localStorageActiveId || '—'}</span></span>
+                      <span>Cloud: <span className="font-bold">{verifyReport.activeTemplateId.cloudActiveId || '—'}</span></span>
+                    </div>
+                    <span className={`text-[9px] ${verifyReport.activeTemplateId.match ? 'text-emerald-400' : 'text-rose-450'}`}>
+                      {verifyReport.activeTemplateId.match ? 'ALL MATCH' : 'MISMATCH'}
+                    </span>
+                    {verifyReport.activeTemplateId.details.map((d, i) => (
+                      <div key={i} className="text-rose-450 text-[9px]">• {d}</div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="text-[9px] font-mono text-slate-500">
+                  Summary: {verifyReport.summary.totalMismatches} mismatches |
+                  Missing in Cloud: {verifyReport.summary.templatesMissingInCloud} |
+                  Missing in Repo: {verifyReport.summary.templatesMissingInRepo} |
+                  Missing in Cache: {verifyReport.summary.templatesMissingInCache}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

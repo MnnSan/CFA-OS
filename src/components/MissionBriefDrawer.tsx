@@ -66,15 +66,15 @@ const MissionBriefDrawer: React.FC<MissionBriefDrawerProps> = ({
       {/* Overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs"
+          className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs transition-opacity duration-300"
           onClick={onClose}
         />
       )}
 
       {/* Drawer */}
       <div
-        className={`fixed top-0 right-0 z-50 h-full w-[420px] max-w-[95vw] bg-[#0c0d10] border-l border-[#1e2026] shadow-2xl transition-[transform,visibility] duration-300 ease-in-out ${
-          isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
+        className={`fixed top-0 right-0 z-50 h-screen w-[420px] max-w-[95vw] bg-[#0B0F19]/95 backdrop-blur-md border-l border-slate-800 shadow-2xl transition-all duration-300 ease-in-out ${
+          isOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0 pointer-events-none'
         }`}
         style={{ visibility: isOpen ? 'visible' : 'hidden' }}
       >

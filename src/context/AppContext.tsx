@@ -808,7 +808,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeLevel, setActiveLevel] = useState<CFALevel>('Level III');
 
   // Auth / User Profile (Persisted)
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    const saved = localStorage.getItem('cfa_user');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return null;
+  });
   const [authLoading, setAuthLoading] = useState<boolean>(true);
 
   // central Settings (Persisted)
@@ -819,12 +825,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return {
       theme: 'light',
-      examDate: '2026-08-25',
-      targetStartDate: '2026-06-01',
-      targetDailyHours: 3.5,
-      preferredSessionLength: 45,
+      examDate: '2027-02-21',
+      targetStartDate: '2026-07-14',
+      targetDailyHours: 5.5,
+      preferredSessionLength: 60, // 60 minutes per lesson block
       notificationsEnabled: true,
-      reviewBuffer: 30,
+      reviewBuffer: 60, // Exactly 60 Days review buffer
       notificationPreferences: {
         email: true,
         push: false,
@@ -1400,19 +1406,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const todayMinutes = todaySessions.reduce((acc, s) => acc + s.durationMinutes, 0);
     const todayHours = todayMinutes / 60;
 
-    dailySnapshotService.takeSnapshot(
-      todayStr,
-      healthVal,
-      avgConfidence,
-      Math.round(Math.min(99, coverageVal)),
-      velocity,
-      todayHours,
-      burnoutDetected,
-      readiness,
-      []
-    );
-    setDailySnapshotsList(dailySnapshotService.getHistoricalSnapshots());
-  }, [graphAnalyzerHealthReport, examReadinessReport, losList, sessionHistory, burnoutDetected]);
+    const historical = dailySnapshotService.getHistoricalSnapshots();
+    const existing = historical.find(s => s.date === todayStr);
+
+    if (!existing || 
+        existing.knowledgeHealth !== healthVal || 
+        existing.confidenceDecayed !== avgConfidence || 
+        existing.coverage !== Math.round(Math.min(99, coverageVal)) || 
+        existing.velocityHours !== velocity || 
+        existing.studyHours !== todayHours || 
+        existing.burnoutFlag !== burnoutDetected || 
+        existing.readinessScore !== readiness) {
+      
+      dailySnapshotService.takeSnapshot(
+        todayStr,
+        healthVal,
+        avgConfidence,
+        Math.round(Math.min(99, coverageVal)),
+        velocity,
+        todayHours,
+        burnoutDetected,
+        readiness,
+        []
+      );
+      setDailySnapshotsList([...dailySnapshotService.getHistoricalSnapshots()]);
+    }
+  }, [
+    graphAnalyzerHealthReport.health.overallGraphHealth,
+    graphAnalyzerHealthReport.health.knowledgeDensity,
+    examReadinessReport.readinessScore,
+    examReadinessReport.velocityHoursPerDay,
+    losList,
+    sessionHistory,
+    burnoutDetected
+  ]);
 
   // ==========================================
   // INTELLIGENCE UPGRADE – Query Layer & Snapshot Engine
@@ -1701,20 +1728,131 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setResources(adaptLearningResources(lrs));
     };
 
-    const unsubProgress = eventBus.subscribe('ResourceProgressUpdated', (event) => {
+    const handlePhaseStateUpdated = async (event: any) => {
       handleRepoChange();
-      const resourceId = event.entityId;
-      const resource = learningResourceRepository.getById(resourceId);
-      if (resource && resource.resourceType === 'Lecture') {
-        const readingId = resource.readingId;
-        const lectures = learningResourceRepository.getByReadingId(readingId).filter(r => r.resourceType === 'Lecture');
+      
+      const phaseId = event.payload?.phaseId || event.entityId;
+      if (!phaseId || typeof phaseId !== 'string') return;
+
+      const match = phaseId.match(/^phase-(.+?)-(lecture-\d+|reading|formula|notebook|questions|reflection)$/);
+      if (!match) return;
+
+      const readingId = match[1];
+      const typeStr = match[2];
+
+      const progressPercent = typeof event.payload?.progressPercent === 'number'
+        ? event.payload.progressPercent
+        : (event.type === 'PhaseCompleted' ? 100 : 0);
+
+      const completed = progressPercent === 100;
+
+      // Handle linkedLosIds cascade
+      const linkedLosIds: string[] = event.payload?.linkedLosIds || [];
+      if (linkedLosIds.length > 0) {
+        setLosList(prev => {
+          const updated = prev.map(los => {
+            if (linkedLosIds.includes(los.id) || linkedLosIds.includes(los.code)) {
+              return {
+                ...los,
+                status: (completed ? 'Completed' : 'In Progress') as any,
+                confidence: completed ? 4 : (los.confidence || 3)
+              };
+            }
+            return los;
+          });
+          safeSetItem('cfa_los_state', JSON.stringify(updated));
+          return updated;
+        });
+      }
+
+      if (typeStr.startsWith('lecture')) {
+        const lectures = learningResourceRepository.getByReadingId(readingId).filter(r => r.resourceType === 'Lecture' || r.title.includes('CLS (NEW)'));
         const totalLogged = lectures.reduce((sum, l) => sum + (l.progress.minutesCompleted || 0), 0);
         setPlannerProgress(prev => {
           const existing = prev.find(p => p.readingId === readingId);
-          if (existing) {
-            return prev.map(p => p.readingId === readingId ? { ...p, loggedVideoMinutes: totalLogged } : p);
-          }
-          return [...prev, { readingId, loggedVideoMinutes: totalLogged, completedEOCQ: 0 }];
+          const updated = existing
+            ? prev.map(p => p.readingId === readingId ? { ...p, loggedVideoMinutes: totalLogged } : p)
+            : [...prev, { readingId, loggedVideoMinutes: totalLogged, completedEOCQ: 0 }];
+          safeSetItem('cfa_planner_progress', JSON.stringify(updated));
+          return updated;
+        });
+      } else if (typeStr === 'reading') {
+        setLosList(prev => {
+          const updated = prev.map(los => {
+            if (los.readingId === readingId) {
+              return {
+                ...los,
+                status: (completed ? 'Completed' : 'In Progress') as any,
+                confidence: completed ? 4 : (los.confidence || 3)
+              };
+            }
+            return los;
+          });
+          safeSetItem('cfa_los_state', JSON.stringify(updated));
+          return updated;
+        });
+      } else if (typeStr === 'formula') {
+        setFormulas(prev => {
+          const updated = prev.map(f => {
+            if (f.linkedReadingId === readingId) {
+              return { ...f, isMemorized: completed };
+            }
+            return f;
+          });
+          safeSetItem('cfa_formulas_state', JSON.stringify(updated));
+          return updated;
+        });
+      } else if (typeStr === 'questions') {
+        const reading = plannerReadings.find(r => r.id === readingId);
+        const targetEOCQ = reading?.targets?.eocqCount || 20;
+        const count = completed ? targetEOCQ : Math.round((progressPercent / 100) * targetEOCQ);
+        setPlannerProgress(prev => {
+          const existing = prev.find(p => p.readingId === readingId);
+          const updated = existing
+            ? prev.map(p => p.readingId === readingId ? { ...p, completedEOCQ: count } : p)
+            : [...prev, { readingId, loggedVideoMinutes: 0, completedEOCQ: count }];
+          safeSetItem('cfa_planner_progress', JSON.stringify(updated));
+          return updated;
+        });
+      }
+
+      if (auth.currentUser) {
+        try {
+          const userDocRef = doc(db, 'users', auth.currentUser.uid);
+          const savedProgress = localStorage.getItem('cfa_planner_progress');
+          const savedLos = localStorage.getItem('cfa_los_state');
+          const savedFormulas = localStorage.getItem('cfa_formulas_state');
+          
+          await updateDoc(userDocRef, {
+            plannerProgress: savedProgress ? JSON.parse(savedProgress) : [],
+            losList: savedLos ? JSON.parse(savedLos) : [],
+            formulas: savedFormulas ? JSON.parse(savedFormulas) : []
+          });
+        } catch (error) {
+          console.error("Error syncing phase state to Firestore:", error);
+        }
+      }
+    };
+
+    const unsubProgress = eventBus.subscribe('ResourceProgressUpdated', (event) => {
+      handleRepoChange();
+      const resourceId = event.entityId;
+      if (resourceId && resourceId.startsWith('phase-')) {
+        handlePhaseStateUpdated(event);
+        return;
+      }
+      const resource = learningResourceRepository.getById(resourceId);
+      if (resource && (resource.resourceType === 'Lecture' || resource.title.includes('CLS (NEW)'))) {
+        const readingId = resource.readingId;
+        const lectures = learningResourceRepository.getByReadingId(readingId).filter(r => r.resourceType === 'Lecture' || r.title.includes('CLS (NEW)'));
+        const totalLogged = lectures.reduce((sum, l) => sum + (l.progress.minutesCompleted || 0), 0);
+        setPlannerProgress(prev => {
+          const existing = prev.find(p => p.readingId === readingId);
+          const updated = existing
+            ? prev.map(p => p.readingId === readingId ? { ...p, loggedVideoMinutes: totalLogged } : p)
+            : [...prev, { readingId, loggedVideoMinutes: totalLogged, completedEOCQ: 0 }];
+          safeSetItem('cfa_planner_progress', JSON.stringify(updated));
+          return updated;
         });
       }
     });
@@ -1723,18 +1861,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       handleRepoChange();
       const resourceId = event.entityId;
       const resource = learningResourceRepository.getById(resourceId);
-      if (resource && resource.resourceType === 'Lecture') {
+      if (resource && (resource.resourceType === 'Lecture' || resource.title.includes('CLS (NEW)'))) {
         const readingId = resource.readingId;
-        const lectures = learningResourceRepository.getByReadingId(readingId).filter(r => r.resourceType === 'Lecture');
+        const lectures = learningResourceRepository.getByReadingId(readingId).filter(r => r.resourceType === 'Lecture' || r.title.includes('CLS (NEW)'));
         const totalLogged = lectures.reduce((sum, l) => sum + (l.progress.minutesCompleted || 0), 0);
         setPlannerProgress(prev => {
           const existing = prev.find(p => p.readingId === readingId);
-          if (existing) {
-            return prev.map(p => p.readingId === readingId ? { ...p, loggedVideoMinutes: totalLogged } : p);
-          }
-          return [...prev, { readingId, loggedVideoMinutes: totalLogged, completedEOCQ: 0 }];
+          const updated = existing
+            ? prev.map(p => p.readingId === readingId ? { ...p, loggedVideoMinutes: totalLogged } : p)
+            : [...prev, { readingId, loggedVideoMinutes: totalLogged, completedEOCQ: 0 }];
+          safeSetItem('cfa_planner_progress', JSON.stringify(updated));
+          return updated;
         });
       }
+    });
+
+    const unsubPhaseCompleted = eventBus.subscribe('PhaseCompleted', (event) => {
+      handlePhaseStateUpdated(event);
+    });
+
+    const unsubPhaseUncompleted = eventBus.subscribe('PhaseUncompleted', (event) => {
+      handlePhaseStateUpdated(event);
     });
 
     const unsubCreated = eventBus.subscribe('ResourceCreated', handleRepoChange);
@@ -1748,7 +1895,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const resource = learningResourceRepository.getById(resourceId);
       if (resource) {
         setSelectedResourceId(resourceId);
-        // Start study session timer automatically for this reading/LOS
         startStudySession({
           linkedSubjectId: resource.subject,
           linkedReadingId: resource.readingId,
@@ -1762,7 +1908,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const resource = learningResourceRepository.getById(resourceId);
       if (resource) {
         setSelectedResourceId(resourceId);
-        // Start study session timer automatically for this reading/LOS
         startStudySession({
           linkedSubjectId: resource.subject,
           linkedReadingId: resource.readingId,
@@ -1774,6 +1919,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => {
       unsubProgress();
       unsubReset();
+      unsubPhaseCompleted();
+      unsubPhaseUncompleted();
       unsubCreated();
       unsubUpdated();
       unsubDeleted();
@@ -1782,7 +1929,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubLaunch();
       unsubResume();
     };
-  }, [losList]);
+  }, [losList, plannerReadings, auth.currentUser]);
 
   // ==========================================
   // STABLE BUSINESS SERVICES (Memoized)
@@ -1843,80 +1990,107 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Subscribe to Firebase Auth changes and load profile/settings from Firestore
   useEffect(() => {
+    // Safety max timer to guarantee authLoading is unblocked within 1.5s maximum
+    const maxLoadingTimer = setTimeout(() => {
+      setAuthLoading(false);
+    }, 1500);
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
-        try {
-          const userDocSnap = await getDoc(userDocRef);
-          if (userDocSnap.exists()) {
-            const data = userDocSnap.data();
-            setUser(data.profile || null);
-            if (data.settings) {
-              setSettings(data.settings);
-            }
-            logActivity('setting', `Session restored for ${data.profile?.name || firebaseUser.email || 'Candidate'}`);
-          } else {
-            // New user, initialize defaults
-            const newProfile: UserProfile = {
-              id: firebaseUser.uid,
-              name: firebaseUser.displayName || 'CFA Candidate',
-              email: firebaseUser.email || firebaseUser.phoneNumber || '',
-              avatarUrl: firebaseUser.photoURL || undefined,
-              joinedDate: new Date().toISOString().split('T')[0],
-              streakDays: 1
-            };
-            const defaultSettings: StudySettings = {
-              theme: 'light',
-              examDate: '2026-08-25',
-              targetStartDate: '2026-06-01',
-              targetDailyHours: 3.5,
-              preferredSessionLength: 45,
-              notificationsEnabled: true,
-              reviewBuffer: 30,
-              notificationPreferences: {
-                email: true,
-                push: false,
-                streakReminders: true
-              },
-              aiStreamingEnabled: true
-            };
-            await setDoc(userDocRef, {
-              profile: newProfile,
-              settings: defaultSettings
-            });
-            setUser(newProfile);
-            setSettings(defaultSettings);
-            logActivity('setting', `Created profile for new user: ${newProfile.name}`);
-          }
-          // Initialize SyncService startup sync
-          await syncService.initialize(firebaseUser.uid, {
-            setTemplates,
-            setStudyStrategy,
-            setActiveTemplateId
-          });
-        } catch (error: any) {
-          console.error("Error syncing with Firestore on auth change:", error);
-          setUser({
+      clearTimeout(maxLoadingTimer);
+      try {
+        if (firebaseUser) {
+          // Immediately set fallback user if not already set, so UI opens without delay
+          setUser(prevUser => prevUser || {
             id: firebaseUser.uid,
             name: firebaseUser.displayName || 'CFA Candidate',
             email: firebaseUser.email || firebaseUser.phoneNumber || '',
+            avatarUrl: firebaseUser.photoURL || undefined,
             joinedDate: new Date().toISOString().split('T')[0],
             streakDays: 1
           });
-          // Attempt sync startup fallback
-          await syncService.initialize(firebaseUser.uid, {
-            setTemplates,
-            setStudyStrategy,
-            setActiveTemplateId
-          });
+
+          // Unblock loading screen IMMEDIATELY
+          setAuthLoading(false);
+
+          // Asynchronously perform background Firestore fetch & sync initialization without blocking UI
+          (async () => {
+            try {
+              const userDocRef = doc(db, 'users', firebaseUser.uid);
+              // Fetch user doc with a 3-second race timeout to prevent network stalls
+              const userDocSnap = await Promise.race([
+                getDoc(userDocRef),
+                new Promise<null>(resolve => setTimeout(() => resolve(null), 3000))
+              ]);
+
+              if (userDocSnap && userDocSnap.exists()) {
+                const data = userDocSnap.data();
+                if (data.profile) {
+                  setUser(data.profile);
+                }
+                if (data.settings) {
+                  setSettings(data.settings);
+                }
+                logActivity('setting', `Session restored for ${data.profile?.name || firebaseUser.email || 'Candidate'}`);
+              } else if (userDocSnap && !userDocSnap.exists()) {
+                // New user in Firestore, initialize defaults
+                const newProfile: UserProfile = {
+                  id: firebaseUser.uid,
+                  name: firebaseUser.displayName || 'CFA Candidate',
+                  email: firebaseUser.email || firebaseUser.phoneNumber || '',
+                  avatarUrl: firebaseUser.photoURL || undefined,
+                  joinedDate: new Date().toISOString().split('T')[0],
+                  streakDays: 1
+                };
+                const defaultSettings: StudySettings = {
+                  theme: 'light',
+                  examDate: '2027-02-21',
+                  targetStartDate: '2026-07-14',
+                  targetDailyHours: 5.5,
+                  preferredSessionLength: 60,
+                  notificationsEnabled: true,
+                  reviewBuffer: 60,
+                  notificationPreferences: {
+                    email: true,
+                    push: false,
+                    streakReminders: true
+                  },
+                  aiStreamingEnabled: true
+                };
+                await setDoc(userDocRef, {
+                  profile: newProfile,
+                  settings: defaultSettings
+                }).catch(e => console.warn("Firestore user profile setDoc warning:", e));
+                setUser(newProfile);
+                setSettings(defaultSettings);
+                logActivity('setting', `Created profile for new user: ${newProfile.name}`);
+              }
+
+              // Initialize SyncService startup sync asynchronously
+              await syncService.initialize(firebaseUser.uid, {
+                setTemplates,
+                setStudyStrategy,
+                setActiveTemplateId
+              });
+            } catch (error: any) {
+              console.warn("Background sync initialization warning:", error);
+            }
+          })();
+
+        } else {
+          setUser(null);
+          syncService.clearUser();
+          setAuthLoading(false);
         }
-      } else {
-        setUser(null);
-        syncService.clearUser();
+      } catch (globalError) {
+        console.error("Global auth state changed error:", globalError);
+        setAuthLoading(false);
       }
-      setAuthLoading(false);
     });
-    return unsubscribe;
+
+    return () => {
+      clearTimeout(maxLoadingTimer);
+      unsubscribe();
+    };
   }, []);
 
   // Sync state mutations to LocalStorage

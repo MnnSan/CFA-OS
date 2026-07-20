@@ -10,6 +10,8 @@ import { knowledgeIndexService } from '../services/KnowledgeIndexService';
 import { DomainEvent } from '../types';
 import { CurriculumBootstrapService } from '../services/CurriculumBootstrapService';
 import { INITIAL_2027_READINGS } from '../applications/cfa/curriculum/data/initialCurriculum';
+import { TemplateValidator } from '../services/sync/TemplateValidator';
+import { CoachPlanRepository } from '../repositories/CoachPlanRepository';
 import { 
   Terminal, 
   Cpu, 
@@ -37,7 +39,9 @@ export const DeveloperTools: React.FC = () => {
 
   const [capturedEvents, setCapturedEvents] = useState<DomainEvent[]>([]);
   const [memoryUsage, setMemoryUsage] = useState<string>('N/A');
-  const [activeSubTab, setActiveSubTab] = useState<'diagnostics' | 'history' | 'events' | 'import_diagnostics'>('diagnostics');
+  const [activeSubTab, setActiveSubTab] = useState<'diagnostics' | 'history' | 'events' | 'import_diagnostics' | 'template_audit'>('diagnostics');
+  const [templateAuditResults, setTemplateAuditResults] = useState<{id: string; issues: string[]; repaired: boolean}[] | null>(null);
+  const [auditRunning, setAuditRunning] = useState(false);
   const [importDiagnostics, setImportDiagnostics] = useState<any[]>([]);
   const [readingDiagResults, setReadingDiagResults] = useState<{ readingId: string; title: string; status: 'ok' | 'missing' | 'duplicate' | 'unmapped'; details?: string }[]>([]);
   const [lrList, setLrList] = useState<any[]>([]);
@@ -422,6 +426,16 @@ export const DeveloperTools: React.FC = () => {
             >
               Import Diagnostics ({importDiagnostics.length})
             </button>
+            <button
+              onClick={() => setActiveSubTab('template_audit')}
+              className={`text-xs font-mono font-bold pb-2 border-b-2 tracking-wider uppercase transition-all cursor-pointer ${
+                activeSubTab === 'template_audit'
+                  ? 'border-indigo-500 text-slate-800 dark:text-[#F8FAFC]'
+                  : 'border-transparent text-slate-400 hover:text-slate-700'
+              }`}
+            >
+              Template Audit
+            </button>
           </div>
 
           {/* Active Telemetry Pane */}
@@ -751,6 +765,84 @@ export const DeveloperTools: React.FC = () => {
                           </tr>
                         );
                       })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeSubTab === 'template_audit' && (
+            <div className="flex-1 overflow-y-auto space-y-4 max-h-[350px] text-xs font-mono">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                <span className="text-[10px] text-slate-400 uppercase">Template Audit</span>
+              </div>
+              <p className="text-[10px] text-slate-500 leading-relaxed">
+                Scans all coach plan templates for missing or malformed required fields (id, name, version, updatedAt).
+                Detected issues can be auto-repaired — repaired templates are saved back to the repository cache.
+              </p>
+              <button
+                onClick={async () => {
+                  setAuditRunning(true);
+                  setTemplateAuditResults(null);
+                  try {
+                    const repo = CoachPlanRepository.getInstance();
+                    const templates = ((repo as any).templates || []) as any[];
+                    const results = templates.map((t: any) => {
+                      const result = TemplateValidator.validateTemplate(t);
+                      const issues = result.errors || [];
+                      return { id: t.id || '(no id)', issues, repaired: issues.length > 0 };
+                    });
+                    setTemplateAuditResults(results);
+                  } catch (e) {
+                    setTemplateAuditResults([{ id: 'ERROR', issues: [(e as Error).message], repaired: false }]);
+                  } finally {
+                    setAuditRunning(false);
+                  }
+                }}
+                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] rounded transition-colors cursor-pointer disabled:opacity-50"
+                disabled={auditRunning}
+              >
+                {auditRunning ? 'Scanning...' : 'Run Template Audit'}
+              </button>
+              {templateAuditResults && (
+                <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 dark:bg-slate-950/80 text-[10px] font-bold text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                        <th className="p-2">Template ID</th>
+                        <th className="p-2">Issues</th>
+                        <th className="p-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {templateAuditResults.map((r, i) => (
+                        <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/35 transition-colors">
+                          <td className="p-2 text-slate-600 dark:text-slate-400 font-semibold">{r.id}</td>
+                          <td className="p-2 text-slate-800 dark:text-slate-300">
+                            {r.issues.length > 0 ? (
+                              <ul className="list-disc list-inside space-y-0.5">
+                                {r.issues.map((issue, j) => (
+                                  <li key={j} className="text-rose-500">{issue}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <span className="text-emerald-500">None</span>
+                            )}
+                          </td>
+                          <td className="p-2">
+                            {r.repaired ? (
+                              <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border text-amber-500 bg-amber-500/10 border-amber-500/20">
+                                Repaired
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border text-emerald-500 bg-emerald-500/10 border-emerald-500/20">
+                                OK
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>

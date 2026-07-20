@@ -234,17 +234,19 @@ export class CurriculumIntelligenceService {
     const totalHoursInvested = Number((totalMinutes / 60).toFixed(1));
     const averageConfidence = this.analytics.getAverageConfidenceForReading(rd.id);
 
-    // Mock prerequisites and related lists
+    // Map prerequisites using 2027 Reading IDs (re-anchoring Options to Swaps/Currency)
     const prereqMap: Record<string, string[]> = {
-      'ab102030-4050-4060-8070-90a0b0c0d008': ['ab102030-4050-4060-8070-90a0b0c0d005'],
-      'ab102030-4050-4060-8070-90a0b0c0d012': ['ab102030-4050-4060-8070-90a0b0c0d008'],
-      'ab102030-4050-4060-8070-90a0b0c0d013': ['ab102030-4050-4060-8070-90a0b0c0d012']
+      'read-aa-principles': ['read-cme-2'],
+      'read-path-ldi': ['read-aa-principles'],
+      'read-path-yc': ['read-path-ldi'],
+      'read-deriv-swaps': ['read-deriv-options'],
+      'read-deriv-currency': ['read-deriv-options']
     };
 
     const relatedMap: Record<string, string[]> = {
-      'ab102030-4050-4060-8070-90a0b0c0d001': ['ab102030-4050-4060-8070-90a0b0c0d002'],
-      'ab102030-4050-4060-8070-90a0b0c0d012': ['ab102030-4050-4060-8070-90a0b0c0d013'],
-      'ab102030-4050-4060-8070-90a0b0c0d008': ['ab102030-4050-4060-8070-90a0b0c0d012', 'ab102030-4050-4060-8070-90a0b0c0d015']
+      'read-eth-code': ['read-eth-std-1'],
+      'read-path-ldi': ['read-path-yc'],
+      'read-aa-principles': ['read-path-ldi', 'read-path-active-eq']
     };
 
     return {

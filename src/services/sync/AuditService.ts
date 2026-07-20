@@ -41,6 +41,14 @@ export class AuditService {
           templatesResult = 'FAIL';
           details.push(`Templates: Found template missing required id/name.`);
         }
+        if (t.version === undefined || t.version === null || typeof t.version !== 'number') {
+          templatesResult = 'FAIL';
+          details.push(`Templates: [${t.id || 'unknown'}] Missing required version.`);
+        }
+        if (!t.updatedAt || typeof t.updatedAt !== 'string') {
+          templatesResult = 'FAIL';
+          details.push(`Templates: [${t.id || 'unknown'}] Missing required updatedAt.`);
+        }
         if (t.blocks) {
           t.blocks.forEach(b => {
             if (new Date(b.startDate).getTime() > new Date(b.endDate).getTime()) {

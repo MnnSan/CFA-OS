@@ -278,7 +278,7 @@ export const Dashboard: React.FC = () => {
   const yesterdayHours = (yesterdayMinutes / 60).toFixed(1);
 
   // ── SSCI Lectures 60/40 Knowledge Coverage ──
-  const ssciResources = lrRepo.getAll().filter(r => r.provider === 'SSCI');
+  const ssciResources = lrRepo.getAll().filter(r => r.provider === 'SSCI' || r.title.includes('CLS (NEW)'));
   const totalVideoTarget = ssciResources.reduce((sum, r) => sum + r.duration, 0);
   const totalVideoLogged = ssciResources.reduce((sum, r) => sum + r.progress.minutesCompleted, 0);
   const videoPct = totalVideoTarget > 0 ? Math.min(100, Math.round((totalVideoLogged / totalVideoTarget) * 100)) : 0;
@@ -959,11 +959,13 @@ export const Dashboard: React.FC = () => {
                           const x = i * step;
                           const yR = height - 10 - ((snap.readinessScore / 100) * 100);
                           const yH = height - 10 - ((snap.knowledgeHealth / 100) * 100);
+                          return (
                             <g key={i} className="cursor-pointer">
                               <title>{`Date: ${snap.date}`}</title>
                               <circle cx={x} cy={yR} r="3" fill="#4f46e5" />
                               <circle cx={x} cy={yH} r="2.5" fill="#10b981" />
                             </g>
+                          );
                         })}
                       </>
                     );

@@ -30,15 +30,18 @@ function AppContent() {
     pauseReason,
     resumeStudySession,
     finishStudySession,
-    cancelStudySession
+    cancelStudySession,
+    settings
   } = useApp();
 
   if (authLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-[#07080a]">
-        <div className="flex h-10 w-10 items-center justify-center rounded bg-slate-900 font-mono text-xs font-bold text-white animate-pulse dark:bg-white dark:text-[#07080a]">
-          III
-        </div>
+        <img 
+          src={settings?.theme === 'dark' ? '/logo-white.svg' : '/logo-black.svg'} 
+          alt="CFA L3 OS Logo" 
+          className="h-10 w-10 animate-pulse select-none"
+        />
         <p className="mt-4 text-xs font-mono text-slate-400 dark:text-slate-500 uppercase tracking-widest animate-pulse">
           Loading Security Node...
         </p>

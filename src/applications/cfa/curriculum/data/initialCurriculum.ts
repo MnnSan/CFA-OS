@@ -10,7 +10,7 @@ export const INITIAL_2027_SUBJECTS: Subject[] = [
     code: 'AA',
     cfaWeight: '15-20%',
     totalHoursEstimate: 35,
-    order: 1,
+    order: 2,
     enabled: true
   },
   {
@@ -21,7 +21,7 @@ export const INITIAL_2027_SUBJECTS: Subject[] = [
     code: 'PC',
     cfaWeight: '35-40%',
     totalHoursEstimate: 80,
-    order: 2,
+    order: 3,
     enabled: true
   },
   {
@@ -32,7 +32,7 @@ export const INITIAL_2027_SUBJECTS: Subject[] = [
     code: 'PM',
     cfaWeight: '10-15%',
     totalHoursEstimate: 20,
-    order: 3,
+    order: 5,
     enabled: true
   },
   {
@@ -43,7 +43,7 @@ export const INITIAL_2027_SUBJECTS: Subject[] = [
     code: 'DRM',
     cfaWeight: '10-15%',
     totalHoursEstimate: 25,
-    order: 4,
+    order: 1,
     enabled: true
   },
   {
@@ -54,7 +54,7 @@ export const INITIAL_2027_SUBJECTS: Subject[] = [
     code: 'ETH',
     cfaWeight: '10-15%',
     totalHoursEstimate: 30,
-    order: 5,
+    order: 6,
     enabled: true
   },
   {
@@ -65,7 +65,7 @@ export const INITIAL_2027_SUBJECTS: Subject[] = [
     code: 'PMP',
     cfaWeight: '10-15%',
     totalHoursEstimate: 40,
-    order: 6,
+    order: 4,
     enabled: true
   }
 ];

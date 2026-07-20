@@ -2,6 +2,7 @@ import { LearningResource } from '../types';
 import { ResourceImporter, ImportResult } from './types';
 import { READING_MAPPING } from '../migration/mappingConfig';
 import { INITIAL_2027_READINGS, INITIAL_2027_LOS } from '../../applications/cfa/curriculum/data/initialCurriculum';
+import { LectureRepository } from '../../applications/cfa/repositories/LectureRepository';
 
 const DYNAMIC_IMPORT_KEY = 'cfa_ssci_import_completed';
 
@@ -386,13 +387,10 @@ export class SSCIImporter implements ResourceImporter {
             continue;
           }
 
-          // 2. Parse timing duration
-          const { minutes, warning: timeWarning } = parseTimingToMinutes(timing);
-          if (timeWarning) {
-            errors.push(`Row ${i + 2} (${sheetName}): ${timeWarning}`);
-          }
+          // 2. Parse timing duration using the new robust helper
+          const minutes = LectureRepository.getRuntimeMinutes(cleanCode, timing, readingId);
 
-          if (minutes <= 0 || minutes > 300) {
+          if ((minutes < 0 || minutes > 300) && !(readingId === 'read-deriv-options' && (timing === undefined || timing === null))) {
             diagnostics.push({
               type: 'INVALID_DURATION',
               sheetName,
@@ -483,7 +481,7 @@ export class SSCIImporter implements ResourceImporter {
             description: `${matchedReading.topicArea || matchedReading.name} Reading ${matchedReading.readingNumber || matchedReading.number} - ${cleanTitle || cleanCode}`,
             readingId,
             losIds,
-            duration: Math.max(1, Math.round(minutes)),
+            duration: minutes,
             launchUrl,
             order: i,
             importMetadata: {
@@ -502,10 +500,10 @@ export class SSCIImporter implements ResourceImporter {
             subject: matchedReading.subjectId,
             reading: readingId,
             subReadingTag: parsedLetters.join(','),
-            runtimeMinutes: Math.round(minutes),
+            runtimeMinutes: minutes,
             resourceLinks,
             // Backward compatibility fields
-            durationMinutes: Math.max(1, Math.round(minutes)),
+            durationMinutes: minutes,
             completed: false,
             lastOpened: null,
             launchURL: launchUrl,

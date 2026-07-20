@@ -1,0 +1,30 @@
+{
+  "short_name": "CFA III OS",
+  "name": "CFA III OS",
+  "description": "Premium cognitive cockpit for CFA Level III preparation",
+  "icons": [
+    {
+      "src": "/logo-dynamic.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-black.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/logo-white.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#07080a",
+  "theme_color": "#07080a",
+  "display": "standalone",
+  "orientation": "portrait"
+}

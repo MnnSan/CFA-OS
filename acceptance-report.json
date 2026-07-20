@@ -1,0 +1,263 @@
+{
+  "timestamp": "2026-07-13T17:56:41.974Z",
+  "duration_seconds": 4.1,
+  "summary": {
+    "total": 40,
+    "passed": 40,
+    "failed": 0,
+    "health_score": 100
+  },
+  "results": [
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "TemplateValidator rejects malformed templates (missing id/name/version/updatedAt)",
+      "status": "passed",
+      "duration_ms": 2.767699999999877
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "TemplateValidator repairs corrupted templates",
+      "status": "passed",
+      "duration_ms": 0.5457000000001244
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "CoachPlanRepository rejects invalid template saves",
+      "status": "passed",
+      "duration_ms": 2.0270000000000437
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "CoachPlanRepository saves valid templates",
+      "status": "passed",
+      "duration_ms": 0.439600000000155
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "ChecksumService produces deterministic hashes",
+      "status": "passed",
+      "duration_ms": 0.7950000000000728
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "ChecksumService produces different hashes for different data",
+      "status": "passed",
+      "duration_ms": 0.7919999999999163
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "Repository count equals cache count after save",
+      "status": "passed",
+      "duration_ms": 0.5488000000000284
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "Auto-repair fixes cache when repository diverges",
+      "status": "passed",
+      "duration_ms": 0.2652000000002772
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "Health score is 100 when repository is pristine",
+      "status": "passed",
+      "duration_ms": 0.5432000000000698
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "ContextBuilderService handles missing memory gracefully",
+      "status": "passed",
+      "duration_ms": 0.3512999999998101
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "Template validation does not throw on null input",
+      "status": "passed",
+      "duration_ms": 0.895799999999781
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "Templates persist to localStorage",
+      "status": "passed",
+      "duration_ms": 0.3831999999997606
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "Templates survive page refresh (localStorage round-trip)",
+      "status": "passed",
+      "duration_ms": 0.4547000000002299
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "Create template via repository",
+      "status": "passed",
+      "duration_ms": 0.16420000000016444
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "Rename template",
+      "status": "passed",
+      "duration_ms": 0.16760000000022046
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "Update blocks",
+      "status": "passed",
+      "duration_ms": 0.2458000000001448
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "Soft delete template",
+      "status": "passed",
+      "duration_ms": 0.1698999999998705
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "Duplicate template",
+      "status": "passed",
+      "duration_ms": 0.3818999999998596
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "Strategy can be set and retrieved",
+      "status": "passed",
+      "duration_ms": 0.1598999999996522
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/acceptance.test.ts",
+      "test": "Strategy can be cleared",
+      "status": "passed",
+      "duration_ms": 0.10789999999997235
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "passes a valid template",
+      "status": "passed",
+      "duration_ms": 3.189600000000155
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "rejects null",
+      "status": "passed",
+      "duration_ms": 0.2260999999998603
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "rejects undefined",
+      "status": "passed",
+      "duration_ms": 0.13170000000036453
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "rejects template missing id",
+      "status": "passed",
+      "duration_ms": 0.39249999999992724
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "rejects template with empty name",
+      "status": "passed",
+      "duration_ms": 0.6664000000000669
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "rejects template missing version",
+      "status": "passed",
+      "duration_ms": 0.34940000000005966
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "rejects template with non-numeric version",
+      "status": "passed",
+      "duration_ms": 0.2689999999997781
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "rejects template missing updatedAt",
+      "status": "passed",
+      "duration_ms": 0.371599999999944
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "rejects template missing createdAt",
+      "status": "passed",
+      "duration_ms": 0.5744999999997162
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "repairs missing id",
+      "status": "passed",
+      "duration_ms": 0.30150000000003274
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "repairs empty name",
+      "status": "passed",
+      "duration_ms": 0.18440000000009604
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "repairs missing version",
+      "status": "passed",
+      "duration_ms": 0.10429999999996653
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "repairs missing updatedAt",
+      "status": "passed",
+      "duration_ms": 0.09769999999980428
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "initializes blocks as empty array if missing",
+      "status": "passed",
+      "duration_ms": 0.18209999999999127
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "creates semanticVersion if missing",
+      "status": "passed",
+      "duration_ms": 0.16110000000026048
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "passes a valid strategy",
+      "status": "passed",
+      "duration_ms": 0.15649999999959618
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "rejects null strategy",
+      "status": "passed",
+      "duration_ms": 0.06759999999985666
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "repairs missing name",
+      "status": "passed",
+      "duration_ms": 0.09300000000030195
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "does not throw for valid template",
+      "status": "passed",
+      "duration_ms": 0.6453000000001339
+    },
+    {
+      "suite": "C:/Manan Personal/PERSONAL/Myself/Antigravity/cfa-level-iii-preparation-platform/src/__tests__/sync/TemplateValidator.test.ts",
+      "test": "throws for invalid template",
+      "status": "passed",
+      "duration_ms": 0.2501999999999498
+    }
+  ],
+  "acceptance_criteria": {
+    "firestore_online": false,
+    "sync_online": false,
+    "pending_writes_zero": false,
+    "repo_equals_cloud_equals_cache": true,
+    "templates_pass": true,
+    "health_score_100": true,
+    "no_runtime_exceptions": true,
+    "no_malformed_templates": true,
+    "refresh_preserves_plans": true
+  }
+}

@@ -242,15 +242,45 @@ export class MissionEngineService {
       isRecoveryMission: false
     };
 
+    let whySelectedText = `Reading ${reading.number} ("${reading.title}") holds a high exam weight of ${subject.code === 'PWM' ? '35%' : '15%'} and is the next logical step in your scheduler sequence.`;
+    let whyNowText = `Active recall gap identified: LOS ${targetLOS.code} remains incomplete with confidence level: ${targetLOS.confidence || 'Unrated'}. Prioritizing to build cognitive retention.`;
+    let expectedOutcomeText = `Successfully answer EOCQ item sets on "${targetLOS.statement.substring(0, 40)}..." with confidence >= 4/5.`;
+
+    if (subject.id === 'sub-derivatives-risk-mgmt') {
+      whySelectedText = `MEMORANDUM: Rebalancing tactical overlay via derivatives. Initiating Option Strategies (LOS 16) to establish asymmetric payoff profiles, delta/gamma hedging boundaries, and volatility trading structures.`;
+      whyNowText = `TACTICAL OVERLAY UNLOCKED: Option volatility overlays and tail-risk hedging toolkit. Accessing active recall node for delta boundaries, managing gamma risk, and minimizing premium decay.`;
+      expectedOutcomeText = `Demonstrate proficiency in structuring asymmetric collars and delta-neutral options strategies, maintaining tracking error within 15 bps of target overlay boundaries.`;
+    } else if (subject.id === 'sub-asset-allocation') {
+      whySelectedText = `MEMORANDUM: Capital Market Expectations (CME) and Mean-Variance Optimization (MVO). Formulating institutional forecasting parameters to drive strategic asset allocation (SAA) weights.`;
+      whyNowText = `TACTICAL OVERLAY UNLOCKED: Black-Litterman risk-budgeting model and MVO constraints. Accessing active recall node to refine Grinold-Kroner economic projections.`;
+      expectedOutcomeText = `Establish optimized portfolio asset weights incorporating covariance matrices, ensuring tracking error and tax constraints are within mandated Investment Policy Statement (IPS) limits.`;
+    } else if (subject.id === 'sub-portfolio-construction') {
+      whySelectedText = `MEMORANDUM: Institutional Asset Management & Core Equity/Fixed Income Benchmarks. Transitioning strategic asset weights into active and passive replication models.`;
+      whyNowText = `TACTICAL OVERLAY UNLOCKED: Passive replication optimization and benchmark selection frameworks. Accessing active recall node to evaluate tracking error budgets.`;
+      expectedOutcomeText = `Delineate passive replication approaches (stratified sampling vs. optimization) while keeping tracking error constrained to standard institutional limits.`;
+    } else if (subject.id === 'sub-portfolio-mgmt-pathway') {
+      whySelectedText = `MEMORANDUM: Advanced Portfolio Management Pathway. Formulating active equity risk budgets, yield curve strategies, and structured credit derivatives (CDS) overlays.`;
+      whyNowText = `TACTICAL OVERLAY UNLOCKED: Active Share, barbell/bullet yield curve shifts, and CDS credit risk pricing. Accessing active recall node to optimize active risk boundaries.`;
+      expectedOutcomeText = `Construct immunized fixed-income portfolios (LDI/cash flow matching) and active equity structures, maintaining active risk within specified risk-budgeting limits.`;
+    } else if (subject.id === 'sub-performance-measurement') {
+      whySelectedText = `MEMORANDUM: Performance Attribution & Manager Selection. Appraising active manager returns, Brinson-Fachler attribution models, and GIPS compliance frameworks.`;
+      whyNowText = `TACTICAL OVERLAY UNLOCKED: Brinson-Fachler performance attribution and Type I/II manager selection errors. Accessing active recall node to verify GIPS compliance standards.`;
+      expectedOutcomeText = `Accurately attribute excess return (allocation vs. selection effects) and conduct institutional due diligence on active asset managers.`;
+    } else if (subject.id === 'sub-ethical-professional') {
+      whySelectedText = `MEMORANDUM: Code of Ethics and Professional Standards (Standards I-VII) & Asset Manager Code of Conduct. Aligning fiduciary responsibilities with institutional best practices.`;
+      whyNowText = `TACTICAL OVERLAY UNLOCKED: Granular CFA Level III ethical standards and fiduciary duty frameworks. Accessing active recall node to lock down GIPS compliance compliance overlays.`;
+      expectedOutcomeText = `Demonstrate compliance with the CFA Code of Ethics and Standards of Professional Conduct across institutional asset management scenarios.`;
+    }
+
     mission.explanation = {
       selectedReading: reading,
       selectedLOS: targetLOS,
-      whySelected: `Reading ${reading.number} ("${reading.title}") holds a high exam weight of ${subject.code === 'PWM' ? '35%' : '15%'} and is the next logical step in your scheduler sequence.`,
-      whyNow: `Active recall gap identified: LOS ${targetLOS.code} remains incomplete with confidence level: ${targetLOS.confidence || 'Unrated'}. Prioritizing to build cognitive retention.`,
+      whySelected: whySelectedText,
+      whyNow: whyNowText,
       priorityScore,
       estimatedDuration: Math.round((targetLOS.estimatedHours || 1.5) * 60),
-      expectedOutcome: `Successfully answer EOCQ item sets on "${targetLOS.statement.substring(0, 40)}..." with confidence >= 4/5.`,
-      blockingFactors: reading.number > 1 ? [`Requires understanding of prerequisite ethics standards.`] : [],
+      expectedOutcome: expectedOutcomeText,
+      blockingFactors: [], // Decoupled Ethical Standards prerequisite connection for all prior subjects
       selectionMethod: method
     };
 

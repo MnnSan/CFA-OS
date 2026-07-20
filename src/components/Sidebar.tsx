@@ -49,7 +49,8 @@ export const Sidebar: React.FC = () => {
 
   const getDaysRemaining = () => {
     const today = new Date('2026-06-28');
-    const exam = new Date(settings.examDate);
+    const examDateStr = settings?.examDate || '2026-08-25';
+    const exam = new Date(examDateStr);
     const diffTime = exam.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays > 0 ? diffDays : 0;
@@ -65,9 +66,11 @@ export const Sidebar: React.FC = () => {
     >
       {/* Brand / Logo Header */}
       <div className="flex h-14 shrink-0 items-center justify-center border-b border-slate-200 dark:border-slate-800/60">
-        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-900 font-mono text-[10px] font-bold text-white select-none dark:bg-white dark:text-[#07080a]">
-          III
-        </div>
+        <img 
+          src={settings?.theme === 'dark' ? '/logo-white.svg' : '/logo-black.svg'} 
+          alt="CFA L3 OS Logo" 
+          className="h-6 w-6 shrink-0 select-none"
+        />
         {isExpanded && (
           <span className="ml-2 text-sm font-semibold tracking-tight text-[#111827] dark:text-[#F8FAFC] whitespace-nowrap">
             CFA OS / L3

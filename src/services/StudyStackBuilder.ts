@@ -74,6 +74,9 @@ export class StudyStackBuilder {
               lectureCompleted: allCompleted,
               videoPosition: lec.progress?.resumeState || undefined
             },
+            readingId: dailyMission.readingId,
+            linkedLosIds: [dailyMission.losId || dailyMission.losCode].filter(Boolean),
+            resourceName: lec.title || "",
             ...meta
           };
           phases.push(phase);
@@ -159,6 +162,9 @@ export class StudyStackBuilder {
           dependsOn: previousPhaseId ? [previousPhaseId] : [],
           completed: allCompleted,
           completionEvidence: this.buildCompletionEvidence(phaseDef.stepType, phaseResources, input),
+          readingId: dailyMission.readingId,
+          linkedLosIds: [dailyMission.losId || dailyMission.losCode].filter(Boolean),
+          resourceName: phaseResources[0]?.title || "",
           ...meta
         };
 
@@ -167,17 +173,28 @@ export class StudyStackBuilder {
       }
     }
 
-    const completedPhases = phases.filter(p => p.status === 'COMPLETED').length;
-    const totalPhases = phases.length;
-    const totalMinutes = phases.reduce((sum, p) => sum + p.estimatedMinutes, 0);
-    const remainingMinutes = phases
+    const maxDailyMinutes = (input.dailyTargetHours || 2) * 60;
+    let currentAccumulatedMinutes = 0;
+    const pacedPhases = phases.filter(phase => {
+      const taskDuration = phase.estimatedMinutes || 0;
+      if (currentAccumulatedMinutes + taskDuration <= maxDailyMinutes) {
+        currentAccumulatedMinutes += taskDuration;
+        return true;
+      }
+      return false;
+    });
+
+    const completedPhases = pacedPhases.filter(p => p.status === 'COMPLETED').length;
+    const totalPhases = pacedPhases.length;
+    const totalMinutes = pacedPhases.reduce((sum, p) => sum + p.estimatedMinutes, 0);
+    const remainingMinutes = pacedPhases
       .filter(p => p.status !== 'COMPLETED' && p.status !== 'SKIPPED')
       .reduce((sum, p) => sum + p.estimatedMinutes, 0);
-    const activePhase = phases.find(p => p.status === 'ACTIVE') || null;
-    const nextPhase = phases.find(p => p.status === 'READY') || null;
+    const activePhase = pacedPhases.find(p => p.status === 'ACTIVE') || null;
+    const nextPhase = pacedPhases.find(p => p.status === 'READY') || null;
 
-    const cognitiveInfo = this.calculateCognitiveLoad(phases, input);
-    const profile = this.calculateMissionProfile(phases);
+    const cognitiveInfo = this.calculateCognitiveLoad(pacedPhases, input);
+    const profile = this.calculateMissionProfile(pacedPhases);
     const forecast = this.calculateForecast(totalMinutes, input.dailyTargetHours);
 
     return {
@@ -186,7 +203,7 @@ export class StudyStackBuilder {
       readingNumber: dailyMission.readingNumber,
       subjectCode: dailyMission.subjectCode,
       templateId: 'standard',
-      phases,
+      phases: pacedPhases,
       activePhase,
       nextPhase,
       totalEstimatedMinutes: totalMinutes,

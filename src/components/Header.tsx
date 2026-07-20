@@ -86,7 +86,7 @@ export const Header: React.FC = () => {
   };
 
   const toggleTheme = () => {
-    updateSettings({ theme: settings.theme === 'light' ? 'dark' : 'light' });
+    updateSettings({ theme: settings?.theme === 'light' ? 'dark' : 'light' });
   };
 
   return (
@@ -95,6 +95,11 @@ export const Header: React.FC = () => {
         
         {/* Breadcrumbs */}
         <div className="flex items-center space-x-2 overflow-hidden text-xs">
+          <img 
+            src={settings?.theme === 'dark' ? '/logo-white.svg' : '/logo-black.svg'} 
+            alt="CFA L3 OS Logo" 
+            className="h-5 w-5 shrink-0 select-none mr-1.5"
+          />
           {getBreadcrumbs().map((crumb, idx) => (
             <React.Fragment key={`${crumb.label}-${idx}`}>
               {idx > 0 && <span className="text-slate-350 dark:text-slate-700 mx-1">/</span>}
@@ -149,8 +154,8 @@ className={`text-xs tracking-tight transition-colors duration-150 shrink-0 font-
 
           {/* AI Status Badge */}
           {(() => {
-            const provider = settings.aiProvider || 'google-gemini';
-            const baseAvailability = settings.aiAvailability || 'OFFLINE';
+            const provider = settings?.aiProvider || 'google-gemini';
+            const baseAvailability = settings?.aiAvailability || 'OFFLINE';
             // Override badge state when rate-limit tracker is active
             const availability = isRateLimited ? 'RATE_LIMITED' : baseAvailability;
             
@@ -237,9 +242,9 @@ className={`text-xs tracking-tight transition-colors duration-150 shrink-0 font-
           <button
             onClick={toggleTheme}
             className="rounded p-1 text-slate-400 hover:text-slate-600 transition-colors dark:hover:text-slate-300"
-            title={`Switch to ${settings.theme === 'light' ? 'Dark' : 'Light'} Mode`}
+            title={`Switch to ${settings?.theme === 'light' ? 'Dark' : 'Light'} Mode`}
           >
-            {settings.theme === 'light' ? <Moon className="h-4.5 w-4.5" /> : <Sun className="h-4.5 w-4.5 text-slate-350" />}
+            {settings?.theme === 'light' ? <Moon className="h-4.5 w-4.5" /> : <Sun className="h-4.5 w-4.5 text-slate-350" />}
           </button>
 
           {/* Notification Hub */}

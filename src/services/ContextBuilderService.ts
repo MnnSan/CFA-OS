@@ -34,18 +34,20 @@ export class ContextBuilderService {
       let nextLecture = null;
 
       if (readingId) {
-        const readingSsci = allSsci.filter(r => r.readingId === readingId).sort((a, b) => (a.order || 0) - (b.order || 0));
-        currentLecture = readingSsci.find(r => !r.progress?.completed) || null;
-        if (currentLecture) {
+        const readingSsci = (allSsci || []).filter(r => r && r.readingId === readingId).sort((a, b) => (a.order || 0) - (b.order || 0));
+        currentLecture = readingSsci.find(r => r && !r.progress?.completed) || null;
+        if (currentLecture && readingSsci && typeof readingSsci.indexOf === 'function') {
           const currentIndex = readingSsci.indexOf(currentLecture);
-          nextLecture = readingSsci[currentIndex + 1] || null;
+          nextLecture = currentIndex >= 0 ? (readingSsci[currentIndex + 1] || null) : null;
         }
       } else {
-        currentLecture = remaining.sort((a, b) => (a.order || 0) - (b.order || 0))[0] || null;
+        currentLecture = (remaining || []).sort((a, b) => (a.order || 0) - (b.order || 0))[0] || null;
         if (currentLecture) {
-          const sameReading = allSsci.filter(r => r.readingId === currentLecture.readingId).sort((a, b) => (a.order || 0) - (b.order || 0));
-          const currentIndex = sameReading.findIndex(r => r.id === currentLecture.id);
-          nextLecture = sameReading[currentIndex + 1] || null;
+          const sameReading = (allSsci || []).filter(r => r && r.readingId === currentLecture.readingId).sort((a, b) => (a.order || 0) - (b.order || 0));
+          if (sameReading && typeof sameReading.findIndex === 'function') {
+            const currentIndex = sameReading.findIndex(r => r && r.id === currentLecture.id);
+            nextLecture = currentIndex >= 0 ? (sameReading[currentIndex + 1] || null) : null;
+          }
         }
       }
 
@@ -101,7 +103,7 @@ export class ContextBuilderService {
               averageConfidence: state.confidence,
               weakTopics: state.weakTopics
             },
-            aiStudyMemory: {
+            aiStudyMemory: memory ? {
               currentSubjectId: memory.currentSubjectId,
               currentReadingId: memory.currentReadingId,
               currentLosId: memory.currentLosId,
@@ -112,7 +114,7 @@ export class ContextBuilderService {
               confidenceTrend: memory.confidenceTrend,
               recentQuizScores: memory.recentQuizScores,
               updatedAt: memory.updatedAt
-            }
+            } : {}
           };
         }
       } catch (e) {

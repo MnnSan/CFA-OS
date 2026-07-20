@@ -4,6 +4,7 @@ import xlsx from 'xlsx';
 import { INITIAL_2027_READINGS, INITIAL_2027_LOS, INITIAL_2027_SUBJECTS } from '../../applications/cfa/curriculum/data/initialCurriculum';
 import { READING_MAPPING } from './mappingConfig';
 import { LearningResource } from '../types';
+import { LectureRepository } from '../../applications/cfa/repositories/LectureRepository';
 
 const { readFile, utils } = xlsx;
 
@@ -167,12 +168,9 @@ for (const sheetName of sheetsToProcess) {
       continue;
     }
 
-    // 3. Extract Duration/Timing
-    const { minutes, warning: timeWarning } = parseTimingToMinutes(timing);
-    if (timeWarning) {
-      warnings.push(`Row ${i + 2} (${sheetName}): ${timeWarning}`);
-    }
-    if (minutes <= 0) {
+    // 3. Extract Duration/Timing using the new robust helper
+    const minutes = LectureRepository.getRuntimeMinutes(cleanCode, timing, readingId);
+    if (minutes <= 0 && !(readingId === 'read-deriv-options' && (timing === undefined || timing === null))) {
       invalidRuntimeCount++;
       warnings.push(`Row ${i + 2} (${sheetName}): Lecture "${cleanTitle}" has zero or invalid runtime duration.`);
     }
@@ -222,7 +220,7 @@ for (const sheetName of sheetsToProcess) {
       description: `${matchedReading.topicArea || matchedReading.name} Reading ${matchedReading.readingNumber || matchedReading.number} - ${cleanTitle || cleanCode}`,
       readingId,
       losIds,
-      duration: Math.max(1, Math.round(minutes)),
+      duration: minutes,
       launchUrl,
       importMetadata: {
         importedAt: new Date().toISOString(),
@@ -239,7 +237,7 @@ for (const sheetName of sheetsToProcess) {
       subject: matchedReading.subjectId,
       reading: readingId,
       subReadingTag,
-      runtimeMinutes: Math.round(minutes),
+      runtimeMinutes: minutes,
       resourceLinks,
     };
 

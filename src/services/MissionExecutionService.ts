@@ -178,11 +178,64 @@ export class MissionExecutionService {
     saveState(this.state);
   }
 
-  recordProgress(phaseId: string, progress: number): void {
+  recordProgress(phaseId: string, progressPercent: number): void {
     this.state = loadState();
     const existing = this.getOrCreateState(phaseId);
-    existing.progress = progress;
-    saveState(this.state);
+    
+    // progress is a fraction from 0.0 to 1.0 internally
+    const progressFraction = progressPercent / 100;
+    existing.progress = progressFraction;
+    
+    const now = new Date().toISOString();
+    
+    if (progressPercent === 100) {
+      existing.status = 'COMPLETED';
+      existing.completed = true;
+      existing.completedAt = now;
+      existing.manualOverride = 'COMPLETED';
+      
+      saveState(this.state);
+      
+      eventBus.publish({
+        type: 'PhaseCompleted',
+        timestamp: now,
+        source: 'MissionExecutionService',
+        entityId: phaseId,
+        payload: { phaseId, progressPercent }
+      });
+    } else {
+      const previouslyCompleted = existing.completed;
+      existing.completed = false;
+      existing.completedAt = null;
+      
+      if (progressPercent === 0) {
+        existing.status = 'READY';
+        existing.manualOverride = 'INCOMPLETE';
+      } else {
+        existing.status = 'RUNNING';
+        existing.manualOverride = null;
+      }
+      
+      saveState(this.state);
+      
+      if (previouslyCompleted) {
+        eventBus.publish({
+          type: 'PhaseUncompleted',
+          timestamp: now,
+          source: 'MissionExecutionService',
+          entityId: phaseId,
+          payload: { phaseId, progressPercent }
+        });
+      }
+      
+      eventBus.publish({
+        type: 'ResourceProgressUpdated',
+        timestamp: now,
+        source: 'MissionExecutionService',
+        entityId: phaseId,
+        payload: { phaseId, progressPercent }
+      });
+    }
   }
 
   getPhaseState(phaseId: string) {

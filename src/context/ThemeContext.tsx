@@ -15,8 +15,10 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { settings, updateSettings } = useApp();
-  const theme = settings.theme || 'light';
+  const app = useApp();
+  const settings = app?.settings;
+  const updateSettings = app?.updateSettings;
+  const theme = settings?.theme || 'light';
 
   const setTheme = (newTheme: 'light' | 'dark') => {
     updateSettings({ theme: newTheme });

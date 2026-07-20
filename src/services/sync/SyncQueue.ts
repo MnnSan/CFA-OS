@@ -189,6 +189,48 @@ export class SyncQueue {
   private lastSyncTimestamp: string = 'Never';
   private currentSyncState: 'IDLE' | 'LOCAL_CHANGE' | 'QUEUED' | 'UPLOADING' | 'VERIFYING' | 'SYNCED' | 'OFFLINE' | 'RETRYING' = 'IDLE';
 
+  private retryCount = 0;
+  private lastSuccessfulUpload: string = 'Never';
+  private lastFailedUpload: string = 'Never';
+  private lastFirestoreError: string | null = null;
+  private lastPermissionError: string | null = null;
+  private syncLatencyMs = 0;
+  private opRetries: Map<string, number> = new Map();
+  private readonly MAX_OP_RETRIES = 5;
+  private readonly BASE_RETRY_MS = 1000;
+  private readonly MAX_BACKOFF_MS = 30000;
+
+  public getQueueAgeSeconds(): number {
+    if (this.queue.length === 0) return 0;
+    const firstOp = this.queue[0];
+    const ageMs = Date.now() - new Date(firstOp.timestamp).getTime();
+    return Math.max(0, Math.round(ageMs / 1000));
+  }
+
+  public getQueueRetryCount(): number {
+    return this.retryCount;
+  }
+
+  public getLastSuccessfulUpload(): string {
+    return this.lastSuccessfulUpload;
+  }
+
+  public getLastFailedUpload(): string {
+    return this.lastFailedUpload;
+  }
+
+  public getLastFirestoreError(): string | null {
+    return this.lastFirestoreError;
+  }
+
+  public getLastPermissionError(): string | null {
+    return this.lastPermissionError;
+  }
+
+  public getSyncLatencyMs(): number {
+    return this.syncLatencyMs;
+  }
+
   private constructor() {
     this.loadFromCache();
   }
@@ -217,7 +259,13 @@ export class SyncQueue {
     try {
       const saved = localStorage.getItem('cfa_sync_pending_queue');
       if (saved) {
-        this.queue = JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this.queue = parsed;
+          console.warn(`[SyncTrace] SyncQueue: Restored ${parsed.length} pending ops from cache — scheduling process`);
+          this.setSyncState('QUEUED');
+          setTimeout(() => this.process(), 500);
+        }
       }
     } catch (e) {
       console.error("SyncQueue: Failed to load queue from cache", e);
@@ -308,6 +356,7 @@ export class SyncQueue {
   // --- Queue Mutations & Deduplication ---
 
   public enqueue(type: PendingSyncOp['type'], key: string, payload: any) {
+    console.warn(`[SyncTrace] SyncQueue.enqueue: type=${type} key=${key} queueBefore=${this.queue.length}`);
     this.setSyncState('LOCAL_CHANGE');
     
     // Deduplicate rapid writes to same document
@@ -332,6 +381,7 @@ export class SyncQueue {
     });
     this.saveToCache();
     this.setSyncState('QUEUED');
+    console.warn(`[SyncTrace] SyncQueue.enqueue: done queueAfter=${this.queue.length} opId=${opId}`);
   }
 
   public enqueueMoveStudyBlock(templateId: string, blockId: string, block: any, previousState: any) {
@@ -392,12 +442,18 @@ export class SyncQueue {
 
   // --- Process Queue via WriteBatch ---
 
-  private async verifyWrites(opsToProcess: PendingSyncOp[], uid: string): Promise<boolean> {
+  private getBackoffMs(opId: string): number {
+    const retries = this.opRetries.get(opId) || 0;
+    const backoff = Math.min(this.BASE_RETRY_MS * Math.pow(2, retries), this.MAX_BACKOFF_MS);
+    return backoff + Math.random() * 500;
+  }
+
+  private async verifyWrites(opsToProcess: PendingSyncOp[], uid: string, succeededIds: Set<string>): Promise<void> {
     this.setSyncState('VERIFYING');
-    let success = true;
     
     for (const op of opsToProcess) {
       if (op.type !== 'coachPlan' && op.type !== 'studyStrategy' && op.type !== 'aiStudyMemory' && op.type !== ('moveStudyBlock' as any)) {
+        succeededIds.add(op.id);
         continue;
       }
       
@@ -408,7 +464,7 @@ export class SyncQueue {
         if (op.type === 'coachPlan') {
           docRef = doc(db, 'users', uid, 'coachPlans', op.key);
           const { blocks, ...metadata } = op.payload;
-          localPayload = metadata; // We only verify metadata level on main doc
+          localPayload = metadata;
         } else if (op.type === ('moveStudyBlock' as any)) {
           const [templateId, blockId] = op.key.split('/');
           docRef = doc(db, 'users', uid, 'coachPlans', templateId, 'blocks', blockId);
@@ -420,9 +476,13 @@ export class SyncQueue {
         
         const snap = await getDoc(docRef);
         if (!snap.exists()) {
-          console.error(`SyncQueue Verification: Document missing for ${op.type} key ${op.key}`);
-          success = false;
-          this.enqueue(op.type, op.key, op.payload);
+          console.error(`[SyncTrace] Verify: Missing doc for ${op.type} key ${op.key}`);
+          const retries = this.opRetries.get(op.id) || 0;
+          if (retries >= this.MAX_OP_RETRIES) {
+            console.error(`[SyncTrace] Verify: Op ${op.id} exceeded max retries for missing doc — discarding`);
+          } else {
+            this.opRetries.set(op.id, retries + 1);
+          }
           continue;
         }
         
@@ -431,52 +491,192 @@ export class SyncQueue {
         const localHash = checksumService.compute(localPayload);
         
         if (cloudHash !== localHash) {
-          console.warn(`SyncQueue Verification: Checksum mismatch for ${op.type} key ${op.key}. Cloud: ${cloudHash}, Local: ${localHash}. Triggering automatic repair.`);
-          success = false;
-          this.enqueue(op.type, op.key, op.payload);
+          console.warn(`[SyncTrace] Verify: Checksum mismatch for ${op.type} key ${op.key}`);
+          const retries = this.opRetries.get(op.id) || 0;
+          if (retries >= this.MAX_OP_RETRIES) {
+            console.error(`[SyncTrace] Verify: Op ${op.id} exceeded max retries for checksum mismatch — discarding`);
+          } else {
+            this.opRetries.set(op.id, retries + 1);
+          }
         } else {
-          console.log(`SyncQueue Verification: Checksum MATCH for ${op.type} key ${op.key} (hash: ${cloudHash})`);
+          succeededIds.add(op.id);
+          this.opRetries.delete(op.id);
         }
       } catch (e) {
-        console.error(`SyncQueue Verification: Failed to verify op ${op.id}`, e);
-        success = false;
+        console.error(`[SyncTrace] Verify: Failed to verify op ${op.id}`, e);
+        const retries = this.opRetries.get(op.id) || 0;
+        if (retries >= this.MAX_OP_RETRIES) {
+          console.error(`[SyncTrace] Verify: Op ${op.id} exceeded max retries for exception — discarding`);
+        } else {
+          this.opRetries.set(op.id, retries + 1);
+        }
       }
     }
-    
-    return success;
+  }
+
+  /**
+   * Assert that every path segment is a non-empty string.
+   * Logs the offending op and returns false if any segment is invalid.
+   */
+  private assertPathSegments(op: PendingSyncOp, segments: any[]): string[] | null {
+    const errors: string[] = [];
+    for (let i = 0; i < segments.length; i++) {
+      const s = segments[i];
+      if (s === undefined || s === null) {
+        errors.push(`Segment[${i}] is ${String(s)}`);
+      } else if (typeof s !== 'string') {
+        errors.push(`Segment[${i}] is not a string: ${typeof s}=${JSON.stringify(s)}`);
+      } else if (s.length === 0) {
+        errors.push(`Segment[${i}] is empty string`);
+      }
+    }
+    if (errors.length > 0) {
+      console.error(`[SyncTrace] PATH ASSERTION FAILED for op:`, {
+        id: op.id,
+        type: op.type,
+        key: op.key,
+        payload: op.payload,
+        timestamp: op.timestamp,
+        segmentErrors: errors,
+        segments
+      });
+      return errors;
+    }
+    return null;
   }
 
   public async process() {
-    if (this.isProcessing) return;
+    if (this.isProcessing) {
+      console.warn(`[SyncTrace] SyncQueue.process: ALREADY PROCESSING (queue=${this.queue.length})`);
+      return;
+    }
     if (this.queue.length === 0) {
+      console.warn(`[SyncTrace] SyncQueue.process: queue empty — setting SYNCED`);
       this.setSyncState('SYNCED');
       return;
     }
 
-    const uid = localStorage.getItem('cfa_sync_uid');
-    if (!uid) return;
+    const uid = this.resolveUid();
+    if (!uid) {
+      console.warn(`[SyncTrace] SyncQueue.process: NO UID — cannot process queue (${this.queue.length} items stuck)`);
+      setTimeout(() => this.process(), 2000);
+      return;
+    }
 
+    const startTime = Date.now();
     this.isProcessing = true;
     this.setSyncState('UPLOADING');
+    console.warn(`[SyncTrace] SyncQueue.process: START queue=${this.queue.length} uid=${uid.substring(0,8)}...`);
 
-    // 1. Take safety backup
     this.saveBackup();
 
     try {
-      // 2. Build write batch
       const batch = writeBatch(db);
       const opsToProcess = this.queue.slice(0, 200);
-      
+
+      // Pre-validate uid once
+      const uidError = this.assertPathSegments({ id: 'SYSTEM', type: '', key: '', payload: {}, timestamp: '' } as any, ['users', uid]);
+      if (uidError) {
+        throw new Error(`Invalid uid path segment: uid=${uid}`);
+      }
+
+      const skippedOps: PendingSyncOp[] = [];
+
       for (const op of opsToProcess) {
-        // A. Add target document write
+        // Log every op before path construction
+        console.warn(`[SyncTrace] PROCESS OP:`, {
+          id: op.id,
+          type: op.type,
+          key: op.key,
+          keyType: typeof op.key,
+          payloadKeys: op.payload ? Object.keys(op.payload) : '(no payload)',
+          timestamp: op.timestamp
+        });
+
+        let skipThisOp = false;
+
+        // Assert: op.key must be a non-empty string for all types that use it
+        if (op.type !== 'studyStrategy' && op.type !== 'metadata' && op.type !== ('analyticsSummary' as any) && op.type !== ('aiStudyMemory' as any)) {
+          if (op.key === undefined || op.key === null || typeof op.key !== 'string' || op.key.length === 0) {
+            console.error(`[SyncTrace] INVALID OP: op.key is invalid`, {
+              id: op.id, type: op.type, key: op.key, keyType: typeof op.key, payload: op.payload
+            });
+            skipThisOp = true;
+          }
+        }
+
+        if (!skipThisOp && op.type === 'coachPlan') {
+          // Validate: op.key (templateId), blocks[*].id
+          const pathErrors = this.assertPathSegments(op, ['users', uid, 'coachPlans', op.key]);
+          if (pathErrors) { skipThisOp = true; }
+
+          if (!skipThisOp) {
+            const { blocks } = op.payload || {};
+            if (blocks && Array.isArray(blocks)) {
+              for (let bi = 0; bi < blocks.length; bi++) {
+                const b = blocks[bi];
+                const be = this.assertPathSegments(op, ['users', uid, 'coachPlans', op.key, 'blocks', b?.id]);
+                if (be) {
+                  console.error(`[SyncTrace] INVALID OP: coachPlan block[${bi}] has invalid id`, { block: b });
+                  skipThisOp = true;
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        if (!skipThisOp && (op.type === ('moveStudyBlock' as any))) {
+          const parts = typeof op.key === 'string' ? op.key.split('/') : [];
+          if (parts.length < 2) {
+            console.error(`[SyncTrace] INVALID OP: moveStudyBlock key="${op.key}" missing templateId/blockId`, { op });
+            skipThisOp = true;
+          } else {
+            const pathErrors = this.assertPathSegments(op, ['users', uid, 'coachPlans', parts[0], 'blocks', parts[1]]);
+            if (pathErrors) { skipThisOp = true; }
+          }
+        }
+
+        if (!skipThisOp && (op.type === ('renameTemplate' as any) || op.type === 'deleteCoachPlan')) {
+          const pathErrors = this.assertPathSegments(op, ['users', uid, 'coachPlans', op.key]);
+          if (pathErrors) { skipThisOp = true; }
+        }
+
+        if (!skipThisOp && (op.type === ('analyticsEvent' as any))) {
+          const pathErrors = this.assertPathSegments(op, ['users', uid, 'analyticsEvents', op.key]);
+          if (pathErrors) { skipThisOp = true; }
+        }
+
+        if (!skipThisOp && (op.type === ('event' as any))) {
+          const pathErrors = this.assertPathSegments(op, ['users', uid, 'events', op.key]);
+          if (pathErrors) { skipThisOp = true; }
+        }
+
+        // Assert: operationsLog path
+        if (!skipThisOp) {
+          const logErrors = this.assertPathSegments(op, ['users', uid, 'operationsLog', op.id]);
+          if (logErrors) {
+            console.error(`[SyncTrace] INVALID OP: op.id is invalid for operationsLog`, { op });
+            skipThisOp = true;
+          }
+        }
+
+        if (skipThisOp) {
+          skippedOps.push(op);
+          continue;
+        }
+
+        // === Build batch writes for this op ===
+        const opLog = { collection: '', document: '', templateId: '' };
+
         if (op.type === 'coachPlan') {
           const docRef = doc(db, 'users', uid, 'coachPlans', op.key);
           const { blocks, ...metadata } = op.payload;
-          
-          // Write template metadata only
           batch.set(docRef, metadata, { merge: true });
-          
-          // Write individual blocks as separate documents under blocks subcollection (Sprint 10)
+          opLog.collection = 'coachPlans';
+          opLog.document = op.key;
+          opLog.templateId = op.key;
+
           if (blocks && Array.isArray(blocks)) {
             blocks.forEach((block: any) => {
               const blockRef = doc(db, 'users', uid, 'coachPlans', op.key, 'blocks', block.id);
@@ -487,33 +687,53 @@ export class SyncQueue {
           const [templateId, blockId] = op.key.split('/');
           const docRef = doc(db, 'users', uid, 'coachPlans', templateId, 'blocks', blockId);
           batch.set(docRef, op.payload, { merge: true });
+          opLog.collection = 'coachPlans/templateId/blocks';
+          opLog.document = `${templateId}/${blockId}`;
+          opLog.templateId = templateId;
         } else if (op.type === ('renameTemplate' as any)) {
           const docRef = doc(db, 'users', uid, 'coachPlans', op.key);
           batch.set(docRef, { name: op.payload.name }, { merge: true });
+          opLog.collection = 'coachPlans';
+          opLog.document = op.key;
+          opLog.templateId = op.key;
         } else if (op.type === 'deleteCoachPlan') {
           const docRef = doc(db, 'users', uid, 'coachPlans', op.key);
           batch.delete(docRef);
+          opLog.collection = 'coachPlans';
+          opLog.document = op.key;
+          opLog.templateId = op.key;
         } else if (op.type === 'studyStrategy') {
           const docRef = doc(db, 'users', uid, 'studyStrategy', 'main');
           batch.set(docRef, op.payload, { merge: true });
+          opLog.collection = 'studyStrategy';
+          opLog.document = 'main';
         } else if (op.type === 'metadata') {
           const docRef = doc(db, 'users', uid, 'metadata', 'main');
           batch.set(docRef, op.payload, { merge: true });
+          opLog.collection = 'metadata';
+          opLog.document = 'main';
         } else if (op.type === 'analyticsEvent' as any) {
           const docRef = doc(db, 'users', uid, 'analyticsEvents', op.key);
           batch.set(docRef, op.payload);
+          opLog.collection = 'analyticsEvents';
+          opLog.document = op.key;
         } else if (op.type === 'analyticsSummary' as any) {
           const docRef = doc(db, 'users', uid, 'analytics', 'summary');
           batch.set(docRef, op.payload, { merge: true });
+          opLog.collection = 'analytics';
+          opLog.document = 'summary';
         } else if (op.type === 'aiStudyMemory' as any) {
           const docRef = doc(db, 'users', uid, 'aiStudyMemory', 'main');
           batch.set(docRef, op.payload, { merge: true });
+          opLog.collection = 'aiStudyMemory';
+          opLog.document = 'main';
         } else if (op.type === ('event' as any)) {
           const docRef = doc(db, 'users', uid, 'events', op.key);
           batch.set(docRef, op.payload);
+          opLog.collection = 'events';
+          opLog.document = op.key;
         }
 
-        // B. Add Idempotent Operation receipt document to the SAME batch
         const logRef = doc(db, 'users', uid, 'operationsLog', op.id);
         batch.set(logRef, {
           operationId: op.id,
@@ -523,21 +743,55 @@ export class SyncQueue {
           status: 'SUCCESS',
           executedAt: new Date().toISOString()
         });
+
+        console.warn(`[SyncTrace] OP ADDED TO BATCH:`, { ...opLog, opId: op.id, type: op.type });
       }
 
-      // 3. Atomically commit all writes
+      // Remove skipped ops from queue permanently
+      if (skippedOps.length > 0) {
+        console.error(`[SyncTrace] SYNC QUEUE: Skipping ${skippedOps.length} invalid ops permanently. Offending ops:`, JSON.stringify(skippedOps, null, 2));
+        this.queue = this.queue.filter(op => !skippedOps.find(s => s.id === op.id));
+        this.saveToCache();
+      }
+
+      if (opsToProcess.filter(op => !skippedOps.find(s => s.id === op.id)).length === 0) {
+        console.warn(`[SyncTrace] SyncQueue.process: All ${opsToProcess.length} ops were invalid, setting SYNCED`);
+        this.lastSuccessfulUpload = new Date().toISOString();
+        this.syncLatencyMs = Date.now() - startTime;
+        this.retryCount = 0;
+        this.firestoreStatus = 'connected';
+        this.lastError = null;
+        this.lastSyncTimestamp = new Date().toISOString();
+        this.isProcessing = false;
+        this.setSyncState('SYNCED');
+        return;
+      }
+
+      console.warn(`[SyncTrace] SyncQueue.process: Committing ${opsToProcess.length - skippedOps.length} valid ops (${skippedOps.length} skipped)`);
       await batch.commit();
+      console.warn(`[SyncTrace] SyncQueue.process: BATCH COMMIT SUCCEEDED (${opsToProcess.length - skippedOps.length} ops)`);
 
-      // 4. Perform Write Verification (Acknowledgement)
-      const verificationSuccess = await this.verifyWrites(opsToProcess, uid);
+      this.lastSuccessfulUpload = new Date().toISOString();
+      this.syncLatencyMs = Date.now() - startTime;
+      this.retryCount = 0;
 
-      // 5. Update memory queue
-      const processedIds = opsToProcess.map(o => o.id);
-      this.queue = this.queue.filter(op => !processedIds.includes(op.id));
+      // Verify only — do NOT remove from queue until verified
+      const succeededIds = new Set<string>();
+      await this.verifyWrites(opsToProcess, uid, succeededIds);
+      console.warn(`[SyncTrace] SyncQueue.process: Verification result — ${succeededIds.size}/${opsToProcess.length} succeeded`);
+
+      // Remove only verified ops
+      const failedIds = opsToProcess
+        .map(o => o.id)
+        .filter(id => !succeededIds.has(id));
+
+      this.queue = this.queue.filter(op => succeededIds.has(op.id) === false);
       
+      // Track completed ops
+      const verifiedIds = Array.from(succeededIds);
       try {
         const completed = JSON.parse(localStorage.getItem('cfa_sync_completed_ops') || '[]');
-        const updatedCompleted = Array.from(new Set([...completed, ...processedIds])).slice(-200);
+        const updatedCompleted = Array.from(new Set([...completed, ...verifiedIds])).slice(-200);
         localStorage.setItem('cfa_sync_completed_ops', JSON.stringify(updatedCompleted));
       } catch (_) {}
 
@@ -550,11 +804,37 @@ export class SyncQueue {
 
       this.flushOfflineErrors(uid);
 
-      if (!verificationSuccess) {
+      // Schedule retry for failed ops with exponential backoff
+      if (failedIds.length > 0) {
+        this.retryCount++;
+        this.lastFailedUpload = new Date().toISOString();
         this.setSyncState('RETRYING');
-        this.isProcessing = false;
-        setTimeout(() => this.process(), 500);
-        return;
+
+        // Permanently discard ops that exceed max retries
+        const permanentlyFailed: string[] = [];
+        for (const id of failedIds) {
+          const retries = this.opRetries.get(id) || 0;
+          if (retries >= this.MAX_OP_RETRIES) {
+            permanentlyFailed.push(id);
+            console.error(`[SyncTrace] SyncQueue: Op ${id} exceeded ${this.MAX_OP_RETRIES} retries — permanently discarding`);
+          }
+        }
+        if (permanentlyFailed.length > 0) {
+          this.queue = this.queue.filter(op => !permanentlyFailed.includes(op.id));
+          this.saveToCache();
+        }
+
+        const remainingFailed = failedIds.filter(id => !permanentlyFailed.includes(id));
+        if (remainingFailed.length > 0) {
+          const maxBackoff = Math.max(...remainingFailed.map(id => this.getBackoffMs(id)));
+          console.warn(`[SyncTrace] SyncQueue: ${remainingFailed.length} ops failed verification. Retrying in ${maxBackoff}ms. ${permanentlyFailed.length} permanently discarded.`);
+          this.isProcessing = false;
+          setTimeout(() => {
+            this.setSyncState('QUEUED');
+            this.process();
+          }, maxBackoff);
+          return;
+        }
       }
 
       if (this.queue.length > 0) {
@@ -563,18 +843,48 @@ export class SyncQueue {
         return;
       }
 
+      this.opRetries.clear();
       this.setSyncState('SYNCED');
+      console.warn(`[SyncTrace] SyncQueue.process: COMPLETED — all ${succeededIds.size} ops synced, queue=${this.queue.length}`);
 
     } catch (error: any) {
-      console.error("SyncQueue: WriteBatch commit failed. Rolling back.", error);
+      console.error(`[SyncTrace] SyncQueue.process: BATCH COMMIT FAILED (queue=${this.queue.length})`, error);
       this.firestoreStatus = 'offline';
       this.lastError = error.message || String(error);
+      this.lastFailedUpload = new Date().toISOString();
+      this.retryCount++;
+      const msg = error.message || String(error);
+      if (msg.includes('permission-denied') || msg.includes('Permission') || msg.includes('permission')) {
+        this.lastPermissionError = msg;
+      } else {
+        this.lastFirestoreError = msg;
+      }
       this.setSyncState('OFFLINE');
       this.reportError(uid, error);
+      
+      // Retry with backoff
+      const backoff = this.getBackoffMs(`batch-${Date.now()}`);
+      this.isProcessing = false;
+      setTimeout(() => this.process(), backoff);
+      return;
     }
 
     this.isProcessing = false;
     if (this.onStatusChange) this.onStatusChange();
+  }
+
+  private resolveUid(): string | null {
+    // Try multiple sources for uid
+    const fromLocal = localStorage.getItem('cfa_sync_uid');
+    if (fromLocal) return fromLocal;
+    try {
+      const userData = localStorage.getItem('cfa_user');
+      if (userData) {
+        const parsed = JSON.parse(userData);
+        if (parsed && parsed.id) return parsed.id;
+      }
+    } catch (_) {}
+    return null;
   }
 
   public filterQueueAgainstCompleted(completedIds: string[]) {

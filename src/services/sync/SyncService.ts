@@ -11,7 +11,7 @@ import { ConflictResolver } from './ConflictResolver';
 import { MigrationService } from './MigrationService';
 import { coachPlanRepository } from '../../repositories/CoachPlanRepository';
 import { studyStrategyRepository } from '../../repositories/StudyStrategyRepository';
-import { collection, doc, getDoc, setDoc, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, getDocs, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { aiStudyMemoryService } from '../AIStudyMemoryService';
 import { analyticsAggregator } from './AnalyticsAggregator';
@@ -39,6 +39,17 @@ export interface SyncStatus {
   auditDetails?: string[];
   auditSummary?: any;
   syncState?: 'IDLE' | 'LOCAL_CHANGE' | 'QUEUED' | 'UPLOADING' | 'VERIFYING' | 'SYNCED' | 'OFFLINE' | 'RETRYING';
+  firestoreInitStatus?: 'Success' | 'Failed' | 'Uninitialized';
+  listenerStatus?: 'Active' | 'Failed' | 'Inactive';
+  queueSize?: number;
+  queueAgeSeconds?: number;
+  queueRetryCount?: number;
+  lastSuccessfulUpload?: string;
+  lastFailedUpload?: string;
+  lastFirestoreError?: string | null;
+  lastPermissionError?: string | null;
+  lastChecksumVerification?: string;
+  syncLatencyMs?: number;
 }
 
 export interface PendingSyncOp {
@@ -54,7 +65,7 @@ export class SyncService {
   
   private status: SyncStatus = {
     authStatus: 'loading',
-    firestoreStatus: 'connected',
+    firestoreStatus: 'offline',
     lastSync: 'Never',
     pendingWrites: 0,
     lastError: null,
@@ -73,7 +84,18 @@ export class SyncService {
     healthScore: 100,
     auditDetails: [],
     auditSummary: null,
-    syncState: 'IDLE'
+    syncState: 'IDLE',
+    firestoreInitStatus: 'Uninitialized',
+    listenerStatus: 'Inactive',
+    queueSize: 0,
+    queueAgeSeconds: 0,
+    queueRetryCount: 0,
+    lastSuccessfulUpload: 'Never',
+    lastFailedUpload: 'Never',
+    lastFirestoreError: null,
+    lastPermissionError: null,
+    lastChecksumVerification: 'Never',
+    syncLatencyMs: 0
   };
 
   private listeners: (() => void)[] = [];
@@ -104,6 +126,17 @@ export class SyncService {
         : (this.status.pendingWrites > 0 ? 'syncing' : 'idle');
       this.status.syncState = syncQueue.getSyncState();
       this.status.backupStatus = syncQueue.hasBackup() ? 'Active' : 'None';
+
+      // Advanced Diagnostics Metrics
+      this.status.queueSize = syncQueue.getQueueLength();
+      this.status.queueAgeSeconds = syncQueue.getQueueAgeSeconds();
+      this.status.queueRetryCount = syncQueue.getQueueRetryCount();
+      this.status.lastSuccessfulUpload = syncQueue.getLastSuccessfulUpload();
+      this.status.lastFailedUpload = syncQueue.getLastFailedUpload();
+      this.status.lastFirestoreError = syncQueue.getLastFirestoreError();
+      this.status.lastPermissionError = syncQueue.getLastPermissionError();
+      this.status.syncLatencyMs = syncQueue.getSyncLatencyMs();
+      
       this.notify();
     });
 
@@ -164,12 +197,27 @@ export class SyncService {
     this.status.syncStatus = 'syncing';
     localStorage.setItem('cfa_sync_uid', uid);
     this.notify();
+    console.warn(`[SyncTrace] SyncService.initialize: START uid=${uid.substring(0,8)}...`);
 
     const localTemplates = coachPlanRepository.getAll();
     const localStrategy = studyStrategyRepository.get();
     const localActiveId = coachPlanRepository.getActiveTemplateId();
+    console.warn(`[SyncTrace] SyncService.initialize: Local state — templates=${localTemplates.length} strategy=${!!localStrategy} activeId=${localActiveId}`);
 
     try {
+      // Perform connection probe
+      const connectionProbe = await this.probeFirestoreConnection(uid);
+      this.status.firestoreStatus = connectionProbe.status;
+
+      if (connectionProbe.status === 'offline') {
+        this.status.firestoreInitStatus = connectionProbe.errorType === 'Initialization Failure' ? 'Failed' : 'Uninitialized';
+        throw new Error(connectionProbe.error || 'Firestore Offline');
+      } else {
+        this.status.firestoreInitStatus = 'Success';
+      }
+
+      console.warn(`[SyncTrace] SyncService.initialize: Firestore probe OK — status=${this.status.firestoreStatus}`);
+
       // 1. Download plans, strategy, and operationsLog (for idempotency checks)
       const cloudPlans = await firestoreAdapter.getCoachPlans(uid);
       const rawCloudStrategy = await firestoreAdapter.getStudyStrategy(uid);
@@ -186,6 +234,7 @@ export class SyncService {
       }
 
       this.status.cloudCount = Object.keys(cloudPlans).length;
+      console.warn(`[SyncTrace] SyncService.initialize: Cloud download — plans=${Object.keys(cloudPlans).length} strategy=${!!rawCloudStrategy} metadata=${!!rawCloudMetadata}`);
 
       // 2. Run Migration Service on cloud data
       const migratedPlans: Record<string, any> = {};
@@ -244,6 +293,7 @@ export class SyncService {
 
       // 4. Update repositories with resolved data
       const finalTemplates = Object.values(mergedTemplatesMap);
+      console.warn(`[SyncTrace] SyncService.initialize: Conflict resolution — final=${finalTemplates.length} cloudWins=${cloudWinsCount} localWins=${localWinsCount}`);
       coachPlanRepository.setTemplates(finalTemplates);
       coachPlanRepository.setActiveTemplateId(finalActiveId);
       studyStrategyRepository.set(finalStrategy);
@@ -329,22 +379,54 @@ export class SyncService {
       // 8. Attach real-time Firestore listeners and reconcilers
       this.setupRealtimeListeners(uid, setters);
       this.setupReconciliationTimer(uid, setters);
+      this.setupNetworkListeners();
 
       // Trigger sync of queued writes
       syncQueue.setNetworkStatus(navigator.onLine);
-      syncQueue.process();
+      await syncQueue.process();
+
+      // Re-check equality after queue has been flushed
+      try {
+        const freshCloudPlans = await firestoreAdapter.getCoachPlans(uid);
+        this.verifyAndRepairRepositoryEquality(uid, freshCloudPlans);
+        console.warn(`[SyncTrace] SyncService.initialize: Post-sync equality — repo=${this.status.repositoryCount} cache=${this.status.cacheCount} cloud=${this.status.cloudCount}`);
+      } catch (e) {
+        console.error("[SyncTrace] SyncService: Post-sync equality check failed", e);
+      }
 
     } catch (e: any) {
       console.error("SyncService: Startup synchronization failed. Offline fallback active.", e);
       this.status.firestoreStatus = 'offline';
       this.status.syncStatus = 'offline';
-      this.status.lastError = e.message || String(e);
+      const msg = e.message || String(e);
+      this.status.lastError = msg;
+      
+      let errorType = 'Firestore Error';
+      if (msg.includes('permission-denied') || msg.includes('Permission') || msg.includes('permission')) {
+        errorType = 'Permission Denied';
+        this.status.lastPermissionError = msg;
+      } else if (msg.includes('unavailable') || msg.includes('Failed to get document') || msg.includes('network')) {
+        errorType = 'Network Unavailable';
+        this.status.lastFirestoreError = msg;
+      } else if (msg.includes('initialization') || msg.includes('initialize') || msg.includes('init')) {
+        errorType = 'Initialization Failure';
+        this.status.firestoreInitStatus = 'Failed';
+        this.status.lastFirestoreError = msg;
+      } else {
+        this.status.lastFirestoreError = msg;
+      }
+      
       this.notify();
 
       // Offline load fallback
       setters.setTemplates(localTemplates.filter(t => t.status !== 'DELETED'));
       setters.setActiveTemplateId(localActiveId);
       setters.setStudyStrategy(localStrategy);
+
+      // Still try to process the queue even in fallback mode — uid IS set
+      console.warn(`[SyncTrace] SyncService: Initialize failed but uid=${uid}, queue=${syncQueue.getQueueLength()} items — attempting process`);
+      syncQueue.setNetworkStatus(navigator.onLine);
+      syncQueue.process();
     }
   }
 
@@ -357,14 +439,19 @@ export class SyncService {
     this.status.cloudCount = 0;
     this.status.conflictStatus = null;
     this.status.healthCheckStatus = 'Unchecked';
+    this.status.listenerStatus = 'Inactive';
+    this.status.firestoreStatus = 'offline';
+    this.status.firestoreInitStatus = 'Uninitialized';
 
     // Clear listeners & timers
     this.unsubs.forEach(unsub => unsub());
     this.unsubs = [];
+    this.clearListenerRetries();
     if (this.reconciliationInterval) {
       clearInterval(this.reconciliationInterval);
       this.reconciliationInterval = null;
     }
+    this.removeNetworkListeners();
 
     localStorage.removeItem('cfa_sync_uid');
     this.notify();
@@ -654,13 +741,21 @@ export class SyncService {
     }, 10 * 60 * 1000); // revert to idle after 10 mins
   }
 
+  private listenerRetryTimers: NodeJS.Timeout[] = [];
+
   private setupRealtimeListeners(uid: string, setters: any) {
-    // Unsubscribe previous listeners first
+    this.clearListenerRetries();
     this.unsubs.forEach(unsub => unsub());
     this.unsubs = [];
 
-    // 1. Listen to coachPlans subcollection
+    this.setupCoachPlansListener(uid, setters);
+    this.setupStudyStrategyListener(uid, setters);
+    this.setupMetadataListener(uid, setters);
+  }
+
+  private setupCoachPlansListener(uid: string, setters: any) {
     const plansUnsub = onSnapshot(collection(db, 'users', uid, 'coachPlans'), async (snapshot) => {
+      this.status.listenerStatus = 'Active';
       let changed = false;
       const currentTemplates = coachPlanRepository.getAll();
       const updatedTemplates = [...currentTemplates];
@@ -669,7 +764,6 @@ export class SyncService {
         const id = change.doc.id;
         const cloudPlanMetadata = change.doc.data() as any;
 
-        // Skip validation receipts
         if (!cloudPlanMetadata.templateId && !cloudPlanMetadata.id) continue;
 
         const localPlan = currentTemplates.find(t => t.id === id);
@@ -680,21 +774,23 @@ export class SyncService {
             changed = true;
           }
         } else {
-          // Read individual study blocks from blocks subcollection (sub-document reads)
           let blocks: any[] = [];
           try {
             const blocksSnap = await getDocs(collection(db, 'users', uid, 'coachPlans', id, 'blocks'));
-            blocksSnap.forEach(d => blocks.push(d.data()));
+            blocksSnap.forEach(d => {
+              const data = d.data();
+              if (data) blocks.push(data);
+            });
           } catch (e) {
-            console.error(`SyncService: Failed to read subcollection blocks for plan ${id}`, e);
+            console.error(`SyncService: Failed to read blocks for plan ${id}`, e);
           }
 
           const cloudPlan: TimelineTemplate = {
             id: id,
             name: cloudPlanMetadata.templateName || cloudPlanMetadata.name || '',
             description: cloudPlanMetadata.description || '',
-            createdAt: cloudPlanMetadata.createdAt,
-            updatedAt: cloudPlanMetadata.updatedAt,
+            createdAt: cloudPlanMetadata.createdAt || new Date().toISOString(),
+            updatedAt: cloudPlanMetadata.updatedAt || new Date().toISOString(),
             status: cloudPlanMetadata.status || 'ACTIVE',
             version: cloudPlanMetadata.version || 1,
             archived: cloudPlanMetadata.archived || false,
@@ -702,6 +798,11 @@ export class SyncService {
             semanticVersion: cloudPlanMetadata.semanticVersion,
             blocks
           };
+
+          // Validate required fields before merging
+          if (!cloudPlan.name) continue;
+          if (!cloudPlan.version) cloudPlan.version = 1;
+          if (!cloudPlan.updatedAt) cloudPlan.updatedAt = new Date().toISOString();
 
           const resolved = ConflictResolver.resolveTemplate(localPlan, cloudPlan);
           if (resolved.winner === 'cloud') {
@@ -722,17 +823,21 @@ export class SyncService {
         setters.setTemplates(updatedTemplates.filter(t => t.status !== 'DELETED'));
         this.status.templateCount = updatedTemplates.filter(t => t.status !== 'DELETED').length;
         this.status.repositoryCount = updatedTemplates.length;
-        console.log("SyncService: Real-time listener updated coach plans.");
         this.healthCheck();
         this.notify();
       }
     }, (err) => {
-      console.error("SyncService: Coach plans real-time listener error", err);
+      console.error("SyncService: Coach plans listener error", err);
+      this.status.listenerStatus = 'Failed';
+      this.notify();
+      this.scheduleListenerRetry(() => this.setupCoachPlansListener(uid, setters));
     });
     this.unsubs.push(plansUnsub);
+  }
 
-    // 2. Listen to studyStrategy doc
+  private setupStudyStrategyListener(uid: string, setters: any) {
     const strategyUnsub = onSnapshot(doc(db, 'users', uid, 'studyStrategy', 'main'), (snap) => {
+      this.status.listenerStatus = 'Active';
       if (snap.exists()) {
         const cloudStrategy = snap.data() as StudyStrategy;
         const localStrategy = studyStrategyRepository.get();
@@ -743,18 +848,22 @@ export class SyncService {
           localStorage.setItem('cfa_study_strategy', JSON.stringify(resolved.data));
           setters.setStudyStrategy(resolved.data);
           this.status.strategyLoaded = true;
-          console.log("SyncService: Real-time listener updated study strategy.");
           this.healthCheck();
           this.notify();
         }
       }
     }, (err) => {
-      console.error("SyncService: Strategy real-time listener error", err);
+      console.error("SyncService: Strategy listener error", err);
+      this.status.listenerStatus = 'Failed';
+      this.notify();
+      this.scheduleListenerRetry(() => this.setupStudyStrategyListener(uid, setters));
     });
     this.unsubs.push(strategyUnsub);
+  }
 
-    // 3. Listen to metadata doc
+  private setupMetadataListener(uid: string, setters: any) {
     const metadataUnsub = onSnapshot(doc(db, 'users', uid, 'metadata', 'main'), (snap) => {
+      this.status.listenerStatus = 'Active';
       if (snap.exists()) {
         const cloudMetadata = snap.data();
         const localActiveId = coachPlanRepository.getActiveTemplateId();
@@ -763,15 +872,62 @@ export class SyncService {
           localStorage.setItem('cfa_active_template_id', cloudMetadata.activeTemplateId);
           setters.setActiveTemplateId(cloudMetadata.activeTemplateId);
           this.status.activeTemplateId = cloudMetadata.activeTemplateId;
-          console.log("SyncService: Real-time listener updated active template ID.");
           this.healthCheck();
           this.notify();
         }
       }
     }, (err) => {
-      console.error("SyncService: Metadata real-time listener error", err);
+      console.error("SyncService: Metadata listener error", err);
+      this.status.listenerStatus = 'Failed';
+      this.notify();
+      this.scheduleListenerRetry(() => this.setupMetadataListener(uid, setters));
     });
     this.unsubs.push(metadataUnsub);
+  }
+
+  private clearListenerRetries() {
+    this.listenerRetryTimers.forEach(t => clearTimeout(t));
+    this.listenerRetryTimers = [];
+  }
+
+  private scheduleListenerRetry(setupFn: () => void) {
+    const timer = setTimeout(() => {
+      setupFn();
+    }, 3000);
+    this.listenerRetryTimers.push(timer);
+  }
+
+  private networkOnlineHandler: (() => void) | null = null;
+  private networkOfflineHandler: (() => void) | null = null;
+
+  private setupNetworkListeners() {
+    this.removeNetworkListeners();
+    this.networkOnlineHandler = () => {
+      if (this.status.firestoreStatus === 'offline' && this.status.currentUid) {
+        this.status.firestoreStatus = 'connected';
+        this.status.lastError = null;
+        syncQueue.setNetworkStatus(true);
+        this.notify();
+      }
+    };
+    this.networkOfflineHandler = () => {
+      this.status.firestoreStatus = 'offline';
+      this.status.syncStatus = 'offline';
+      this.notify();
+    };
+    window.addEventListener('online', this.networkOnlineHandler);
+    window.addEventListener('offline', this.networkOfflineHandler);
+  }
+
+  private removeNetworkListeners() {
+    if (this.networkOnlineHandler) {
+      window.removeEventListener('online', this.networkOnlineHandler);
+      this.networkOnlineHandler = null;
+    }
+    if (this.networkOfflineHandler) {
+      window.removeEventListener('offline', this.networkOfflineHandler);
+      this.networkOfflineHandler = null;
+    }
   }
 
   private setupReconciliationTimer(uid: string, setters: any) {
@@ -853,6 +1009,9 @@ export class SyncService {
           } else {
             console.log("SyncService: Background reconciliation verified all repositories are fully synchronized.");
           }
+
+          // Periodic equality verification
+          this.verifyAndRepairRepositoryEquality(uid, cloudPlans);
         } catch (e) {
           console.error("SyncService: Background reconciliation failed", e);
         }
@@ -942,6 +1101,122 @@ export class SyncService {
     } catch (e) {
       console.error("SyncService: Restore backup failed", e);
       return false;
+    }
+  }
+
+  private async probeFirestoreConnection(uid: string): Promise<{ status: 'connected' | 'offline'; error: string | null; errorType: string | null }> {
+    if (!navigator.onLine) {
+      return { status: 'offline', error: 'Browser network is offline', errorType: 'Network Unavailable' };
+    }
+    try {
+      const probePromise = (async () => {
+        const probeDocRef = doc(db, 'users', uid, '_probe', 'connection');
+        const probePayload = { timestamp: new Date().toISOString(), probe: true };
+        await setDoc(probeDocRef, probePayload);
+        const probeRead = await getDoc(probeDocRef);
+        if (!probeRead.exists()) {
+          return { status: 'offline' as const, error: 'Write succeeded but read-back failed', errorType: 'Firestore Error' };
+        }
+        const readData = probeRead.data();
+        if (readData?.probe !== true) {
+          return { status: 'offline' as const, error: 'Read-back data mismatch', errorType: 'Firestore Error' };
+        }
+        await deleteDoc(probeDocRef).catch(() => {});
+        console.warn(`[SyncTrace] probeFirestoreConnection: LIVE PROBE PASSED — write+read+delete OK`);
+        return { status: 'connected' as const, error: null, errorType: null };
+      })();
+
+      const timeoutPromise = new Promise<{ status: 'offline'; error: string; errorType: string }>(resolve => {
+        setTimeout(() => {
+          resolve({ status: 'offline', error: 'Firestore connection probe timed out (2.5s)', errorType: 'Network Unavailable' });
+        }, 2500);
+      });
+
+      return await Promise.race([probePromise, timeoutPromise]);
+    } catch (e: any) {
+      const msg = e.message || String(e);
+      console.warn(`[SyncTrace] probeFirestoreConnection: FAILED — ${msg}`);
+      let errorType = 'Firestore Error';
+      if (msg.includes('permission-denied') || msg.includes('Permission') || msg.includes('permission')) {
+        errorType = 'Permission Denied';
+      } else if (msg.includes('unavailable') || msg.includes('Failed to get document') || msg.includes('network')) {
+        errorType = 'Network Unavailable';
+      } else if (msg.includes('initialization') || msg.includes('initialize') || msg.includes('init')) {
+        errorType = 'Initialization Failure';
+      }
+      return { status: 'offline', error: msg, errorType };
+    }
+  }
+
+  public verifyAndRepairRepositoryEquality(uid: string, cloudPlans: Record<string, any>) {
+    this.status.lastChecksumVerification = new Date().toISOString();
+    const localTemplates = coachPlanRepository.getAll();
+    
+    const cachedTemplatesStr = localStorage.getItem('cfa_timeline_templates') || '[]';
+    let cachedTemplates: TimelineTemplate[] = [];
+    try {
+      cachedTemplates = JSON.parse(cachedTemplatesStr);
+    } catch (_) {}
+    
+    const repoCount = localTemplates.length;
+    const cacheCount = cachedTemplates.length;
+    const cloudCount = Object.keys(cloudPlans).length;
+
+    this.status.repositoryCount = repoCount;
+    this.status.cacheCount = cacheCount;
+    this.status.cloudCount = cloudCount;
+
+    if (repoCount !== cacheCount || repoCount !== cloudCount) {
+      console.warn(`[IntegrityValidator] Mismatch detected! Repo: ${repoCount}, Cache: ${cacheCount}, Cloud: ${cloudCount}. Initiating repair...`);
+      
+      let repairedTemplates = [...localTemplates];
+      
+      if (repoCount !== cacheCount) {
+        localStorage.setItem('cfa_timeline_templates', JSON.stringify(localTemplates));
+        this.status.cacheCount = repoCount;
+        console.log(`[IntegrityValidator] Cache repaired matching Repository (${repoCount} templates)`);
+      }
+      
+      if (repoCount !== cloudCount) {
+        const localKeys = localTemplates.map(t => t.id);
+        const cloudKeys = Object.keys(cloudPlans);
+        
+        localTemplates.forEach(t => {
+          if (!cloudKeys.includes(t.id) && t.status !== 'DELETED') {
+            console.log(`[IntegrityValidator] Template ${t.id} missing in Cloud. Enqueueing write.`);
+            syncQueue.enqueue('coachPlan', t.id, this.mapPlanForFirestore(t));
+          }
+        });
+        
+        cloudKeys.forEach(id => {
+          if (!localKeys.includes(id)) {
+            const cloudPlanRaw = cloudPlans[id];
+            const cloudPlan = MigrationService.migrate(cloudPlanRaw, 'coachPlan') as TimelineTemplate;
+            if (cloudPlan && cloudPlan.id && cloudPlan.name) {
+              console.log(`[IntegrityValidator] Template ${id} missing in Local. Restoring from Cloud.`);
+              repairedTemplates.push(cloudPlan);
+            }
+          }
+        });
+        
+        if (repairedTemplates.length !== localTemplates.length) {
+          coachPlanRepository.setTemplates(repairedTemplates);
+          localStorage.setItem('cfa_timeline_templates', JSON.stringify(repairedTemplates));
+          if (this.appContextSetters) {
+            this.appContextSetters.setTemplates(repairedTemplates.filter(t => t.status !== 'DELETED'));
+          }
+          this.status.repositoryCount = repairedTemplates.length;
+          this.status.cacheCount = repairedTemplates.length;
+        }
+      }
+      
+      this.status.healthCheckStatus = 'Repaired';
+      this.status.healthScore = 100;
+      this.notify();
+    } else {
+      this.status.healthCheckStatus = 'Healthy';
+      this.status.healthScore = 100;
+      this.notify();
     }
   }
 }

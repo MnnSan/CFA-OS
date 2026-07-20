@@ -5,6 +5,7 @@
 
 import { TimelineTemplate, TimelineBlock, TemplateStatus, SemanticVersion } from '../types';
 import { eventBus } from '../services/EventBus';
+import { TemplateValidator } from '../services/sync/TemplateValidator';
 
 export class CoachPlanRepository {
   private static instance: CoachPlanRepository;
@@ -30,31 +31,35 @@ export class CoachPlanRepository {
   private loadFromCache() {
     try {
       const saved = localStorage.getItem('cfa_timeline_templates');
-      if (saved) {
-        this.templates = JSON.parse(saved);
-      }
       this.activeTemplateId = localStorage.getItem('cfa_active_template_id');
       
-      // Ensure templates have status, version, and semanticVersion initialized
+      let parsed: any[] = [];
+      if (saved) {
+        try {
+          parsed = JSON.parse(saved);
+        } catch (_) {}
+      }
+      
+      if (!Array.isArray(parsed)) {
+        parsed = [];
+      }
+      
+      // Validate and repair all templates using TemplateValidator
       let updated = false;
-      this.templates = this.templates.map(t => {
-        let changed = false;
-        if (!t.status) {
-          t.status = t.archived ? 'ARCHIVED' : 'ACTIVE';
-          changed = true;
+      this.templates = parsed.map(t => {
+        if (!t || typeof t !== 'object') return null;
+        const validation = TemplateValidator.validateTemplate(t);
+        if (!validation.valid) {
+          if (validation.repaired) {
+            console.warn('CoachPlanRepository: Repaired corrupted template', t.id, validation.errors);
+            updated = true;
+            return validation.repaired;
+          }
+          return null;
         }
-        if (!t.semanticVersion) {
-          t.semanticVersion = {
-            coachPlanVersion: t.version || 1,
-            studyStrategyVersion: 1,
-            schemaVersion: 1,
-            resourceVersion: 1
-          };
-          changed = true;
-        }
-        if (changed) updated = true;
         return t;
-      });
+      }).filter((t): t is TimelineTemplate => t !== null && !!t.id && !!t.name);
+      
       if (updated) {
         localStorage.setItem('cfa_timeline_templates', JSON.stringify(this.templates));
       }
@@ -130,15 +135,26 @@ export class CoachPlanRepository {
   }
 
   public save(template: TimelineTemplate) {
-    const idx = this.templates.findIndex(t => t.id === template.id);
-    const updatedTemplate = { ...template };
+    const validation = TemplateValidator.validateTemplate(template);
+    if (!validation.valid) {
+      console.error("CoachPlanRepository: Rejected invalid template save attempt", validation.errors, template);
+      return;
+    }
+    const validTemplate = validation.repaired || template;
+    const idx = this.templates.findIndex(t => t.id === validTemplate.id);
+    const updatedTemplate = { ...validTemplate };
     
-    // Initialize/Increment Semantic Version
     if (!updatedTemplate.status) {
       updatedTemplate.status = 'ACTIVE';
     }
+    if (!updatedTemplate.version) {
+      updatedTemplate.version = 1;
+    }
+    if (!updatedTemplate.createdAt) {
+      updatedTemplate.createdAt = new Date().toISOString();
+    }
     
-    const currentSemVer = template.semanticVersion || {
+    const currentSemVer = validTemplate.semanticVersion || {
       coachPlanVersion: 0,
       studyStrategyVersion: 1,
       schemaVersion: 1,
@@ -149,6 +165,7 @@ export class CoachPlanRepository {
       ...currentSemVer,
       coachPlanVersion: currentSemVer.coachPlanVersion + 1
     };
+    updatedTemplate.version = updatedTemplate.semanticVersion.coachPlanVersion;
     updatedTemplate.updatedAt = new Date().toISOString();
 
     if (idx >= 0) {

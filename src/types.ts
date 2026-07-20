@@ -840,7 +840,21 @@ export interface TimelineTemplate {
   semanticVersion?: SemanticVersion;
 }
 
-// -- Sprint M10  Mission Control & Study Stack --
+export interface TaskPhaseProgress {
+  phaseId: string;
+  completionPercentage: number; // 0 = Unstarted, 25/50/75 = In Progress, 100 = Fully Completed
+  lastUpdated: string;
+}
+
+export interface CorePhaseTask {
+  phaseId: string;
+  readingId: string; // e.g., 'read-derivatives-options'
+  linkedLosIds: string[]; // e.g., ['LOS 16.a', 'LOS 16.b']
+  durationMinutes: number;
+  resourceName: string; // Dynamic mapping from SSEI spreadsheet entries
+}
+
+// -- Sprint M10 — Mission Control & Study Stack --
 
 export type StudyStepType = 'Lecture' | 'Reading' | 'Formula' | 'Notebook' | 'Questions' | 'Reflection';
 
@@ -902,6 +916,11 @@ export interface StudyPhase {
   completed: boolean;
   completionEvidence: CompletionEvidence;
   coachInsightId?: string;
+  
+  // Curriculum Mapping Fields
+  readingId?: string;
+  linkedLosIds?: string[];
+  resourceName?: string;
   
   // Expanded Cognitive Operating System Metadata
   whyThisNow: string;

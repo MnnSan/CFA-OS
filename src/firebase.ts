@@ -17,7 +17,13 @@ import {
   updateProfile as firebaseUpdateProfile,
   onAuthStateChanged
 } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { 
+  getFirestore, 
+  enableIndexedDbPersistence, 
+  initializeFirestore,
+  CACHE_SIZE_UNLIMITED,
+  Firestore
+} from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD9wIs_MfgZ4atxbnruUzKMBLgjkCtCBMM",
@@ -32,7 +38,27 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+
+// Initialize Firestore with persistence and stable settings
+let db: Firestore;
+try {
+  db = initializeFirestore(app, {
+    ignoreUndefinedProperties: true,
+    localCache: undefined // will be handled by enableIndexedDbPersistence
+  });
+  enableIndexedDbPersistence(db, { forceOwnership: false }).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      console.warn('Firestore: Multiple tabs open — persistence disabled on this tab');
+    } else if (err.code === 'unimplemented') {
+      console.warn('Firestore: Browser does not support persistence');
+    } else {
+      console.error('Firestore: Persistence enable failed', err);
+    }
+  });
+} catch (e) {
+  console.error('Firestore: Initialization failed, falling back to getFirestore', e);
+  db = getFirestore(app);
+}
 
 const googleProvider = new GoogleAuthProvider();
 
