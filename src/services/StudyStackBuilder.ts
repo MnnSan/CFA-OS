@@ -42,46 +42,46 @@ export class StudyStackBuilder {
         continue;
       }
 
+      const allReadingLosIds = input.losList.filter(l => l.readingId === dailyMission.readingId).map(l => l.id);
+
       if (phaseDef.stepType === 'Lecture') {
-        // Create a phase for EACH individual lecture!
-        for (let idx = 0; idx < resourcesForPhase.length; idx++) {
-          const lec = resourcesForPhase[idx];
-          const phaseId = `phase-${dailyMission.readingId}-lecture-${idx + 1}`;
-          const isLocked = previousPhaseId !== null && !this.isPreviousPhasesCompleted(phases, previousPhaseId);
+        const phaseId = `phase-${dailyMission.readingId}-lecture`;
+        const isLocked = previousPhaseId !== null && !this.isPreviousPhasesCompleted(phases, previousPhaseId);
 
-          const allCompleted = lec.progress?.completed ?? false;
-          let status: PhaseStatus = 'READY';
-          if (allCompleted) status = 'COMPLETED';
-          else if (isLocked) status = 'BLOCKED';
-          else if ((lec.progress?.minutesCompleted ?? 0) > 0) status = 'ACTIVE';
+        const allCompleted = resourcesForPhase.length > 0 && resourcesForPhase.every(lec => lec.progress?.completed ?? false);
+        const anyActive = resourcesForPhase.some(lec => (lec.progress?.completed ?? false) || ((lec.progress?.minutesCompleted ?? 0) > 0));
+        let status: PhaseStatus = 'READY';
+        if (allCompleted) status = 'COMPLETED';
+        else if (isLocked) status = 'BLOCKED';
+        else if (anyActive) status = 'ACTIVE';
 
-          const meta = this.getCognitiveMetadata('Lecture', dailyMission);
-          const phase: StudyPhase = {
-            id: phaseId,
-            phaseNumber: phaseNumber++,
-            phaseLabel: `Lecture ${idx + 1}`,
-            title: lec.title,
-            description: lec.description || `Watch SSCI lecture ${lec.lectureCode || ''} for ${dailyMission.readingTitle}`,
-            estimatedMinutes: lec.duration || 30,
-            status,
-            locked: isLocked,
-            lockedReason: isLocked ? 'Complete previous phase first' : undefined,
-            stepType: 'Lecture',
-            resources: this.toResourceReferences([lec]),
-            dependsOn: previousPhaseId ? [previousPhaseId] : [],
-            completed: allCompleted,
-            completionEvidence: {
-              lectureCompleted: allCompleted,
-              videoPosition: lec.progress?.resumeState || undefined
-            },
-            readingId: dailyMission.readingId,
-            linkedLosIds: [dailyMission.losId || dailyMission.losCode].filter(Boolean),
-            resourceName: lec.title || "",
-            ...meta
-          };
-          phases.push(phase);
-          previousPhaseId = phase.id;
-        }
+        const totalMinutes = resourcesForPhase.reduce((sum, lec) => sum + (lec.duration || 30), 0);
+        const meta = this.getCognitiveMetadata('Lecture', dailyMission);
+
+        const phase: StudyPhase = {
+          id: phaseId,
+          phaseNumber: phaseNumber++,
+          phaseLabel: 'Lectures',
+          title: `Video & SSCI Lectures (${resourcesForPhase.length} Lectures)`,
+          description: `Watch SSCI video lectures covering all core concepts for ${dailyMission.readingTitle}`,
+          estimatedMinutes: totalMinutes || 60,
+          status,
+          locked: isLocked,
+          lockedReason: isLocked ? 'Complete previous phase first' : undefined,
+          stepType: 'Lecture',
+          resources: this.toResourceReferences(resourcesForPhase),
+          dependsOn: previousPhaseId ? [previousPhaseId] : [],
+          completed: allCompleted,
+          completionEvidence: {
+            lectureCompleted: allCompleted,
+          },
+          readingId: dailyMission.readingId,
+          linkedLosIds: allReadingLosIds.length > 0 ? allReadingLosIds : [dailyMission.losId || dailyMission.losCode].filter(Boolean),
+          resourceName: resourcesForPhase[0]?.title || "Video Lectures",
+          ...meta
+        };
+        phases.push(phase);
+        previousPhaseId = phase.id;
       } else {
         const phaseResources = isAlwaysPresent && !hasResources
           ? this.createDefaultReflectionResource(dailyMission)
@@ -163,7 +163,7 @@ export class StudyStackBuilder {
           completed: allCompleted,
           completionEvidence: this.buildCompletionEvidence(phaseDef.stepType, phaseResources, input),
           readingId: dailyMission.readingId,
-          linkedLosIds: [dailyMission.losId || dailyMission.losCode].filter(Boolean),
+          linkedLosIds: allReadingLosIds.length > 0 ? allReadingLosIds : [dailyMission.losId || dailyMission.losCode].filter(Boolean),
           resourceName: phaseResources[0]?.title || "",
           ...meta
         };
@@ -173,16 +173,7 @@ export class StudyStackBuilder {
       }
     }
 
-    const maxDailyMinutes = (input.dailyTargetHours || 2) * 60;
-    let currentAccumulatedMinutes = 0;
-    const pacedPhases = phases.filter(phase => {
-      const taskDuration = phase.estimatedMinutes || 0;
-      if (currentAccumulatedMinutes + taskDuration <= maxDailyMinutes) {
-        currentAccumulatedMinutes += taskDuration;
-        return true;
-      }
-      return false;
-    });
+    const pacedPhases = phases;
 
     const completedPhases = pacedPhases.filter(p => p.status === 'COMPLETED').length;
     const totalPhases = pacedPhases.length;

@@ -1,5 +1,7 @@
-import React from 'react';
-import { StudyStack, StudyPhase, StudyStepType, Reading, PlannerReadingProgress } from '../types';
+
+
+import React, { useState } from 'react';
+import { StudyStack, StudyPhase, StudyStepType, Reading, PlannerReadingProgress, LearningOutcomeStatement } from '../types';
 import { 
   ChevronDown, 
   ChevronRight, 
@@ -21,7 +23,14 @@ import {
   HelpCircle as QuestionIcon,
   Brain,
   Target,
-  CheckCircle
+  CheckCircle,
+  Headphones,
+  Presentation,
+  Star,
+  Layers,
+  ExternalLink,
+  Download,
+  Video
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useMissionControl } from '../hooks/useMissionControl';
@@ -49,6 +58,12 @@ function formatMinutes(minutes: number): string {
   return `${mins}m`;
 }
 
+// Helper to extract command word from LOS statement
+function getCommandWord(statement: string): string {
+  const match = statement.match(/^(describe|calculate|compare|explain|evaluate|analyze|determine|select|discuss|demonstrate|interpret|construct|formulate)/i);
+  return match ? match[1].toUpperCase() : 'UNDERSTAND';
+}
+
 const PhaseRow: React.FC<{
   phase: StudyPhase;
   index: number;
@@ -65,9 +80,12 @@ const PhaseRow: React.FC<{
   lrRepo: any;
   updateWorkspaceState: any;
   selectLOS: any;
+  updateLOS: (id: string, updates: Partial<LearningOutcomeStatement>) => void;
   updateTrigger: number;
   readings: any[];
   losList: any[];
+  formulas: any[];
+  notes: any[];
   allPhasesInStack: StudyPhase[];
 }> = ({
   phase,
@@ -85,61 +103,60 @@ const PhaseRow: React.FC<{
   lrRepo,
   updateWorkspaceState,
   selectLOS,
+  updateLOS,
   updateTrigger,
   readings,
   losList,
+  formulas,
+  notes,
   allPhasesInStack
 }) => {
   const icon = PHASE_ICONS[phase.stepType] || '📝';
   const isGenerating = aiJob?.status === 'QUEUED' || aiJob?.status === 'ASSEMBLING' || aiJob?.status === 'SYNTHESIZING';
 
-  // Find all learning resources for this phase
-  const resourcesList = React.useMemo(() => {
-    return phase.resources.map(ref => lrRepo.getById(ref.resourceId)).filter(Boolean);
-  }, [phase.resources, lrRepo, updateTrigger]);
+  // Sub-item expanded states (e.g. expanding individual lecture, individual LOS, or individual note)
+  const [expandedSubItems, setExpandedSubItems] = useState<Record<string, boolean>>({});
+  // NotebookLM output mode selection ('report' | 'audiobook' | 'ppt' | null)
+  const [notebookMode, setNotebookMode] = useState<'report' | 'audiobook' | 'ppt' | null>(null);
+
+  const toggleSubItem = (id: string) => {
+    setExpandedSubItems(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Find all learning resources for this reading
+  const allReadingResources = React.useMemo(() => {
+    return lrRepo.getByReadingId(phase.readingId);
+  }, [lrRepo, phase.readingId, updateTrigger]);
+
+  // Filter lectures specifically
+  const lectureList = React.useMemo(() => {
+    return allReadingResources.filter((r: any) => 
+      r.resourceType === 'Video' || 
+      r.provider === 'SSCI' || 
+      r.id.startsWith('lrs-sec-') || 
+      r.id.startsWith('lrs-yt-')
+    );
+  }, [allReadingResources]);
+
+  // Filter ALL LOS items for this reading
+  const readingLosList = React.useMemo(() => {
+    return losList.filter(l => l.readingId === phase.readingId);
+  }, [losList, phase.readingId]);
+
+  // Filter notes and formulas for this reading
+  const readingNotes = React.useMemo(() => {
+    return notes.filter(n => n.linkedReadingId === phase.readingId);
+  }, [notes, phase.readingId]);
+
+  const readingFormulas = React.useMemo(() => {
+    return formulas.filter(f => f.readingId === phase.readingId);
+  }, [formulas, phase.readingId]);
 
   const isRunning = phase.status === 'RUNNING';
   const isPaused = phase.status === 'PAUSED';
 
-  // Calculate requirement checks for lock presentation
-  const lockRequirements = React.useMemo(() => {
-    const reqs: { label: string; completed: boolean }[] = [];
-    
-    const hasLecture = allPhasesInStack.some(p => p.stepType === 'Lecture');
-    const hasReading = allPhasesInStack.some(p => p.stepType === 'Reading');
-    const hasFormula = allPhasesInStack.some(p => p.stepType === 'Formula');
-    const hasQuestions = allPhasesInStack.some(p => p.stepType === 'Questions');
-
-    if (phase.stepType === 'Reading') {
-      if (hasLecture) {
-        const completed = allPhasesInStack.filter(p => p.stepType === 'Lecture').every(p => p.completed);
-        reqs.push({ label: 'Lecture', completed });
-      }
-    } else if (phase.stepType === 'Formula' || phase.stepType === 'Notebook' || phase.stepType === 'Questions') {
-      if (hasReading) {
-        const completed = allPhasesInStack.filter(p => p.stepType === 'Reading').every(p => p.completed);
-        reqs.push({ label: 'Reading', completed });
-      }
-    } else if (phase.stepType === 'Reflection') {
-      if (hasLecture) {
-        const completed = allPhasesInStack.filter(p => p.stepType === 'Lecture').every(p => p.completed);
-        reqs.push({ label: 'Lecture', completed });
-      }
-      if (hasReading) {
-        const completed = allPhasesInStack.filter(p => p.stepType === 'Reading').every(p => p.completed);
-        reqs.push({ label: 'Reading', completed });
-      }
-      if (hasFormula) {
-        const completed = allPhasesInStack.filter(p => p.stepType === 'Formula').every(p => p.completed);
-        reqs.push({ label: 'Formula', completed });
-      }
-      if (hasQuestions) {
-        const completed = allPhasesInStack.filter(p => p.stepType === 'Questions').every(p => p.completed);
-        reqs.push({ label: 'Questions', completed });
-      }
-    }
-    return reqs;
-  }, [phase.stepType, allPhasesInStack]);
+  const completedCount = readingLosList.filter(l => l.status === 'Completed').length;
+  const totalLosCount = readingLosList.length;
 
   return (
     <div className={`border rounded-xl overflow-hidden transition-all duration-300 ${
@@ -150,7 +167,6 @@ const PhaseRow: React.FC<{
       {/* Header Row */}
       <div className="flex items-center justify-between p-4 cursor-pointer select-none" onClick={onToggle}>
         <div className="flex items-center gap-3.5 min-w-0 flex-1">
-          {/* Running Indicator */}
           {isRunning ? (
             <div className="relative flex h-3 w-3 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-450 opacity-75"></span>
@@ -158,7 +174,7 @@ const PhaseRow: React.FC<{
             </div>
           ) : (
             <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 w-8 shrink-0">
-              P{phase.phaseNumber}
+              S{phase.phaseNumber}
             </span>
           )}
           
@@ -167,24 +183,40 @@ const PhaseRow: React.FC<{
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest font-mono shrink-0">
-                {phase.phaseLabel}
+                {phase.stepType === 'Lecture' ? 'LECTURES SESSION' : phase.stepType === 'Reading' ? 'UNDERSTAND SESSION' : phase.stepType === 'Notebook' || phase.stepType === 'Formula' ? 'CONSOLIDATE SESSION' : phase.stepType === 'Questions' ? 'VALIDATE SESSION' : 'REFLECT SESSION'}
               </span>
               <span className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate leading-snug">
-                {phase.title}
+                {phase.stepType === 'Lecture'
+                  ? `Video & SSCI Lectures (${lectureList.length} Lectures)`
+                  : phase.stepType === 'Reading'
+                  ? `Curriculum Learning Outcomes (${readingLosList.length} LOS Items)`
+                  : phase.stepType === 'Notebook' || phase.stepType === 'Formula'
+                  ? `NotebookLM Review & Study Notes (${readingNotes.length} Notes • ${readingFormulas.length} Formulas)`
+                  : phase.stepType === 'Questions'
+                  ? `Practice Questions & EOCQ Drills`
+                  : `Mastery Reflection & Self-Check`}
               </span>
             </div>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 flex items-center gap-1">
                 <Clock size={11} /> {formatMinutes(phase.estimatedMinutes)}
               </span>
-              {phase.elapsedMinutes && phase.elapsedMinutes > 0 ? (
+              {phase.stepType === 'Reading' && totalLosCount > 0 && (
                 <>
                   <span className="text-[8px] text-slate-400 font-mono">•</span>
-                  <span className="text-[10px] font-mono text-indigo-500 flex items-center gap-0.5">
-                    ⏱ {Math.round(phase.elapsedMinutes)}m tracked
+                  <span className="text-[10px] font-mono text-emerald-500 font-semibold">
+                    {completedCount}/{totalLosCount} LOS Mastered
                   </span>
                 </>
-              ) : null}
+              )}
+              {phase.stepType === 'Lecture' && lectureList.length > 0 && (
+                <>
+                  <span className="text-[8px] text-slate-400 font-mono">•</span>
+                  <span className="text-[10px] font-mono text-indigo-400 font-semibold">
+                    {lectureList.filter((l: any) => l.progress?.completed).length}/{lectureList.length} Lectures Completed
+                  </span>
+                </>
+              )}
               {phase.completed && (
                 <>
                   <span className="text-[8px] text-slate-400 font-mono">•</span>
@@ -197,34 +229,24 @@ const PhaseRow: React.FC<{
           </div>
         </div>
 
-        {/* Buttons / Controls */}
+        {/* Header Controls */}
         <div className="flex items-center gap-3 shrink-0" onClick={e => e.stopPropagation()}>
-          {/* Action Trigger button */}
-          {!phase.completed && (
-            <>
-              {phase.locked ? (
-                <span className="text-[10px] font-mono text-slate-400/50 flex items-center gap-1 italic">
-                  🔒 Locked
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={isRunning ? onPause : onStartResume}
-                  className={`px-3 py-1 text-[10px] font-mono font-bold uppercase rounded-md transition-all duration-200 shadow-sm ${
-                    isRunning
-                      ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 border border-transparent'
-                      : isPaused
-                      ? 'border border-indigo-500 text-indigo-400 hover:bg-indigo-500/10'
-                      : 'border border-indigo-500 text-indigo-400 hover:bg-indigo-500/10'
-                  }`}
-                >
-                  {isRunning ? 'Pause' : isPaused ? 'Resume' : 'Start'}
-                </button>
-              )}
-            </>
+          {!phase.completed && !phase.locked && (
+            <button
+              type="button"
+              onClick={isRunning ? onPause : onStartResume}
+              className={`px-3 py-1 text-[10px] font-mono font-bold uppercase rounded-md transition-all duration-200 shadow-sm ${
+                isRunning
+                  ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 border border-transparent'
+                  : isPaused
+                  ? 'border border-indigo-500 text-indigo-400 hover:bg-indigo-500/10'
+                  : 'border border-indigo-500 text-indigo-400 hover:bg-indigo-500/10'
+              }`}
+            >
+              {isRunning ? 'Pause' : isPaused ? 'Resume' : 'Start'}
+            </button>
           )}
 
-          {/* Dropdown selector for completion levels */}
           {!phase.locked && (
             <select
               value={phase.progress !== undefined ? Math.round(phase.progress * 100) : (phase.completed ? 100 : 0)}
@@ -245,182 +267,462 @@ const PhaseRow: React.FC<{
           <button
             type="button"
             onClick={onToggle}
-            className="text-slate-400 hover:text-slate-200 cursor-pointer p-1 transition"
+            className="text-slate-400 hover:text-slate-200 cursor-pointer p-1 transition flex items-center gap-1"
           >
+            <span className="text-[10px] font-mono font-semibold uppercase">{isExpanded ? 'Collapse' : 'Expand'}</span>
             {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
         </div>
       </div>
 
-      {/* Expanded Pane Details */}
+      {/* Expanded Session View */}
       {isExpanded && (
         <div className="px-5 pb-5 pt-0 bg-slate-50/[0.15] dark:bg-[#0a0b10]/20 border-t border-slate-100 dark:border-[#1e2026] animate-slide-down">
           <div className="space-y-4 pt-4">
-            
-            {/* Prerequisite Lock Requirements checklist representation */}
-            {phase.locked && lockRequirements.length > 0 && (
-              <div className="p-3 bg-rose-500/[0.04] border border-rose-500/15 rounded-lg text-xs space-y-1.5">
-                <span className="font-bold text-rose-400 block font-mono">🔒 Locked: {phase.lockedReason}</span>
-                <div className="space-y-1 font-mono text-[10px]">
-                  <span className="text-slate-500 block font-semibold uppercase text-[9px] tracking-wider mb-0.5">Completion Requirements:</span>
-                  {lockRequirements.map((r, i) => (
-                    <div key={i} className="flex items-center gap-1.5 text-slate-400">
-                      <span>{r.completed ? '✓' : '□'}</span>
-                      <span className={r.completed ? 'text-slate-450 line-through' : 'text-slate-300 font-semibold'}>
-                        {r.label}
-                      </span>
+
+            {/* 🎥 LECTURES SESSION VIEW */}
+            {phase.stepType === 'Lecture' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-bold font-mono uppercase tracking-widest text-indigo-400 flex items-center gap-1.5">
+                    <Video size={13} /> SSCI & Video Lectures ({lectureList.length} Total)
+                  </h4>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    Total Duration: {formatMinutes(lectureList.reduce((sum: number, l: any) => sum + (l.duration || 0), 0))}
+                  </span>
+                </div>
+
+                {lectureList.length === 0 ? (
+                  <p className="text-xs text-slate-500 italic p-3 bg-slate-900/10 rounded">No video lectures found for this reading.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {lectureList.map((lec: any, idx: number) => {
+                      const isLecCompleted = lec.progress?.completed;
+                      const isLecSubExpanded = !!expandedSubItems[lec.id];
+                      return (
+                        <div key={lec.id} className="border border-slate-200 dark:border-slate-800/80 rounded-lg bg-white dark:bg-[#121319] overflow-hidden">
+                          <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/50" onClick={() => toggleSubItem(lec.id)}>
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <span className="px-1.5 py-0.5 text-[9px] font-mono font-bold bg-indigo-500/10 text-indigo-400 rounded">
+                                L{idx + 1}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block truncate">{lec.title}</span>
+                                <span className="text-[10px] text-slate-500 font-mono block mt-0.5">
+                                  {lec.provider || 'SSCI'} • {lec.duration} mins • {isLecCompleted ? '✓ Completed' : 'Pending'}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  resourceLauncherService.launch(lec);
+                                  lrRepo.markOpened(lec.id);
+                                }}
+                                className="px-2.5 py-1 text-[9px] font-mono font-bold uppercase bg-indigo-600 hover:bg-indigo-500 text-white rounded cursor-pointer flex items-center gap-1"
+                              >
+                                <Play size={10} /> Launch Lecture
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  lrRepo.updateProgress(lec.id, { completed: !isLecCompleted, minutesCompleted: isLecCompleted ? 0 : lec.duration });
+                                  eventBus.publish({
+                                    type: 'ReadingProgressUpdated',
+                                    timestamp: new Date().toISOString(),
+                                    source: 'MissionControlCard',
+                                    entityId: lec.readingId,
+                                    payload: { readingId: lec.readingId }
+                                  });
+                                }}
+                                className={`px-2 py-1 text-[9px] font-mono font-bold uppercase border rounded cursor-pointer ${
+                                  isLecCompleted
+                                    ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10'
+                                    : 'border-slate-300 dark:border-slate-800 text-slate-400 hover:bg-slate-800'
+                                }`}
+                              >
+                                {isLecCompleted ? '✓ Done' : 'Mark Complete'}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => toggleSubItem(lec.id)}
+                                className="text-slate-400 hover:text-slate-200 p-1"
+                              >
+                                {isLecSubExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Individual Lecture Details */}
+                          {isLecSubExpanded && (
+                            <div className="p-3 bg-slate-50/50 dark:bg-slate-950/40 border-t border-slate-100 dark:border-slate-900 text-xs font-mono space-y-1.5 text-slate-400">
+                              <p><strong className="text-slate-300">Code:</strong> {lec.lectureCode || lec.id}</p>
+                              <p><strong className="text-slate-300">Description:</strong> {lec.description || `SSCI Comprehensive Video Lecture for ${phase.readingId}`}</p>
+                              {lec.launchUrl && (
+                                <p className="truncate"><strong className="text-slate-300">URL:</strong> <a href={lec.launchUrl} target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline">{lec.launchUrl}</a></p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 📘 UNDERSTAND SESSION VIEW — ALL LOS ITEMS */}
+            {phase.stepType === 'Reading' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-bold font-mono uppercase tracking-widest text-emerald-400 flex items-center gap-1.5">
+                    <BookOpen size={13} /> Curriculum Learning Outcomes — All LOS Items ({readingLosList.length} Total)
+                  </h4>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    Mastery: {completedCount}/{totalLosCount} ({totalLosCount > 0 ? Math.round((completedCount/totalLosCount)*100) : 0}%)
+                  </span>
+                </div>
+
+                {readingLosList.length === 0 ? (
+                  <p className="text-xs text-slate-500 italic p-3 bg-slate-900/10 rounded">No LOS items found for this reading in curriculum database.</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {readingLosList.map((los) => {
+                      const isLosCompleted = los.status === 'Completed';
+                      const isLosSubExpanded = !!expandedSubItems[los.id];
+                      const commandWord = getCommandWord(los.statement || los.description || '');
+                      const confidenceVal = los.confidence || 0;
+
+                      return (
+                        <div key={los.id} className="border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-[#121319] overflow-hidden">
+                          <div className="p-3.5">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="space-y-1 min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="px-2 py-0.5 text-[9px] font-mono font-bold bg-indigo-500/15 text-indigo-400 rounded border border-indigo-500/20">
+                                    LOS {los.code}
+                                  </span>
+                                  <span className="px-1.5 py-0.5 text-[8px] font-mono font-bold bg-amber-500/10 text-amber-400 rounded border border-amber-500/20 uppercase">
+                                    [{commandWord}]
+                                  </span>
+                                  {los.difficulty && (
+                                    <span className="text-[8px] font-mono text-slate-500 uppercase">
+                                      Difficulty: {los.difficulty}
+                                    </span>
+                                  )}
+                                </div>
+                                <h5 className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-snug pt-1">
+                                  {los.statement || los.description || los.title}
+                                </h5>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => toggleSubItem(los.id)}
+                                className="text-slate-400 hover:text-slate-200 p-1 shrink-0"
+                              >
+                                {isLosSubExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                              </button>
+                            </div>
+
+                            {/* Confidence Star Rating & Status Controls */}
+                            <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-900/80 flex-wrap gap-2">
+                              {/* 5-Star Confidence Rating */}
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[9px] font-mono text-slate-500 uppercase font-bold">Confidence:</span>
+                                <div className="flex items-center gap-0.5">
+                                  {[1, 2, 3, 4, 5].map((star) => (
+                                    <button
+                                      key={star}
+                                      type="button"
+                                      onClick={() => updateLOS(los.id, { confidence: star })}
+                                      className="p-0.5 text-amber-400 hover:scale-110 transition cursor-pointer"
+                                      title={`Set confidence ${star}/5`}
+                                    >
+                                      <Star
+                                        size={13}
+                                        className={star <= confidenceVal ? 'fill-amber-400 text-amber-400' : 'text-slate-600'}
+                                      />
+                                    </button>
+                                  ))}
+                                </div>
+                                <span className="text-[10px] font-mono text-amber-400 font-bold ml-1">
+                                  {confidenceVal > 0 ? `${confidenceVal}/5` : 'Unrated'}
+                                </span>
+                              </div>
+
+                              {/* Status Toggle Button */}
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nextStatus = isLosCompleted ? 'Not Started' : 'Completed';
+                                    updateLOS(los.id, { status: nextStatus });
+                                  }}
+                                  className={`px-2.5 py-1 text-[9px] font-mono font-bold uppercase border rounded cursor-pointer transition ${
+                                    isLosCompleted
+                                      ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10'
+                                      : 'border-slate-300 dark:border-slate-800 text-slate-400 hover:bg-slate-800'
+                                  }`}
+                                >
+                                  {isLosCompleted ? '✓ LOS Mastered' : 'Mark Mastered'}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => selectLOS(los.id)}
+                                  className="px-2.5 py-1 text-[9px] font-mono font-bold uppercase border border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 rounded cursor-pointer"
+                                >
+                                  Study Workspace
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Sub-item Expansion: Formulas, Notes & AI Summary */}
+                            {isLosSubExpanded && (
+                              <div className="mt-3 p-3 bg-slate-50/50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-900 rounded-lg text-xs space-y-2">
+                                {los.aiSummary && (
+                                  <div>
+                                    <span className="text-[9px] font-mono font-bold text-amber-400 uppercase tracking-wider block mb-0.5">AI Concept Summary:</span>
+                                    <p className="text-slate-300 leading-relaxed font-sans">{los.aiSummary}</p>
+                                  </div>
+                                )}
+                                {los.cfaWeight && (
+                                  <p className="font-mono text-[10px] text-slate-400">
+                                    <strong className="text-slate-300">Exam Weighting:</strong> {los.cfaWeight}
+                                  </p>
+                                )}
+                                <div className="flex gap-2 pt-1 font-mono text-[9px]">
+                                  <span className="text-slate-500">Related Formulas: {los.relatedFormulas?.length || 0}</span>
+                                  <span>•</span>
+                                  <span className="text-slate-500">Related Notes: {los.relatedNotes?.length || 0}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 🧠 CONSOLIDATE SESSION VIEW — NOTEBOOKLM REVIEW & STUDY NOTES */}
+            {(phase.stepType === 'Notebook' || phase.stepType === 'Formula') && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-bold font-mono uppercase tracking-widest text-violet-400 flex items-center gap-1.5">
+                    <Brain size={13} /> NotebookLM Review & Synthesis — All LOS ({readingLosList.length} LOS Covered)
+                  </h4>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    {readingNotes.length} Notes • {readingFormulas.length} Formulas
+                  </span>
+                </div>
+
+                {/* 3 Prominent NotebookLM Action Output Trigger Cards */}
+                <div className="grid md:grid-cols-3 gap-3">
+                  {/* Card 1: Prepare Report */}
+                  <div className={`p-3.5 border rounded-xl bg-white dark:bg-[#121319] space-y-2 cursor-pointer transition-all ${notebookMode === 'report' ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-200 dark:border-slate-800 hover:border-indigo-500/50'}`} onClick={() => setNotebookMode(notebookMode === 'report' ? null : 'report')}>
+                    <div className="flex items-center gap-2 text-indigo-400">
+                      <FileText size={16} />
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Prepare Report</span>
                     </div>
-                  ))}
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+                      Generate an executive study report summarizing all LOS concepts for this reading.
+                    </p>
+                    <button
+                      type="button"
+                      className="w-full py-1 text-[9px] font-mono font-bold uppercase bg-indigo-600 hover:bg-indigo-500 text-white rounded flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <Sparkles size={10} /> {notebookMode === 'report' ? 'Hide Report' : 'View Executive Report'}
+                    </button>
+                  </div>
+
+                  {/* Card 2: Generate Audiobook / Audio Overview */}
+                  <div className={`p-3.5 border rounded-xl bg-white dark:bg-[#121319] space-y-2 cursor-pointer transition-all ${notebookMode === 'audiobook' ? 'border-amber-500 ring-1 ring-amber-500' : 'border-slate-200 dark:border-slate-800 hover:border-amber-500/50'}`} onClick={() => setNotebookMode(notebookMode === 'audiobook' ? null : 'audiobook')}>
+                    <div className="flex items-center gap-2 text-amber-400">
+                      <Headphones size={16} />
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Audiobook Overview</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+                      NotebookLM audio podcast discussion overview covering all LOS items of this reading.
+                    </p>
+                    <button
+                      type="button"
+                      className="w-full py-1 text-[9px] font-mono font-bold uppercase bg-amber-500 hover:bg-amber-400 text-slate-950 rounded flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <Play size={10} /> {notebookMode === 'audiobook' ? 'Hide Audio Player' : 'Launch Audio Overview'}
+                    </button>
+                  </div>
+
+                  {/* Card 3: Create PPT Presentation Deck */}
+                  <div className={`p-3.5 border rounded-xl bg-white dark:bg-[#121319] space-y-2 cursor-pointer transition-all ${notebookMode === 'ppt' ? 'border-emerald-500 ring-1 ring-emerald-500' : 'border-slate-200 dark:border-slate-800 hover:border-emerald-500/50'}`} onClick={() => setNotebookMode(notebookMode === 'ppt' ? null : 'ppt')}>
+                    <div className="flex items-center gap-2 text-emerald-400">
+                      <Presentation size={16} />
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">PPT Slide Deck</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+                      Key concept presentation slide deck outline covering formulas and core LOS items.
+                    </p>
+                    <button
+                      type="button"
+                      className="w-full py-1 text-[9px] font-mono font-bold uppercase bg-emerald-600 hover:bg-emerald-500 text-white rounded flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <Layers size={10} /> {notebookMode === 'ppt' ? 'Hide Slide Deck' : 'Generate PPT Deck'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* NotebookLM Output Mode Panels */}
+                {notebookMode === 'report' && (
+                  <div className="p-4 bg-indigo-500/[0.04] border border-indigo-500/20 rounded-xl space-y-2 text-xs">
+                    <span className="text-[10px] font-mono font-bold text-indigo-400 uppercase tracking-wider block">📄 NotebookLM Executive Study Report — Reading {phase.readingId}</span>
+                    <p className="text-slate-300 leading-relaxed font-sans">
+                      This executive report synthesizes all {readingLosList.length} Learning Outcome Statements for {phase.readingId}. Key focus areas include instrument valuation mechanics, payoff formulas, and strategic risk management applications.
+                    </p>
+                    <div className="space-y-1 font-mono text-[10px] text-slate-400 pt-1">
+                      {readingLosList.map(l => (
+                        <div key={l.id} className="flex items-center gap-2">
+                          <span className="text-indigo-400">► LOS {l.code}:</span>
+                          <span className="truncate">{l.statement}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {notebookMode === 'audiobook' && (
+                  <div className="p-4 bg-amber-500/[0.04] border border-amber-500/20 rounded-xl space-y-3 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
+                        <Headphones size={13} /> NotebookLM Deep Dive Audio Overview
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400">Duration: 18m 42s</span>
+                    </div>
+                    <div className="p-3 bg-slate-900 rounded-lg flex items-center gap-3">
+                      <button type="button" className="p-2 bg-amber-500 text-slate-950 rounded-full hover:scale-105 cursor-pointer">
+                        <Play size={14} className="fill-current" />
+                      </button>
+                      <div className="flex-1 space-y-1">
+                        <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                          <div className="h-full w-1/3 bg-amber-400 rounded-full" />
+                        </div>
+                        <div className="flex justify-between text-[9px] font-mono text-slate-400">
+                          <span>06:12</span>
+                          <span>18:42</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {notebookMode === 'ppt' && (
+                  <div className="p-4 bg-emerald-500/[0.04] border border-emerald-500/20 rounded-xl space-y-2 text-xs">
+                    <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-wider block">📊 PPT Presentation Deck Outline ({readingLosList.length + 2} Slides)</span>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 font-mono text-[10px] pt-1">
+                      <div className="p-2 bg-slate-900 border border-slate-800 rounded text-slate-300">Slide 1: Executive Overview</div>
+                      {readingLosList.map((l, i) => (
+                        <div key={l.id} className="p-2 bg-slate-900 border border-slate-800 rounded text-slate-300">
+                          Slide {i + 2}: LOS {l.code} Breakdown
+                        </div>
+                      ))}
+                      <div className="p-2 bg-slate-900 border border-slate-800 rounded text-slate-300">Slide {readingLosList.length + 2}: Exam Formula Matrix</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* List of Notes & Formulas for this Reading */}
+                <div className="space-y-2 pt-2">
+                  <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-widest block">Study Notes & Formula References</span>
+                  {readingNotes.length === 0 && readingFormulas.length === 0 ? (
+                    <p className="text-xs text-slate-500 italic p-3 bg-slate-900/10 rounded">No custom notes created for this reading yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {readingNotes.map(n => (
+                        <div key={n.id} className="p-3 bg-white dark:bg-[#121319] border border-slate-200 dark:border-slate-800 rounded-lg text-xs space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-200">{n.title}</span>
+                            <span className="text-[9px] font-mono text-slate-500">{n.updatedAt?.split('T')[0]}</span>
+                          </div>
+                          <p className="text-slate-400 font-sans leading-relaxed">{n.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* Cognitive parameters & Dynamic directive details */}
-            <div className="grid md:grid-cols-2 gap-5 border-b border-slate-100 dark:border-[#1e2026] pb-4 text-xs">
-              <div className="space-y-2">
-                <h4 className="text-[9px] font-bold font-mono uppercase tracking-widest text-slate-500">COGNITIVE CONTEXT</h4>
-                <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 text-slate-400 font-mono text-[11px]">
-                  <span>Memory Stage</span>
-                  <span className="text-slate-200">{phase.memoryStage || 'Encoding'}</span>
-                  <span>Bloom Level</span>
-                  <span className="text-slate-200">{phase.bloomLevel || 'Understand'}</span>
-                  <span>Cognitive Effort</span>
-                  <span className={`font-bold ${phase.estimatedCognitiveEffort === 'High' ? 'text-rose-400' : phase.estimatedCognitiveEffort === 'Medium' ? 'text-amber-400' : 'text-emerald-400'}`}>
-                    {phase.estimatedCognitiveEffort}
+            {/* ❓ VALIDATE SESSION VIEW — PRACTICE QUESTIONS & EOCQ */}
+            {phase.stepType === 'Questions' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-bold font-mono uppercase tracking-widest text-sky-400 flex items-center gap-1.5">
+                    <QuestionIcon size={13} /> Practice Questions & EOCQ Drills — All LOS
+                  </h4>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    Target: 20 EOCQ Drills
                   </span>
-                  <span>Success Probability</span>
-                  <span className="text-slate-200">{phase.estimatedSuccessPercent}%</span>
-                  <span>Confidence Target</span>
-                  <span className="text-slate-200">{phase.confidenceRequirement} Requirement</span>
+                </div>
+
+                <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-2 text-xs">
+                  <div className="flex items-center justify-between font-mono text-[10px]">
+                    <span className="text-slate-300 font-bold">End-of-Chapter Questions (EOCQ) Drill Set</span>
+                    <span className="text-sky-400 font-bold">20 Drills Available</span>
+                  </div>
+                  <p className="text-slate-400 leading-snug font-sans">
+                    Execute practice drills covering calculation items, scenario vignettes, and conceptual questions for all {readingLosList.length} LOS items.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateWorkspaceState({ mode: 'reading', activeTab: 'analytics' });
+                    }}
+                    className="px-3 py-1 text-[9px] font-mono font-bold uppercase bg-sky-600 hover:bg-sky-500 text-white rounded cursor-pointer flex items-center gap-1"
+                  >
+                    Launch Practice Question Bank
+                  </button>
                 </div>
               </div>
-              <div className="space-y-2">
-                <h4 className="text-[9px] font-bold font-mono uppercase tracking-widest text-slate-500">COGNITIVE JUSTIFICATION</h4>
-                <div className="space-y-1.5 font-sans leading-relaxed text-slate-300 text-[11px]">
-                  <p>
-                    <strong className="text-amber-500 font-mono">Why Now: </strong>
-                    {phase.whyThisNow}
-                  </p>
-                  <p>
-                    <strong className="text-emerald-500 font-mono">Outcome: </strong>
-                    {phase.expectedOutcome}
-                  </p>
-                  <p>
-                    <strong className="text-blue-500 font-mono">Objective: </strong>
-                    {phase.learningObjective}
-                  </p>
-                  {phase.prerequisites && phase.prerequisites.length > 0 && (
-                    <p className="text-slate-400 font-mono text-[10px] italic pt-0.5">
-                      Prerequisites: {phase.prerequisites.join(', ')}
-                    </p>
-                  )}
+            )}
+
+            {/* 💬 REFLECT SESSION VIEW — MASTERY & CONFIDENCE REVIEW */}
+            {phase.stepType === 'Reflection' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-bold font-mono uppercase tracking-widest text-amber-400 flex items-center gap-1.5">
+                    <Award size={13} /> Mastery Reflection & Self-Check — All LOS
+                  </h4>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    {completedCount}/{totalLosCount} Mastered
+                  </span>
                 </div>
-              </div>
-            </div>
 
-            {/* Learning Resources section inside phase */}
-            <div className="space-y-3">
-              <h4 className="text-[9px] font-bold font-mono uppercase tracking-widest text-slate-500">Learning Resources</h4>
-              {resourcesList.length === 0 ? (
-                <p className="text-xs text-slate-500 italic">No resources attached to this phase.</p>
-              ) : (
-                <div className="space-y-2">
-                  {resourcesList.map(res => {
-                    const isResCompleted = res.progress?.completed;
-                    const isResInProgress = !isResCompleted && (res.progress?.minutesCompleted || 0) > 0;
-                    return (
-                      <div key={res.id} className="flex flex-col md:flex-row md:items-center justify-between p-3 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-100 dark:border-slate-900 rounded-lg gap-3">
-                        <div className="flex-1 min-w-0 flex items-center gap-2">
-                          <FileText size={14} className="text-indigo-400 shrink-0" />
-                          <div className="min-w-0">
-                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block truncate">{res.title}</span>
-                            <span className="text-[10px] text-slate-500 font-mono block mt-0.5">
-                              {res.provider} • {res.resourceType} • {res.duration}m
-                              {isResCompleted ? ' • ✓ Completed' : isResInProgress ? ` • In Progress (${res.progress.minutesCompleted}m)` : ' • Not Started'}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Resource Actions */}
-                        <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (isResInProgress) {
-                                resourceLauncherService.resume(res);
-                              } else {
-                                resourceLauncherService.launch(res);
-                              }
-                              lrRepo.markOpened(res.id);
-                              eventBus.publish({
-                                type: 'ReadingProgressUpdated',
-                                timestamp: new Date().toISOString(),
-                                source: 'MissionControlCard',
-                                entityId: res.readingId,
-                                payload: { readingId: res.readingId }
-                              });
-                            }}
-                            className="px-2 py-0.5 text-[9px] font-mono font-bold uppercase border border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 rounded cursor-pointer"
-                          >
-                            {isResInProgress ? 'Resume' : 'Launch'}
-                          </button>
-                          
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (isResCompleted) {
-                                lrRepo.updateProgress(res.id, { completed: false, minutesCompleted: 0 });
-                              } else {
-                                lrRepo.updateProgress(res.id, { completed: true, minutesCompleted: res.duration });
-                              }
-                              eventBus.publish({
-                                type: 'ReadingProgressUpdated',
-                                timestamp: new Date().toISOString(),
-                                source: 'MissionControlCard',
-                                entityId: res.readingId,
-                                payload: { readingId: res.readingId }
-                              });
-                            }}
-                            className={`px-2 py-0.5 text-[9px] font-mono font-bold uppercase border rounded cursor-pointer ${
-                              isResCompleted
-                                ? 'border-emerald-500 text-emerald-450 bg-emerald-500/10'
-                                : 'border-slate-300 dark:border-slate-800 text-slate-400 hover:bg-slate-800'
-                            }`}
-                          >
-                            {isResCompleted ? 'Completed' : 'Mark Complete'}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              lrRepo.resetProgress(res.id);
-                              eventBus.publish({
-                                type: 'ReadingProgressUpdated',
-                                timestamp: new Date().toISOString(),
-                                source: 'MissionControlCard',
-                                entityId: res.readingId,
-                                payload: { readingId: res.readingId }
-                              });
-                            }}
-                            className="p-1 border border-transparent text-slate-500 hover:text-slate-350 hover:bg-slate-900 rounded"
-                            title="Reset Progress"
-                          >
-                            <RotateCcw size={12} />
-                          </button>
-                        </div>
+                <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-2 text-xs">
+                  <span className="font-bold text-amber-400 font-mono text-[10px] uppercase">LOS Confidence Diagnostic Summary</span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[10px]">
+                    {readingLosList.map(l => (
+                      <div key={l.id} className="p-2 bg-slate-950 border border-slate-800 rounded">
+                        <span className="text-slate-400 block">LOS {l.code}</span>
+                        <span className="text-amber-400 font-bold">{l.confidence ? `${l.confidence}/5 Stars` : 'Unrated'}</span>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* Reference Links & Navigation shortcuts */}
-            <div className="flex gap-2 flex-wrap pt-2">
+            {/* Reference Links & Action Buttons */}
+            <div className="flex gap-2 flex-wrap pt-2 border-t border-slate-100 dark:border-[#1e2026]">
               <button
                 type="button"
                 onClick={() => {
-                  const rd = readings.find(r => r.id === phase.id.split('-')[1]);
+                  const rd = readings.find(r => r.id === phase.readingId);
                   if (rd) {
                     updateWorkspaceState({
                       selectedSubjectId: rd.subjectId,
@@ -428,13 +730,11 @@ const PhaseRow: React.FC<{
                       mode: 'reading',
                       activeTab: 'overview'
                     });
-                  } else {
-                    updateWorkspaceState({ mode: 'reading', activeTab: 'overview' });
                   }
                 }}
-                className="px-2.5 py-1 text-[10px] font-mono font-bold uppercase border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-900 rounded"
+                className="px-2.5 py-1 text-[10px] font-mono font-bold uppercase border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-900 rounded cursor-pointer"
               >
-                Open Reading
+                Open Full Reading Workspace
               </button>
               
               <button
@@ -442,63 +742,18 @@ const PhaseRow: React.FC<{
                 onClick={() => {
                   updateWorkspaceState({ mode: 'reading', activeTab: 'los' });
                 }}
-                className="px-2.5 py-1 text-[10px] font-mono font-bold uppercase border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-900 rounded"
+                className="px-2.5 py-1 text-[10px] font-mono font-bold uppercase border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-900 rounded cursor-pointer"
               >
-                Open LOS
+                Open LOS Matrix
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  updateWorkspaceState({ mode: 'reading', activeTab: 'formulas' });
-                }}
-                className="px-2.5 py-1 text-[10px] font-mono font-bold uppercase border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-900 rounded"
-              >
-                Open Formula
-              </button>
-              
               <button
                 type="button"
                 onClick={onReset}
-                className="px-2.5 py-1 text-[10px] font-mono font-bold uppercase border border-rose-500/20 text-rose-500 hover:bg-rose-500/10 rounded ml-auto"
+                className="px-2.5 py-1 text-[10px] font-mono font-bold uppercase border border-rose-500/20 text-rose-500 hover:bg-rose-500/10 rounded ml-auto cursor-pointer"
               >
-                Reset
+                Reset Progress
               </button>
-            </div>
-
-            {/* AI Recommendation Insight section */}
-            <div className="border-t border-slate-100 dark:border-[#1e2026] pt-3 mt-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-1.5 text-indigo-400">
-                  <Sparkles size={11} className="text-amber-500" />
-                  <span className="text-[9px] font-mono font-bold text-amber-500 uppercase tracking-widest">COACH INTELLIGENCE</span>
-                </div>
-                {!cachedInsight && (
-                  <button
-                    type="button"
-                    onClick={onGenerateInsight}
-                    disabled={isGenerating}
-                    className="text-[9px] font-mono text-amber-500 hover:text-amber-400 cursor-pointer disabled:opacity-40"
-                  >
-                    {isGenerating ? 'Generating...' : '[ Generate Recommendation ]'}
-                  </button>
-                )}
-              </div>
-              {isGenerating && !cachedInsight && (
-                <div className="space-y-1.5 mt-2">
-                  <div className="h-2.5 w-full rounded bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                    <div className="h-full w-2/3 bg-indigo-500 rounded animate-shimmer" />
-                  </div>
-                  <div className="h-2.5 w-4/5 rounded bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                    <div className="h-full w-1/2 bg-indigo-500 rounded animate-shimmer" />
-                  </div>
-                </div>
-              )}
-              {(cachedInsight || (aiJob?.status === 'READY' && aiJob?.result)) && (
-                <p className="text-[11px] text-slate-650 dark:text-slate-350 leading-relaxed font-sans font-medium bg-slate-50/50 dark:bg-slate-950/20 border border-slate-100 dark:border-slate-900 p-2.5 rounded-lg mt-1 leading-relaxed">
-                  {cachedInsight?.response || cachedInsight || aiJob?.result?.text}
-                </p>
-              )}
             </div>
 
           </div>
@@ -525,6 +780,7 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
     sessionHistory,
     updateWorkspaceState,
     selectLOS,
+    updateLOS,
     activeTemplate,
   } = useApp();
 
@@ -1149,9 +1405,12 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
               lrRepo={lrRepo}
               updateWorkspaceState={updateWorkspaceState}
               selectLOS={selectLOS}
+              updateLOS={updateLOS}
               updateTrigger={updateTrigger}
               readings={readings}
               losList={losList}
+              formulas={formulas}
+              notes={notes}
               allPhasesInStack={stack.phases}
             />
           ))
