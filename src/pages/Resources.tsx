@@ -109,8 +109,8 @@ export const Resources: React.FC = () => {
     addNote({
       title: `Excerpt: ${activeAsset?.name || 'Study Resource'} (Page ${currentPage})`,
       content: `> ${contentToSave}\n\n*Saved from resource: [${activeAsset?.name || 'Document'}]*`,
-      linkedReadingId: activeAsset?.readingId,
-      linkedSubjectId: activeAsset?.subjectId
+      linkedReadingId: activeAsset?.linkedReadingId || activeAsset?.reading,
+      linkedSubjectId: activeAsset?.linkedSubjectId || activeAsset?.subject
     });
     alert(`Successfully saved excerpt from "${activeAsset?.name}" to your Study Notes!`);
   };

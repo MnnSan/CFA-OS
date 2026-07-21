@@ -793,6 +793,30 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
   const [jobs, setJobs] = React.useState<AiJob[]>([]);
   const [updateTrigger, setUpdateTrigger] = React.useState(0);
 
+  const todayStudyStack: StudyStack | null = React.useMemo(() => {
+    if (!dailyMission) return null;
+    
+    const learningResources = lrRepo.getByReadingId(dailyMission.readingId);
+    
+    const targetEOCQ = readings
+      .filter(r => r.id === dailyMission.readingId)
+      .reduce((sum, r) => sum + (r.targets?.eocqCount || 20), 0);
+      
+    const input: StackBuilderInput = {
+      learningResources,
+      formulas: formulas || [],
+      notes: notes || [],
+      losList: losList || [],
+      plannerProgress: plannerProgress || [],
+      targetEOCQ,
+      questionCount: learningResources.filter(r => r.resourceType === 'Question Bank').length || 20,
+      dailyTargetHours: settings?.targetDailyHours || 2,
+    };
+    
+    const stack = missionControl.buildMission(dailyMission, input);
+    return execution.applyPersistedStates(stack);
+  }, [dailyMission, formulas, notes, settings?.targetDailyHours, updateTrigger, losList, lrRepo, plannerProgress]);
+
   React.useEffect(() => {
     return aiJobQueue.subscribe(setJobs);
   }, []);
@@ -831,30 +855,6 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
       unsubscribes.forEach(unsub => unsub());
     };
   }, []);
-
-  const todayStudyStack: StudyStack | null = React.useMemo(() => {
-    if (!dailyMission) return null;
-    
-    const learningResources = lrRepo.getByReadingId(dailyMission.readingId);
-    
-    const targetEOCQ = readings
-      .filter(r => r.id === dailyMission.readingId)
-      .reduce((sum, r) => sum + (r.targets?.eocqCount || 20), 0);
-      
-    const input: StackBuilderInput = {
-      learningResources,
-      formulas: formulas || [],
-      notes: notes || [],
-      losList: losList || [],
-      plannerProgress: plannerProgress || [],
-      targetEOCQ,
-      questionCount: learningResources.filter(r => r.resourceType === 'Question Bank').length || 20,
-      dailyTargetHours: settings?.targetDailyHours || 2,
-    };
-    
-    const stack = missionControl.buildMission(dailyMission, input);
-    return execution.applyPersistedStates(stack);
-  }, [dailyMission, formulas, notes, settings?.targetDailyHours, updateTrigger, losList, lrRepo, plannerProgress]);
 
   if (!dailyMission || !todayStudyStack) return null;
 

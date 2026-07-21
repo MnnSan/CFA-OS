@@ -246,7 +246,7 @@ interface AppContextType {
   templates: TimelineTemplate[];
   activeTemplateId: string | null;
   setActiveTemplate: (id: string | null) => void;
-  generateCoachPlan: (overrideSettings?: Partial<UserSettings>) => void;
+  generateCoachPlan: (overrideSettings?: Partial<StudySettings>) => void;
   copyCoachToSandbox: () => void;
   updateTemplateBlocks: (templateId: string, blocks: TimelineBlock[]) => void;
   activeTemplate: TimelineTemplate | null;
@@ -2607,7 +2607,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  const generateCoachPlan = useCallback((overrideSettings?: Partial<UserSettings>) => {
+  const generateCoachPlan = useCallback((overrideSettings?: Partial<StudySettings>) => {
     const activeStartDate = overrideSettings?.targetStartDate ?? (settings.targetStartDate || settings.examDate);
     const activeExamDate = overrideSettings?.examDate ?? settings.examDate;
     const activeBuffer = overrideSettings?.reviewBuffer ?? (settings.reviewBuffer || 30);
