@@ -1,5 +1,6 @@
 import { StudyStack, StudyPhase, CompletionEvidence, PhaseStatus } from '../types';
 import { eventBus } from './EventBus';
+import { safeLocalStorageSet } from '../utils/storageUtils';
 
 const STORAGE_KEY = 'cfa_mission_execution_state';
 
@@ -28,7 +29,7 @@ function loadState(): PersistedState {
 }
 
 function saveState(state: PersistedState): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  safeLocalStorageSet(STORAGE_KEY, JSON.stringify(state));
 }
 
 export class MissionExecutionService {
