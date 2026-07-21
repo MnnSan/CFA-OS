@@ -246,7 +246,7 @@ interface AppContextType {
   templates: TimelineTemplate[];
   activeTemplateId: string | null;
   setActiveTemplate: (id: string | null) => void;
-  generateCoachPlan: () => void;
+  generateCoachPlan: (overrideSettings?: Partial<UserSettings>) => void;
   copyCoachToSandbox: () => void;
   updateTemplateBlocks: (templateId: string, blocks: TimelineBlock[]) => void;
   activeTemplate: TimelineTemplate | null;
@@ -2607,11 +2607,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  const generateCoachPlan = useCallback(() => {
+  const generateCoachPlan = useCallback((overrideSettings?: Partial<UserSettings>) => {
+    const activeStartDate = overrideSettings?.targetStartDate ?? (settings.targetStartDate || settings.examDate);
+    const activeExamDate = overrideSettings?.examDate ?? settings.examDate;
+    const activeBuffer = overrideSettings?.reviewBuffer ?? (settings.reviewBuffer || 30);
+
     const blocks = generateCoachTemplate({
-      startDate: settings.targetStartDate || settings.examDate,
-      examDate: settings.examDate,
-      bufferDays: settings.reviewBuffer || 30,
+      startDate: activeStartDate,
+      examDate: activeExamDate,
+      bufferDays: activeBuffer,
       subjects,
       readings,
       losList,
@@ -2640,6 +2644,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       coachPlanRepository.save(newTemplate);
       coachPlanRepository.setActiveTemplateId('coach-blueprint');
       coachPlanRepository.commit();
+
+      setActiveTemplateId('coach-blueprint');
       logActivity('planner', 'Generated Coach AI Blueprint schedule');
 
       // Publish Analytics

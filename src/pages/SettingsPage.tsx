@@ -166,8 +166,20 @@ export const SettingsPage: React.FC = () => {
   };
 
   const handleConfirmMutation = () => {
+    const newSettingsObj = {
+      examDate,
+      targetStartDate: startDate,
+      targetDailyHours: Number(dailyHours),
+      preferredSessionLength: Number(sessionLen),
+      reviewBuffer: Number(reviewBuffer),
+      notificationPreferences: {
+        email: emailNotif,
+        push: pushNotif,
+        streakReminders: streakNotif
+      }
+    };
     executeSaveSettings();
-    generateCoachPlan();
+    generateCoachPlan(newSettingsObj);
     setShowMutationModal(false);
   };
 

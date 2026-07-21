@@ -46,6 +46,7 @@ export const Resources: React.FC = () => {
     readings,
     losList,
     subjects,
+    addNote,
     selectedResourceId,
     setSelectedResourceId,
     // Sprint 8 Exposes
@@ -99,6 +100,20 @@ export const Resources: React.FC = () => {
       setPreviewPages([]);
     }
   }, [selectedResourceId, activeAsset?.status]); // Re-load if status changes to Ready
+
+  const handleSaveSelectedAsNote = () => {
+    const selectedText = window.getSelection()?.toString().trim();
+    const contentToSave = selectedText || previewPages[currentPage - 1]?.content || '';
+    if (!contentToSave) return;
+
+    addNote({
+      title: `Excerpt: ${activeAsset?.name || 'Study Resource'} (Page ${currentPage})`,
+      content: `> ${contentToSave}\n\n*Saved from resource: [${activeAsset?.name || 'Document'}]*`,
+      linkedReadingId: activeAsset?.readingId,
+      linkedSubjectId: activeAsset?.subjectId
+    });
+    alert(`Successfully saved excerpt from "${activeAsset?.name}" to your Study Notes!`);
+  };
 
   // File Drop Handlers
   const handleDragOver = (e: React.DragEvent) => {
@@ -269,46 +284,7 @@ This external link has been registered inside your Knowledge Vault. Clicking "Op
           </div>
         </div>
 
-        {/* Ingestion Telemetry Queue Banner */}
-        {ingestionQueue.length > 0 && (
-          <div className="rounded border border-amber-100 bg-amber-50/30 p-4 space-y-3 dark:border-amber-900/20 dark:bg-amber-950/10">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Loader2 className="h-4 w-4 text-amber-500 animate-spin" />
-                <h4 className="text-xs font-bold font-mono tracking-wider uppercase text-amber-800 dark:text-amber-400">
-                  Knowledge Ingestion Pipeline ({ingestionQueue.length} Active)
-                </h4>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {ingestionQueue.map(item => (
-                <div key={item.id} className="flex flex-col space-y-1 rounded bg-white p-2.5 border border-slate-100 text-[10px] dark:bg-[#101116] dark:border-[#1e2026]">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-slate-700 dark:text-slate-300 truncate max-w-xs">{item.name}</span>
-                    <span className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[9px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 animate-pulse">
-                      {item.status}
-                    </span>
-                  </div>
-                  <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden dark:bg-[#101116]">
-                    <div 
-                      className="h-full bg-amber-500 transition-all duration-350"
-                      style={{ 
-                        width: item.status === 'Queued' ? '10%' : 
-                               item.status === 'Uploading' ? '25%' :
-                               item.status === 'Stored' ? '40%' :
-                               item.status === 'ExtractingText' ? '50%' :
-                               item.status === 'RunningOCR' ? '60%' :
-                               item.status === 'Chunking' ? '70%' :
-                               item.status === 'FormulaDetection' ? '80%' :
-                               item.status === 'LOSDetection' ? '90%' : '95%'
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+
 
         {/* Filter & Action bar */}
         <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
@@ -738,28 +714,37 @@ This external link has been registered inside your Knowledge Vault. Clicking "Op
                   <MathRenderer math={previewPages[currentPage - 1]?.content || ''} />
                 </div>
 
-                {/* Highlighting Toolbar Helper */}
-                <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 border-t border-slate-100 pt-2.5 dark:border-slate-800/60">
+                {/* Highlighting & Save Note Toolbar Helper */}
+                <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 border-t border-slate-100 pt-2.5 dark:border-slate-800/60 flex-wrap gap-2">
                   <div className="flex items-center space-x-1">
                     <Highlighter className="h-3.5 w-3.5 text-slate-550" />
-                    <span>Select text in window above to highlight:</span>
+                    <span>Select text in window above to highlight or save:</span>
                   </div>
-                  <div className="flex items-center space-x-1">
-                    <button 
-                      onClick={() => setActiveHighlightColor('yellow')}
-                      className={`h-3 w-3 rounded-full bg-yellow-300 border ${activeHighlightColor === 'yellow' ? 'border-slate-900 dark:border-white' : 'border-transparent'} cursor-pointer`}
-                      title="Yellow Highlight"
-                    />
-                    <button 
-                      onClick={() => setActiveHighlightColor('emerald')}
-                      className={`h-3 w-3 rounded-full bg-emerald-300 border ${activeHighlightColor === 'emerald' ? 'border-slate-900 dark:border-white' : 'border-transparent'} cursor-pointer`}
-                      title="Green Highlight"
-                    />
-                    <button 
-                      onClick={() => setActiveHighlightColor('sky')}
-                      className={`h-3 w-3 rounded-full bg-sky-300 border ${activeHighlightColor === 'sky' ? 'border-slate-900 dark:border-white' : 'border-transparent'} cursor-pointer`}
-                      title="Blue Highlight"
-                    />
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveSelectedAsNote}
+                      className="px-2.5 py-1 text-[9px] font-mono font-bold uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 rounded cursor-pointer transition flex items-center gap-1"
+                    >
+                      <span>📝 Save Text as Note</span>
+                    </button>
+                    <div className="flex items-center space-x-1 pl-1">
+                      <button 
+                        onClick={() => setActiveHighlightColor('yellow')}
+                        className={`h-3 w-3 rounded-full bg-yellow-300 border ${activeHighlightColor === 'yellow' ? 'border-slate-900 dark:border-white' : 'border-transparent'} cursor-pointer`}
+                        title="Yellow Highlight"
+                      />
+                      <button 
+                        onClick={() => setActiveHighlightColor('emerald')}
+                        className={`h-3 w-3 rounded-full bg-emerald-300 border ${activeHighlightColor === 'emerald' ? 'border-slate-900 dark:border-white' : 'border-transparent'} cursor-pointer`}
+                        title="Green Highlight"
+                      />
+                      <button 
+                        onClick={() => setActiveHighlightColor('sky')}
+                        className={`h-3 w-3 rounded-full bg-sky-300 border ${activeHighlightColor === 'sky' ? 'border-slate-900 dark:border-white' : 'border-transparent'} cursor-pointer`}
+                        title="Blue Highlight"
+                      />
+                    </div>
                   </div>
                 </div>
 

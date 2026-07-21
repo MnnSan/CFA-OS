@@ -797,13 +797,15 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
     return aiJobQueue.subscribe(setJobs);
   }, []);
 
-  // Tick timer every second to update active running phase duration in UI
+  // Tick timer ONLY when a phase is actively running to prevent lagging
   React.useEffect(() => {
+    const isRunning = todayStudyStack?.phases?.some(p => p.status === 'RUNNING');
+    if (!isRunning) return;
     const interval = setInterval(() => {
       setUpdateTrigger(prev => prev + 1);
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [todayStudyStack?.phases]);
 
   // Reactive subscription to Event Bus
   React.useEffect(() => {
@@ -1417,7 +1419,7 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
               <span className="px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-indigo-500/15 text-indigo-400 border border-indigo-500/25 rounded">
                 {dailyMission.subjectCode || 'DER'}
               </span>
-              <span className="text-[10px] font-mono font-bold text-amber-500 uppercase tracking-widest">
+              <span className="text-[10px] font-mono font-bold text-sky-400 uppercase tracking-widest">
                 READING {dailyMission.readingNumber || 18}
               </span>
             </div>
@@ -1430,7 +1432,7 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
               Schedule Window
             </span>
-            <span className="text-xs font-bold text-amber-400 block mt-0.5">
+            <span className="text-xs font-bold text-indigo-400 block mt-0.5">
               Reading {dailyMission.readingNumber}: {activeBlockPacing.readingStartDate} ──► {activeBlockPacing.readingEndDate}
             </span>
             <span className="text-[9px] text-slate-400 dark:text-slate-500 block mt-0.5">
@@ -1451,18 +1453,18 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
 
           <div className="p-3 bg-slate-50/70 dark:bg-[#121319] border border-slate-200 dark:border-slate-800 rounded-xl space-y-0.5">
             <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider block">Coach Schedule</span>
-            <span className="text-sm font-extrabold text-amber-400 block">
+            <span className="text-sm font-extrabold text-indigo-400 block">
               Reading: {activeBlockPacing.readingStartDate} ──► {activeBlockPacing.readingEndDate}
             </span>
-            <span className="text-[10px] font-semibold text-indigo-400 block">({activeBlockPacing.readingDays} Days Allotted)</span>
+            <span className="text-[10px] font-semibold text-indigo-300 block">({activeBlockPacing.readingDays} Days Allotted)</span>
             <span className="text-[9px] text-slate-400 dark:text-slate-500 block pt-0.5">
               Subject ({activeBlockPacing.subjectCode}): {activeBlockPacing.subjectStartDate} ──► {activeBlockPacing.subjectEndDate}
             </span>
           </div>
 
           <div className="p-3 bg-indigo-500/[0.04] border border-indigo-500/30 rounded-xl space-y-0.5">
-            <span className="text-[9px] font-bold text-amber-500 uppercase tracking-wider block">Today's Target Pace</span>
-            <span className="text-base font-extrabold text-amber-500 block">
+            <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider block">Today's Target Pace</span>
+            <span className="text-base font-extrabold text-emerald-400 block">
               {formatMinutes(activeBlockPacing.dailyPaceMinutes)} / day
             </span>
             <span className="text-[10px] text-slate-400 block">Paced over {activeBlockPacing.readingDays} days</span>

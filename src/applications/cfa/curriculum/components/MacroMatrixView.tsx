@@ -51,6 +51,8 @@ function parseDate(dateStr: string): Date {
   return new Date(y, m - 1, d || 1);
 }
 
+import { safeLocalStorageSet } from '../../../../utils/storageUtils';
+
 function loadSchedule(): SubjectSchedule[] {
   try {
     const raw = localStorage.getItem(SCHEDULE_KEY);
@@ -60,7 +62,7 @@ function loadSchedule(): SubjectSchedule[] {
 }
 
 function saveSchedule(schedule: SubjectSchedule[]) {
-  localStorage.setItem(SCHEDULE_KEY, JSON.stringify(schedule));
+  safeLocalStorageSet(SCHEDULE_KEY, JSON.stringify(schedule));
 }
 
 function loadReadingSchedule(): ReadingSchedule[] {
@@ -72,7 +74,7 @@ function loadReadingSchedule(): ReadingSchedule[] {
 }
 
 function saveReadingSchedule(schedule: ReadingSchedule[]) {
-  localStorage.setItem(READING_SCHEDULE_KEY, JSON.stringify(schedule));
+  safeLocalStorageSet(READING_SCHEDULE_KEY, JSON.stringify(schedule));
 }
 
 const initReadingSchedules = (

@@ -122,9 +122,8 @@ export const Dashboard: React.FC = () => {
   const [missionBrief, setMissionBrief] = React.useState<MissionBriefData | null>(null);
   const [missionBriefFailed, setMissionBriefFailed] = React.useState(false);
 
-  const weakTopics = useWeakTopics();
-
-  const [updateTrigger, setUpdateTrigger] = React.useState(0);
+// Sub-component for isolated 1s tick countdown (prevents full Dashboard re-renders)
+const LiveExamCountdownBadge: React.FC<{ examDateStr?: string }> = React.memo(({ examDateStr = '2026-08-25' }) => {
   const [nowDate, setNowDate] = React.useState(() => new Date());
 
   React.useEffect(() => {
@@ -134,21 +133,27 @@ export const Dashboard: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const getCockpitCountdown = React.useCallback(() => {
-    const examDateStr = settings?.examDate || '2026-08-25';
-    const exam = new Date(examDateStr + 'T00:00:00');
-    const diff = exam.getTime() - nowDate.getTime();
-    if (diff <= 0) {
-      return { days: 0, hours: 0, minutes: 0, seconds: 0 };
-    }
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-    return { days, hours, minutes, seconds };
-  }, [settings?.examDate, nowDate]);
+  const exam = new Date(examDateStr + 'T00:00:00');
+  const diff = Math.max(0, exam.getTime() - nowDate.getTime());
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-  const cockpitCd = getCockpitCountdown();
+  return (
+    <div className="flex items-center gap-2 bg-slate-900/90 dark:bg-[#101116] border border-slate-800 px-3 py-1 rounded text-xs font-mono text-slate-200 shadow-sm">
+      <Clock className="h-3.5 w-3.5 text-indigo-400 animate-pulse" />
+      <span className="text-[10px] text-slate-400 uppercase font-bold">Exam Countdown:</span>
+      <span className="font-bold text-emerald-400">{days}d</span>
+      <span className="font-bold text-slate-200">{String(hours).padStart(2, '0')}h</span>
+      <span className="font-bold text-slate-200">{String(minutes).padStart(2, '0')}m</span>
+      <span className="font-bold text-indigo-400">{String(seconds).padStart(2, '0')}s</span>
+    </div>
+  );
+});
+
+  const weakTopics = useWeakTopics();
+  const [updateTrigger, setUpdateTrigger] = React.useState(0);
 
   React.useEffect(() => {
     const eventTypes = [
@@ -341,14 +346,7 @@ export const Dashboard: React.FC = () => {
             
             <div className="flex items-center gap-3 flex-wrap">
               {/* LIVE EXAM COUNTDOWN BADGE ON COCKPIT RIGHT SIDE */}
-              <div className="flex items-center gap-2 bg-slate-900/90 dark:bg-[#101116] border border-slate-800 px-3 py-1 rounded text-xs font-mono text-slate-200 shadow-sm">
-                <Clock className="h-3.5 w-3.5 text-amber-400 animate-pulse" />
-                <span className="text-[10px] text-slate-400 uppercase font-bold">Exam Countdown:</span>
-                <span className="font-bold text-emerald-400">{cockpitCd.days}d</span>
-                <span className="font-bold text-slate-200">{String(cockpitCd.hours).padStart(2, '0')}h</span>
-                <span className="font-bold text-slate-200">{String(cockpitCd.minutes).padStart(2, '0')}m</span>
-                <span className="font-bold text-amber-400">{String(cockpitCd.seconds).padStart(2, '0')}s</span>
-              </div>
+              <LiveExamCountdownBadge examDateStr={settings?.examDate} />
 
               <button
                 onClick={() => setActiveTab('help')}
@@ -1187,38 +1185,6 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
           )}
-
-          {/* Reading Completion Statistics */}
-          <div className="bg-white dark:bg-[#0B0F19] p-5 border border-slate-200 dark:border-slate-800 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="space-y-0.5">
-                <h2 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white font-sans">
-                  Reading Completion
-                </h2>
-                <p className="text-[9px] text-slate-500 dark:text-slate-400 font-mono tracking-wider">READING-LEVEL PROGRESS</p>
-              </div>
-              <BookOpen className="h-4 w-4 text-blue-500 shrink-0" />
-            </div>
-            {(() => {
-              const totalReadings = readings.length;
-              const completedReadings = readings.filter(r => {
-                const readingLos = losList.filter(l => l.readingId === r.id);
-                return readingLos.length > 0 && readingLos.every(l => l.status === 'Completed');
-              }).length;
-              const pct = totalReadings > 0 ? Math.round((completedReadings / totalReadings) * 100) : 0;
-              return (
-                <div className="space-y-2">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-2xl font-bold text-slate-900 dark:text-white font-mono">{pct}%</span>
-                    <span className="text-[10px] font-mono text-slate-500">{completedReadings} / {totalReadings} readings</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }}></div>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
 
           {/* Formula Coverage */}
           <div className="bg-white dark:bg-[#0B0F19] p-5 border border-slate-200 dark:border-slate-800 space-y-3">
