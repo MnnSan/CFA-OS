@@ -59,6 +59,36 @@ interface MissionBriefData {
   expectedSuccess: string;
 }
 
+// Sub-component for isolated 1s tick countdown (prevents full Dashboard re-renders and fixes initialization error)
+const LiveExamCountdownBadge: React.FC<{ examDateStr?: string }> = React.memo(({ examDateStr = '2026-08-25' }) => {
+  const [nowDate, setNowDate] = React.useState(() => new Date());
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setNowDate(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const exam = new Date(examDateStr + 'T00:00:00');
+  const diff = Math.max(0, exam.getTime() - nowDate.getTime());
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+  return (
+    <div className="flex items-center gap-2 bg-slate-900/90 dark:bg-[#101116] border border-slate-800 px-3 py-1 rounded text-xs font-mono text-slate-200 shadow-sm">
+      <Clock className="h-3.5 w-3.5 text-indigo-400 animate-pulse" />
+      <span className="text-[10px] text-slate-400 uppercase font-bold">Exam Countdown:</span>
+      <span className="font-bold text-emerald-400">{days}d</span>
+      <span className="font-bold text-slate-200">{String(hours).padStart(2, '0')}h</span>
+      <span className="font-bold text-slate-200">{String(minutes).padStart(2, '0')}m</span>
+      <span className="font-bold text-indigo-400">{String(seconds).padStart(2, '0')}s</span>
+    </div>
+  );
+});
+
 export const Dashboard: React.FC = () => {
   const { 
     user, 
@@ -121,36 +151,6 @@ export const Dashboard: React.FC = () => {
   const [missionBriefLoading, setMissionBriefLoading] = React.useState(false);
   const [missionBrief, setMissionBrief] = React.useState<MissionBriefData | null>(null);
   const [missionBriefFailed, setMissionBriefFailed] = React.useState(false);
-
-// Sub-component for isolated 1s tick countdown (prevents full Dashboard re-renders)
-const LiveExamCountdownBadge: React.FC<{ examDateStr?: string }> = React.memo(({ examDateStr = '2026-08-25' }) => {
-  const [nowDate, setNowDate] = React.useState(() => new Date());
-
-  React.useEffect(() => {
-    const timer = setInterval(() => {
-      setNowDate(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const exam = new Date(examDateStr + 'T00:00:00');
-  const diff = Math.max(0, exam.getTime() - nowDate.getTime());
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-  return (
-    <div className="flex items-center gap-2 bg-slate-900/90 dark:bg-[#101116] border border-slate-800 px-3 py-1 rounded text-xs font-mono text-slate-200 shadow-sm">
-      <Clock className="h-3.5 w-3.5 text-indigo-400 animate-pulse" />
-      <span className="text-[10px] text-slate-400 uppercase font-bold">Exam Countdown:</span>
-      <span className="font-bold text-emerald-400">{days}d</span>
-      <span className="font-bold text-slate-200">{String(hours).padStart(2, '0')}h</span>
-      <span className="font-bold text-slate-200">{String(minutes).padStart(2, '0')}m</span>
-      <span className="font-bold text-indigo-400">{String(seconds).padStart(2, '0')}s</span>
-    </div>
-  );
-});
 
   const weakTopics = useWeakTopics();
   const [updateTrigger, setUpdateTrigger] = React.useState(0);

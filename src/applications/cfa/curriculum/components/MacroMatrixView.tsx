@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { Subject, Reading, LearningOutcomeStatement, TimelineBlock } from '../../../../types';
 import { CfaTimelineInspector, SubjectSchedule, ReadingSchedule } from './CfaTimelineInspector';
 import { useApp } from '../../../../context/AppContext';
+import { safeLocalStorageSet } from '../../../../utils/storageUtils';
 
 interface MacroMatrixViewProps {
   subjects: Subject[];
@@ -51,7 +52,7 @@ function parseDate(dateStr: string): Date {
   return new Date(y, m - 1, d || 1);
 }
 
-import { safeLocalStorageSet } from '../../../../utils/storageUtils';
+
 
 function loadSchedule(): SubjectSchedule[] {
   try {
