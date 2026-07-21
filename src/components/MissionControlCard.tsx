@@ -774,6 +774,7 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
     formulas,
     notes,
     readings,
+    subjects,
     plannerReadings,
     plannerProgress,
     losList,
@@ -917,10 +918,12 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
   const activeBlockPacing = React.useMemo(() => {
     const targetReadingId = dailyMission?.readingId;
     const targetSubjectCode = dailyMission?.subjectCode;
+    const safeSubjects = subjects || [];
+    const safeReadings = readings || [];
     
     const block = activeTemplate?.blocks?.find((b: any) => b.readingId === targetReadingId)
       || activeTemplate?.blocks?.find((b: any) => {
-           const sub = subjects.find(s => s.id === b.subjectId);
+           const sub = safeSubjects.find(s => s.id === b.subjectId);
            return sub && sub.code === targetSubjectCode;
          })
       || activeTemplate?.blocks?.[0]
@@ -953,7 +956,7 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
     const blockEnd = new Date(block.endDate).getTime();
     const subjectDays = Math.max(1, Math.ceil(Math.abs(blockEnd - blockStart) / (1000 * 60 * 60 * 24)) + 1);
 
-    const subReadings = readings.filter(r => r.subjectId === block.subjectId);
+    const subReadings = safeReadings.filter(r => r.subjectId === block.subjectId);
     const readingIdx = subReadings.findIndex(r => r.id === targetReadingId);
 
     let readingStartDateStr = block.startDate;
@@ -975,7 +978,7 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
     const totalMins = stack.totalEstimatedMinutes || 706;
     const dailyPaceMinutes = Math.round(totalMins / readingDays);
 
-    const sub = subjects.find(s => s.id === block.subjectId);
+    const sub = safeSubjects.find(s => s.id === block.subjectId);
     const subjectCode = sub?.code || targetSubjectCode || 'Subject';
 
     return {
