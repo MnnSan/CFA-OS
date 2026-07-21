@@ -851,7 +851,7 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
     
     const stack = missionControl.buildMission(dailyMission, input);
     return execution.applyPersistedStates(stack);
-  }, [dailyMission, formulas, notes, settings?.targetDailyHours, updateTrigger]);
+  }, [dailyMission, formulas, notes, settings?.targetDailyHours, updateTrigger, losList, lrRepo, plannerProgress]);
 
   if (!dailyMission || !todayStudyStack) return null;
 
@@ -913,46 +913,82 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
     return { completedItems, totalItems, pct };
   }, [dailyMission?.readingId, lrRepo, losList, notes, stack.progressPercent, updateTrigger]);
 
-  // Calculate Coach Planner Pacing & Workload breakdown
+  // Calculate Coach Planner Pacing & Workload breakdown (both Reading slice and Whole Subject)
   const activeBlockPacing = React.useMemo(() => {
-    const block = activeTemplate?.blocks?.find((b: any) => b.readingId === dailyMission?.readingId)
+    const targetReadingId = dailyMission?.readingId;
+    const targetSubjectCode = dailyMission?.subjectCode;
+    
+    const block = activeTemplate?.blocks?.find((b: any) => b.readingId === targetReadingId)
       || activeTemplate?.blocks?.find((b: any) => {
-           const today = new Date().toISOString().split('T')[0];
-           return today >= b.startDate && today <= b.endDate;
+           const sub = subjects.find(s => s.id === b.subjectId);
+           return sub && sub.code === targetSubjectCode;
          })
+      || activeTemplate?.blocks?.[0]
       || null;
 
-    if (!block) {
-      const totalMins = stack.totalEstimatedMinutes || 706;
-      const days = 5;
-      return {
-        allottedDays: days,
-        dailyPaceMinutes: Math.round(totalMins / days),
-        startDate: 'Jul 19',
-        endDate: 'Jul 23'
-      };
-    }
-
-    const start = new Date(block.startDate);
-    const end = new Date(block.endDate);
-    const diffDays = Math.max(1, Math.ceil(Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-    const totalMins = stack.totalEstimatedMinutes || 706;
-    const dailyPaceMinutes = Math.round(totalMins / diffDays);
-
     const fmt = (s: string) => {
+      if (!s) return 'N/A';
       try {
         const d = new Date(s);
+        if (isNaN(d.getTime())) return s;
         return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
       } catch { return s; }
     };
 
+    if (!block) {
+      const totalMins = stack.totalEstimatedMinutes || 706;
+      return {
+        readingStartDate: 'Jul 19',
+        readingEndDate: 'Jul 21',
+        readingDays: 3,
+        subjectStartDate: 'Jul 15',
+        subjectEndDate: 'Jul 28',
+        subjectDays: 14,
+        subjectCode: targetSubjectCode || 'DER',
+        dailyPaceMinutes: Math.round(totalMins / 3),
+      };
+    }
+
+    const blockStart = new Date(block.startDate).getTime();
+    const blockEnd = new Date(block.endDate).getTime();
+    const subjectDays = Math.max(1, Math.ceil(Math.abs(blockEnd - blockStart) / (1000 * 60 * 60 * 24)) + 1);
+
+    const subReadings = readings.filter(r => r.subjectId === block.subjectId);
+    const readingIdx = subReadings.findIndex(r => r.id === targetReadingId);
+
+    let readingStartDateStr = block.startDate;
+    let readingEndDateStr = block.endDate;
+    let readingDays = subjectDays;
+
+    if (subReadings.length > 0 && readingIdx >= 0) {
+      const msPerReading = (blockEnd - blockStart) / subReadings.length;
+      const rStart = new Date(blockStart + readingIdx * msPerReading);
+      const rEnd = readingIdx === subReadings.length - 1
+        ? new Date(blockEnd)
+        : new Date(blockStart + (readingIdx + 1) * msPerReading - 86400000);
+      
+      readingStartDateStr = rStart.toISOString().split('T')[0];
+      readingEndDateStr = rEnd.toISOString().split('T')[0];
+      readingDays = Math.max(1, Math.ceil((rEnd.getTime() - rStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+    }
+
+    const totalMins = stack.totalEstimatedMinutes || 706;
+    const dailyPaceMinutes = Math.round(totalMins / readingDays);
+
+    const sub = subjects.find(s => s.id === block.subjectId);
+    const subjectCode = sub?.code || targetSubjectCode || 'Subject';
+
     return {
-      allottedDays: diffDays,
+      readingStartDate: fmt(readingStartDateStr),
+      readingEndDate: fmt(readingEndDateStr),
+      readingDays,
+      subjectStartDate: fmt(block.startDate),
+      subjectEndDate: fmt(block.endDate),
+      subjectDays,
+      subjectCode,
       dailyPaceMinutes,
-      startDate: fmt(block.startDate),
-      endDate: fmt(block.endDate)
     };
-  }, [activeTemplate, dailyMission?.readingId, stack.totalEstimatedMinutes]);
+  }, [activeTemplate, dailyMission, stack.totalEstimatedMinutes, readings, subjects]);
 
   const handleProgressChange = (phase: StudyPhase, progressPercent: number) => {
     execution.recordProgress(phase.id, progressPercent);
@@ -1304,38 +1340,63 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
       )}
 
       {/* Mission Timeline Stepper */}
-      <div className="px-5 pt-5 pb-3 border-b border-slate-100 dark:border-[#1e2026]">
-        <div className="flex items-center justify-between mb-2 overflow-x-auto py-1">
+      <div className="px-5 pt-4 pb-3 border-b border-slate-100 dark:border-[#1e2026] bg-slate-50/30 dark:bg-[#0f1017]/40">
+        <span className="text-[9px] font-mono font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-2">
+          TIMELINE OF LECTURES & STAGES: LECTURES ──► UNDERSTAND ──► CONSOLIDATE ──► VALIDATE ──► REFLECT
+        </span>
+        <div className="flex items-center justify-between mb-1 overflow-x-auto py-1">
           {stack.phases.filter(p => p.status !== 'SKIPPED').map((phase, idx, arr) => {
             const isCompleted = phase.completed;
             const isActive = phase.status === 'RUNNING' || phase.status === 'PAUSED';
             const isLocked = phase.locked && !isCompleted;
+
+            const stageTitleMap: Record<string, string> = {
+              Lecture: '1. Lectures',
+              Reading: '2. Understand',
+              Notebook: '3. Consolidate',
+              Formula: '3. Consolidate',
+              Questions: '4. Validate',
+              Reflection: '5. Reflect',
+            };
+            const stageTitle = stageTitleMap[phase.stepType] || `${idx + 1}. ${phase.phaseLabel || phase.stepType}`;
+
             return (
               <React.Fragment key={phase.id}>
-                <div className="flex flex-col items-center shrink-0">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold font-mono transition-all duration-300 ${
+                <div className="flex flex-col items-center shrink-0 group cursor-pointer" onClick={() => togglePhase(phase.id)}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold font-mono transition-all duration-300 ${
                     isCompleted
-                      ? 'bg-emerald-500 text-white'
+                      ? 'bg-emerald-500 text-white shadow-[0_0_10px_rgba(16,185,129,0.4)]'
                       : isActive
-                      ? 'bg-indigo-500 text-white ring-2 ring-indigo-300 animate-pulse'
+                      ? 'bg-indigo-500 text-white ring-2 ring-indigo-400 animate-pulse'
                       : isLocked
                       ? 'bg-slate-200 dark:bg-slate-800 text-slate-400'
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
                   }`}>
                     {isCompleted ? (
-                      <Check size={12} />
+                      <Check size={14} className="stroke-[3]" />
                     ) : (
                       <span>{phase.phaseNumber}</span>
                     )}
                   </div>
-                  <span className={`text-[7px] font-mono mt-1 whitespace-nowrap ${
-                    isCompleted ? 'text-emerald-500 font-bold' : isActive ? 'text-indigo-500 font-bold' : isLocked ? 'text-slate-400' : 'text-slate-500'
+                  <span className={`text-[9px] font-mono font-bold mt-1.5 whitespace-nowrap uppercase tracking-wider ${
+                    isCompleted
+                      ? 'text-emerald-500 dark:text-emerald-400'
+                      : isActive
+                      ? 'text-indigo-500 dark:text-indigo-400 font-black'
+                      : isLocked
+                      ? 'text-slate-400 dark:text-slate-600'
+                      : 'text-slate-500 dark:text-slate-400'
                   }`}>
-                    {phase.phaseLabel || phase.stepType}
+                    {stageTitle}
                   </span>
+                  {isCompleted && (
+                    <span className="text-[7px] font-mono font-bold text-emerald-500 uppercase tracking-widest">
+                      ✓ DONE
+                    </span>
+                  )}
                 </div>
                 {idx < arr.length - 1 && (
-                  <div className={`flex-1 h-px mx-1 ${
+                  <div className={`flex-1 h-0.5 mx-2.5 transition-all duration-500 ${
                     isCompleted ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-800'
                   }`} />
                 )}
@@ -1366,8 +1427,11 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
               Schedule Window
             </span>
-            <span className="text-xs font-bold text-indigo-400 block mt-0.5">
-              {activeBlockPacing.startDate} ──► {activeBlockPacing.endDate}
+            <span className="text-xs font-bold text-amber-400 block mt-0.5">
+              Reading {dailyMission.readingNumber}: {activeBlockPacing.readingStartDate} ──► {activeBlockPacing.readingEndDate}
+            </span>
+            <span className="text-[9px] text-slate-400 dark:text-slate-500 block mt-0.5">
+              Subject ({activeBlockPacing.subjectCode}): {activeBlockPacing.subjectStartDate} ──► {activeBlockPacing.subjectEndDate}
             </span>
           </div>
         </div>
@@ -1384,10 +1448,13 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
 
           <div className="p-3 bg-slate-50/70 dark:bg-[#121319] border border-slate-200 dark:border-slate-800 rounded-xl space-y-0.5">
             <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider block">Coach Schedule</span>
-            <span className="text-base font-extrabold text-indigo-400 block">
-              {activeBlockPacing.allottedDays} Days Allotted
+            <span className="text-sm font-extrabold text-amber-400 block">
+              Reading: {activeBlockPacing.readingStartDate} ──► {activeBlockPacing.readingEndDate}
             </span>
-            <span className="text-[10px] text-slate-400 block">{activeBlockPacing.startDate} ──► {activeBlockPacing.endDate}</span>
+            <span className="text-[10px] font-semibold text-indigo-400 block">({activeBlockPacing.readingDays} Days Allotted)</span>
+            <span className="text-[9px] text-slate-400 dark:text-slate-500 block pt-0.5">
+              Subject ({activeBlockPacing.subjectCode}): {activeBlockPacing.subjectStartDate} ──► {activeBlockPacing.subjectEndDate}
+            </span>
           </div>
 
           <div className="p-3 bg-indigo-500/[0.04] border border-indigo-500/30 rounded-xl space-y-0.5">
@@ -1395,7 +1462,7 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
             <span className="text-base font-extrabold text-amber-500 block">
               {formatMinutes(activeBlockPacing.dailyPaceMinutes)} / day
             </span>
-            <span className="text-[10px] text-slate-400 block">Paced over {activeBlockPacing.allottedDays} days</span>
+            <span className="text-[10px] text-slate-400 block">Paced over {activeBlockPacing.readingDays} days</span>
           </div>
         </div>
 

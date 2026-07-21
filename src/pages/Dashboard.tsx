@@ -125,6 +125,30 @@ export const Dashboard: React.FC = () => {
   const weakTopics = useWeakTopics();
 
   const [updateTrigger, setUpdateTrigger] = React.useState(0);
+  const [nowDate, setNowDate] = React.useState(() => new Date());
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setNowDate(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const getCockpitCountdown = React.useCallback(() => {
+    const examDateStr = settings?.examDate || '2026-08-25';
+    const exam = new Date(examDateStr + 'T00:00:00');
+    const diff = exam.getTime() - nowDate.getTime();
+    if (diff <= 0) {
+      return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+    }
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    return { days, hours, minutes, seconds };
+  }, [settings?.examDate, nowDate]);
+
+  const cockpitCd = getCockpitCountdown();
 
   React.useEffect(() => {
     const eventTypes = [
@@ -310,17 +334,30 @@ export const Dashboard: React.FC = () => {
       <div className="bg-white dark:bg-[#0B0F19] text-slate-900 dark:text-white p-6 border border-slate-200 dark:border-slate-800 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-[400px] h-[400px] rounded-full bg-emerald-500/10 blur-[100px] -mr-32 -mt-32"></div>
         <div className="relative space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-3">
             <span className="text-[10px] font-mono tracking-widest bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 font-bold uppercase">
               CFA EXECUTIVE COCKPIT
             </span>
-            <button
-              onClick={() => setActiveTab('help')}
-              className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-400 font-mono font-bold uppercase transition bg-slate-900 border border-slate-800 px-2.5 py-1 hover:bg-slate-800 cursor-pointer"
-            >
-              <HelpCircle className="h-3.5 w-3.5" />
-              Getting Started
-            </button>
+            
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* LIVE EXAM COUNTDOWN BADGE ON COCKPIT RIGHT SIDE */}
+              <div className="flex items-center gap-2 bg-slate-900/90 dark:bg-[#101116] border border-slate-800 px-3 py-1 rounded text-xs font-mono text-slate-200 shadow-sm">
+                <Clock className="h-3.5 w-3.5 text-amber-400 animate-pulse" />
+                <span className="text-[10px] text-slate-400 uppercase font-bold">Exam Countdown:</span>
+                <span className="font-bold text-emerald-400">{cockpitCd.days}d</span>
+                <span className="font-bold text-slate-200">{String(cockpitCd.hours).padStart(2, '0')}h</span>
+                <span className="font-bold text-slate-200">{String(cockpitCd.minutes).padStart(2, '0')}m</span>
+                <span className="font-bold text-amber-400">{String(cockpitCd.seconds).padStart(2, '0')}s</span>
+              </div>
+
+              <button
+                onClick={() => setActiveTab('help')}
+                className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-400 font-mono font-bold uppercase transition bg-slate-900 border border-slate-800 px-2.5 py-1 hover:bg-slate-800 cursor-pointer"
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+                Getting Started
+              </button>
+            </div>
           </div>
           <h1 className="text-xl font-bold tracking-tight md:text-2xl font-sans">
             Good Morning, {user?.name || 'Candidate'}
@@ -991,9 +1028,16 @@ export const Dashboard: React.FC = () => {
 
         </div>
 
-        {/* Right Column (1/3): Active Memory Drawer */}
+        {/* Right Column (1/3): Active Memory & Syllabus Progress Control */}
         <div className="space-y-6 flex flex-col">
-          {/* Active Revision Queue */}
+          {/* Syllabus Progress — Placed on top */}
+          <CfaSyllabusProgressPanel
+            subjects={subjects}
+            readings={readings}
+            losList={losList}
+          />
+
+          {/* Active Revision Queue — Below Syllabus Progress */}
           {revisionQueue && (
             <div className="bg-white dark:bg-[#0B0F19] p-5 border border-slate-200 dark:border-slate-800 relative overflow-hidden space-y-4">
               <div className="absolute top-0 left-0 w-0.5 h-full bg-indigo-500"></div>

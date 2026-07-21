@@ -47,14 +47,30 @@ export const Sidebar: React.FC = () => {
     navigationItems.push({ id: 'developer', label: 'Developer Tools', icon: Terminal });
   }
 
-  const getDaysRemaining = () => {
-    const today = new Date('2026-06-28');
+  const [now, setNow] = React.useState(() => new Date());
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const getCountdown = () => {
     const examDateStr = settings?.examDate || '2026-08-25';
-    const exam = new Date(examDateStr);
-    const diffTime = exam.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays > 0 ? diffDays : 0;
+    const exam = new Date(examDateStr + 'T00:00:00');
+    const diff = exam.getTime() - now.getTime();
+    if (diff <= 0) {
+      return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+    }
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    return { days, hours, minutes, seconds };
   };
+
+  const cd = getCountdown();
 
   return (
     <aside 
@@ -104,23 +120,38 @@ export const Sidebar: React.FC = () => {
         })}
       </nav>
 
-      {/* Quick Stats Block */}
+      {/* Quick Stats Block — Dynamic Exam Countdown Card */}
       {isExpanded && user && (
-        <div className="mx-3 mb-2 rounded border border-slate-200 bg-white p-4 dark:border-[#1e2026] dark:bg-[#07080a]/60">
-          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            <span>Exam Countdown</span>
-            <Clock className="h-3.5 w-3.5 text-slate-400" />
-          </div>
-          <div className="mt-1.5 flex items-baseline space-x-1">
-            <span className="text-xl font-semibold tracking-tight text-slate-900 dark:text-[#F8FAFC]">
-              {getDaysRemaining()}
+        <div className="mx-3 mb-2 rounded border border-slate-200 bg-white p-3.5 dark:border-[#1e2026] dark:bg-[#07080a]/80 shadow-sm">
+          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Exam Countdown
             </span>
-            <span className="text-[10px] text-slate-400">Days</span>
+            <Clock className="h-3.5 w-3.5 text-indigo-400" />
+          </div>
+          <div className="mt-2 grid grid-cols-4 gap-1 text-center font-mono">
+            <div className="bg-slate-50 dark:bg-[#101116] p-1 rounded border border-slate-100 dark:border-slate-800">
+              <span className="text-sm font-bold text-slate-900 dark:text-[#F8FAFC] block">{cd.days}</span>
+              <span className="text-[8px] text-slate-400 uppercase block">Days</span>
+            </div>
+            <div className="bg-slate-50 dark:bg-[#101116] p-1 rounded border border-slate-100 dark:border-slate-800">
+              <span className="text-sm font-bold text-slate-900 dark:text-[#F8FAFC] block">{String(cd.hours).padStart(2, '0')}</span>
+              <span className="text-[8px] text-slate-400 uppercase block">Hrs</span>
+            </div>
+            <div className="bg-slate-50 dark:bg-[#101116] p-1 rounded border border-slate-100 dark:border-slate-800">
+              <span className="text-sm font-bold text-slate-900 dark:text-[#F8FAFC] block">{String(cd.minutes).padStart(2, '0')}</span>
+              <span className="text-[8px] text-slate-400 uppercase block">Min</span>
+            </div>
+            <div className="bg-slate-50 dark:bg-[#101116] p-1 rounded border border-slate-100 dark:border-slate-800">
+              <span className="text-sm font-bold text-amber-500 dark:text-amber-400 block">{String(cd.seconds).padStart(2, '0')}</span>
+              <span className="text-[8px] text-slate-400 uppercase block">Sec</span>
+            </div>
           </div>
           <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-[#101116]">
             <div 
-              className="h-full bg-slate-900 dark:bg-slate-200 transition-all duration-500" 
-              style={{ width: `${Math.min(100, Math.max(10, (300 - getDaysRemaining()) / 3))}%` }}
+              className="h-full bg-indigo-500 transition-all duration-500" 
+              style={{ width: `${Math.min(100, Math.max(10, (300 - cd.days) / 3))}%` }}
             />
           </div>
         </div>
