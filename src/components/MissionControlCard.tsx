@@ -863,10 +863,16 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
   // Find currently running phase, else the next ready/unlocked phase
   const currentPhase = stack.phases.find(p => p.status === 'RUNNING') || stack.activePhase || stack.nextPhase;
 
-  // "Coming Up Next" is literally the next executable/unlocked phase (not RUNNING, not completed)
+  // Check if all phases in the study stack are completed or skipped
+  const allPhasesCompleted = React.useMemo(() => {
+    if (!stack.phases || stack.phases.length === 0) return false;
+    return stack.phases.every(p => p.status === 'COMPLETED' || p.status === 'SKIPPED');
+  }, [stack.phases]);
+
+  // "Coming Up Next" is the next uncompleted/unskipped phase (not RUNNING, not currentPhase)
   const nextPhasePreview = React.useMemo(() => {
     if (!stack.phases || stack.phases.length === 0) return null;
-    return stack.phases.find(p => p.status === 'READY' && !p.locked && p.id !== currentPhase?.id) || null;
+    return stack.phases.find(p => p.status !== 'COMPLETED' && p.status !== 'SKIPPED' && p.id !== currentPhase?.id) || null;
   }, [stack.phases, currentPhase]);
 
   // Calculate next mission after today's mission using getNextMission candidate helper
@@ -1608,30 +1614,32 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
       </div>
 
       {/* Next Phase Preview Panel ("Coming Up Next") */}
-      <div className="mx-3.5 mb-3.5 p-3 rounded-lg border border-blue-500/10 bg-blue-500/[0.02] border-l-2 border-l-blue-500 font-sans">
-        {nextPhasePreview ? (
-          <>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-blue-500 dark:text-blue-400 flex items-center gap-1">
-                <span>▶</span> Coming Up Next
-              </span>
-              <span className="text-[9px] font-mono text-slate-500">
-                Cognitive Effort: {nextPhasePreview.estimatedCognitiveEffort}
-              </span>
+      {(nextPhasePreview || allPhasesCompleted) && (
+        <div className="mx-3.5 mb-3.5 p-3 rounded-lg border border-blue-500/10 bg-blue-500/[0.02] border-l-2 border-l-blue-500 font-sans">
+          {allPhasesCompleted ? (
+            <div className="text-center py-1.5 text-xs font-mono font-bold text-emerald-500 flex items-center justify-center gap-1.5">
+              <ShieldCheck size={14} /> Mission Complete! All phases completed.
             </div>
-            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
-              {nextPhasePreview.phaseLabel}: {nextPhasePreview.title} ({formatMinutes(nextPhasePreview.estimatedMinutes)})
-            </h4>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-              {nextPhasePreview.whyThisNow} Target Bloom Level: <span className="font-mono text-slate-700 dark:text-slate-300 font-semibold">{nextPhasePreview.bloomLevel}</span>.
-            </p>
-          </>
-        ) : (
-          <div className="text-center py-1.5 text-xs font-mono font-bold text-emerald-500 flex items-center justify-center gap-1.5">
-            <ShieldCheck size={14} /> Mission Complete! All phases completed.
-          </div>
-        )}
-      </div>
+          ) : nextPhasePreview ? (
+            <>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-blue-500 dark:text-blue-400 flex items-center gap-1">
+                  <span>▶</span> Coming Up Next
+                </span>
+                <span className="text-[9px] font-mono text-slate-500">
+                  Cognitive Effort: {nextPhasePreview.estimatedCognitiveEffort}
+                </span>
+              </div>
+              <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                {nextPhasePreview.phaseLabel}: {nextPhasePreview.title} ({formatMinutes(nextPhasePreview.estimatedMinutes)})
+              </h4>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                {nextPhasePreview.whyThisNow} Target Bloom Level: <span className="font-mono text-slate-700 dark:text-slate-300 font-semibold">{nextPhasePreview.bloomLevel}</span>.
+              </p>
+            </>
+          ) : null}
+        </div>
+      )}
 
       {/* After Today's Mission candidate display */}
       {nextMissionCandidate && (

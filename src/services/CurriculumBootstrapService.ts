@@ -87,7 +87,7 @@ export class CurriculumBootstrapService {
       // M13.4 Startup Self-Healing Verification
       const ssciRepoCount = learningResourceRepository.getByProvider('SSCI').length;
       const visibleSsciCount = learningResourceRepository.getAll().filter(r => r.provider === 'SSCI' && !r.archived).length;
-      const EXPECTED_EXCEL_SSCI_COUNT = 225;
+      const EXPECTED_EXCEL_SSCI_COUNT = 229;
       const countMismatch = ssciRepoCount !== EXPECTED_EXCEL_SSCI_COUNT || visibleSsciCount !== EXPECTED_EXCEL_SSCI_COUNT;
 
       if (countMismatch && repoCount > 0) {
@@ -173,6 +173,14 @@ export class CurriculumBootstrapService {
           // Log diagnostics to console instead of localStorage (avoids quota exceeded errors)
           console.log('[CurriculumBootstrapService] Import diagnostics:', validationDiagnostics);
           try { localStorage.removeItem('cfa_import_diagnostics'); } catch {} // clean up old data
+
+          // Save existing progress maps to prevent bootstrap from wiping progress
+          const existingProgressMap = new Map<string, any>();
+          learningResourceRepository.getAll(true).forEach(r => {
+            if (r.progress) {
+              existingProgressMap.set(r.id, r.progress);
+            }
+          });
 
           // Clean old resources
           learningResourceRepository.clear();
@@ -297,7 +305,18 @@ export class CurriculumBootstrapService {
             });
           }
 
-          const combined = [...mappedExcel, ...additionalResources];
+          const combined = [...mappedExcel, ...additionalResources].map(r => {
+            const existingProgress = existingProgressMap.get(r.id);
+            return {
+              ...r,
+              progress: existingProgress || r.progress || {
+                minutesCompleted: 0,
+                completed: false,
+                lastOpenedAt: null,
+                resumeState: null
+              }
+            };
+          });
 
           // This will run validate() inside repository.addMany()
           // If validation fails, it throws, triggering transaction rollback!

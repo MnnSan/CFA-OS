@@ -2268,50 +2268,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateLOS = (id: string, updates: Partial<LearningOutcomeStatement>) => {
-    setLosList(prev =>
-      prev.map(los => {
-        if (los.id === id) {
-          const updated = { ...los, ...updates };
-          logActivity('study', `Updated study progress for LOS ${los.code} to ${updates.status || 'custom metrics'}`);
-          
-          // Publish Event Bus Notifications
-          if (updates.confidence !== undefined && updates.confidence !== null) {
-            eventBus.publish({
-              type: 'ConfidenceChanged',
-              timestamp: new Date().toISOString(),
-              source: 'SyllabusManager',
-              entityId: id,
-              payload: { confidence: updates.confidence }
-            });
-          }
-          if (updates.status === 'Completed') {
-            eventBus.publish({
-              type: 'LOSCompleted',
-              timestamp: new Date().toISOString(),
-              source: 'SyllabusManager',
-              entityId: id,
-              payload: { status: 'Completed' }
-            });
-          }
-          
-          return updated;
-        }
-        return los;
-      })
-    );
+    const los = losList.find(l => l.id === id);
+    if (los) {
+      logActivity('study', `Updated study progress for LOS ${los.code} to ${updates.status || 'custom metrics'}`);
+      
+      // Publish Event Bus Notifications
+      if (updates.confidence !== undefined && updates.confidence !== null) {
+        eventBus.publish({
+          type: 'ConfidenceChanged',
+          timestamp: new Date().toISOString(),
+          source: 'SyllabusManager',
+          entityId: id,
+          payload: { confidence: updates.confidence }
+        });
+      }
+      if (updates.status === 'Completed') {
+        eventBus.publish({
+          type: 'LOSCompleted',
+          timestamp: new Date().toISOString(),
+          source: 'SyllabusManager',
+          entityId: id,
+          payload: { status: 'Completed' }
+        });
+      }
+    }
+    curriculumService.updateLOS(id, updates);
   };
 
   const toggleLOSBookmark = (id: string) => {
-    setLosList(prev =>
-      prev.map(los => {
-        if (los.id === id) {
-          const updated = { ...los, bookmarked: !los.bookmarked };
-          logActivity('study', `${updated.bookmarked ? 'Bookmarked' : 'Removed bookmark on'} LOS ${los.code}`);
-          return updated;
-        }
-        return los;
-      })
-    );
+    const los = losList.find(l => l.id === id);
+    if (los) {
+      const nextBookmark = !los.bookmarked;
+      logActivity('study', `${nextBookmark ? 'Bookmarked' : 'Removed bookmark on'} LOS ${los.code}`);
+      curriculumService.updateLOS(id, { bookmarked: nextBookmark });
+    }
   };
 
   const addResource = (res: Omit<Resource, 'id' | 'dateAdded'>) => {

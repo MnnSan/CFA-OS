@@ -1327,12 +1327,7 @@ export const Dashboard: React.FC = () => {
             </div>
           )}
 
-          {/* Syllabus Progress (moved to right column) */}
-          <CfaSyllabusProgressPanel
-            subjects={subjects}
-            readings={readings}
-            losList={losList}
-          />
+
 
         </div>
 

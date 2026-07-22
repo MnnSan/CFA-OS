@@ -180,6 +180,7 @@ export class LearningResourceRepository {
         completed: false,
         lastOpenedAt: null,
         resumeState: null,
+        ...(resource as any).progress,
       },
       updateHistory: [],
       version: 1
@@ -223,6 +224,7 @@ export class LearningResourceRepository {
           completed: false,
           lastOpenedAt: null,
           resumeState: null,
+          ...(r as any).progress,
         },
         updateHistory: [],
         version: 1
