@@ -87,6 +87,7 @@ const PhaseRow: React.FC<{
   formulas: any[];
   notes: any[];
   allPhasesInStack: StudyPhase[];
+  onRefresh?: () => void;
 }> = ({
   phase,
   index,
@@ -109,7 +110,8 @@ const PhaseRow: React.FC<{
   losList,
   formulas,
   notes,
-  allPhasesInStack
+  allPhasesInStack,
+  onRefresh
 }) => {
   const icon = PHASE_ICONS[phase.stepType] || '📝';
   const isGenerating = aiJob?.status === 'QUEUED' || aiJob?.status === 'ASSEMBLING' || aiJob?.status === 'SYNTHESIZING';
@@ -329,7 +331,7 @@ const PhaseRow: React.FC<{
                               <button
                                 type="button"
                                 onClick={() => {
-                                  lrRepo.updateProgress(lec.id, { completed: !isLecCompleted, minutesCompleted: isLecCompleted ? 0 : lec.duration });
+                                  lrRepo.toggleComplete(lec.id);
                                   eventBus.publish({
                                     type: 'ReadingProgressUpdated',
                                     timestamp: new Date().toISOString(),
@@ -337,6 +339,9 @@ const PhaseRow: React.FC<{
                                     entityId: lec.readingId,
                                     payload: { readingId: lec.readingId }
                                   });
+                                  if (onRefresh) {
+                                    onRefresh();
+                                  }
                                 }}
                                 className={`px-2 py-1 text-[9px] font-mono font-bold uppercase border rounded cursor-pointer ${
                                   isLecCompleted
@@ -1608,6 +1613,7 @@ const MissionControlCard: React.FC<MissionControlCardProps> = ({ onTriggerBrief 
               formulas={formulas}
               notes={notes}
               allPhasesInStack={stack.phases}
+              onRefresh={() => setUpdateTrigger(prev => prev + 1)}
             />
           ))
         )}
